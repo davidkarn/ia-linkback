@@ -1,0 +1,165 @@
+openapi: '3.1.0'
+servers:
+  - url: telalucis.org
+info:
+  contact:
+    name: David
+  version: '1.0.0'
+  title: 'cititations api'
+  description: backend for citations browsing and querying
+
+paths:
+  /books:
+    get:
+      tags: 
+        - Books
+      description: get list of books
+      parameters:
+       - name: offset
+         in: query
+         required: false
+         schema:
+            type: number
+            minimum: 0
+            maximum: 10000
+       - name: length
+         in: query
+         required: false
+         schema:
+           type: number
+           minimum: 1
+           maximum: 100
+       - name: query
+         description: search title and author
+         in: query
+         required: false
+         schema:
+          type: string      
+      summary: Search books
+      responses:
+        '200':
+          description: books list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        type: number
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BookSummary'
+  /books/{bookId}/citationsTo:
+    get:
+      tags:
+        - Citations
+      parameters:
+        - name: offset
+          in: query
+          required: false
+          schema:
+             type: number
+             minimum: 0
+             maximum: 10000
+        - name: length
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 100
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: number
+      summary: Get other books that cite this one.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        type: number
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Citation'
+components:
+  schemas:
+    BookSummary:
+      type: object
+      required:
+        - id
+        - title
+        - author
+        - pageCount
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        url:
+          type: string
+        pageCount:
+          type: number
+    Citation:
+      type: object
+      required:
+        - id
+        - source
+        - author
+        - title
+        - locations
+      properties:
+        id:
+          type: string
+        source:
+          type: object
+          required:
+            - bookId
+            - footnoteIdentifier
+            - footnotePage
+          bookId:
+            type: string
+          footnoteIdentifier:
+            type: string
+          footnotePage:
+            type: string
+        author:
+          type: string
+        title:
+          type: string
+        locationsCited:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum:
+                  - page
+                  - chapter
+                  - book
+                  - volume
+                  - question
+                  - article
+                  - lecture
+                  - position
+                  - verse
+              value:
+                type: number
+              
+
+        

@@ -24,14 +24,16 @@ export type Citation = {
     footnoteIdentifier: string,
     footnotePage: number,
   },
+  referenceBookId: string|null,
   author: string,
   title: string,
   location: string,
   raw: string,
-  locations: CitationLocation[]
+  locationsCited: CitationLocation[]
 };
 
 export type CitationLocation = {
   type: 'page'|'chapter'|'book'|'volume'|'question'|'article'|'lecture'|'position'|'verse',
   value: number
 };
+

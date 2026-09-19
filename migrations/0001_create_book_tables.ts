@@ -48,6 +48,8 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn('source_book_id', 'text', col => col.notNull().references('books.id').onDelete('cascade'))
     .addColumn('source_footnote_identifier', 'text', col => col.notNull())
     .addColumn('source_footnote_page', 'integer', col => col.notNull())
+    // the book this citation points at, when we hold it (Citation.referenceBookId)
+    .addColumn('referenceBookId', 'text', col => col.references('books.id').onDelete('set null'))
     .addColumn('author', 'text', col => col.notNull())
     .addColumn('title', 'text', col => col.notNull())
     .addColumn('location', 'text', col => col.notNull())
@@ -67,6 +69,7 @@ export async function up(db: Kysely<any>): Promise<void> {
   await db.schema.createIndex('citations_page_block_id_idx').on('citations').column('page_block_id').execute();
   await db.schema.createIndex('citations_source_idx').on('citations')
     .columns(['source_book_id', 'source_footnote_page']).execute();
+  await db.schema.createIndex('citations_reference_book_id_idx').on('citations').column('referenceBookId').execute();
   await db.schema.createIndex('citations_author_title_idx').on('citations').columns(['author', 'title']).execute();
   await db.schema.createIndex('citation_locations_citation_id_idx').on('citation_locations').column('citation_id').execute();
 }
