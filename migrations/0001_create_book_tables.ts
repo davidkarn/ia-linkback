@@ -1,0 +1,80 @@
+import { Kysely, sql } from 'kysely';
+
+const BLOCK_LABELS = ['SectionHeader', 'Text', 'PageHeader', 'PageFooter', 'Footnote'];
+const LOCATION_TYPES = ['page', 'chapter', 'book', 'volume', 'question', 'article', 'lecture', 'position', 'verse'];
+
+const quoted_list = (values: string[]) => sql.join(values.map(v => sql.lit(v)));
+
+export async function up(db: Kysely<any>): Promise<void> {
+  await db.schema
+    .createTable('books')
+    .addColumn('id', 'text', col => col.primaryKey())
+    .addColumn('title', 'text', col => col.notNull())
+    .addColumn('author', 'text', col => col.notNull())
+    .addColumn('url', 'text')
+    .execute();
+
+  await db.schema
+    .createTable('pages')
+    .addColumn('book_id', 'text', col => col.notNull().references('books.id').onDelete('cascade'))
+    .addColumn('page_number', 'integer', col => col.notNull())
+    .addPrimaryKeyConstraint('pages_pkey', ['book_id', 'page_number'])
+    .execute();
+
+  await db.schema
+    .createTable('page_blocks')
+    .addColumn('id', 'bigserial', col => col.primaryKey())
+    .addColumn('book_id', 'text', col => col.notNull())
+    .addColumn('page_number', 'integer', col => col.notNull())
+    .addColumn('position', 'integer', col => col.notNull())   // index within Page.blocks
+    .addColumn('bbox_x0', 'double precision', col => col.notNull())
+    .addColumn('bbox_y0', 'double precision', col => col.notNull())
+    .addColumn('bbox_x1', 'double precision', col => col.notNull())
+    .addColumn('bbox_y1', 'double precision', col => col.notNull())
+    .addColumn('label', 'text', col => col.notNull())
+    .addColumn('html', 'text', col => col.notNull())
+    .addForeignKeyConstraint(
+      'page_blocks_page_fkey', ['book_id', 'page_number'], 'pages', ['book_id', 'page_number'],
+      cb => cb.onDelete('cascade'),
+    )
+    .addUniqueConstraint('page_blocks_position_key', ['book_id', 'page_number', 'position'])
+    .addCheckConstraint('page_blocks_label_check', sql`label in (${quoted_list(BLOCK_LABELS)})`)
+    .execute();
+
+  await db.schema
+    .createTable('citations')
+    .addColumn('id', 'bigserial', col => col.primaryKey())
+    .addColumn('page_block_id', 'bigint', col => col.notNull().references('page_blocks.id').onDelete('cascade'))
+    .addColumn('source_book_id', 'text', col => col.notNull().references('books.id').onDelete('cascade'))
+    .addColumn('source_footnote_identifier', 'text', col => col.notNull())
+    .addColumn('source_footnote_page', 'integer', col => col.notNull())
+    .addColumn('author', 'text', col => col.notNull())
+    .addColumn('title', 'text', col => col.notNull())
+    .addColumn('location', 'text', col => col.notNull())
+    .addColumn('raw', 'text', col => col.notNull())
+    .execute();
+
+  await db.schema
+    .createTable('citation_locations')
+    .addColumn('id', 'bigserial', col => col.primaryKey())
+    .addColumn('citation_id', 'bigint', col => col.notNull().references('citations.id').onDelete('cascade'))
+    .addColumn('type', 'text', col => col.notNull())
+    .addColumn('value', 'integer', col => col.notNull())
+    .addCheckConstraint('citation_locations_type_check', sql`type in (${quoted_list(LOCATION_TYPES)})`)
+    .execute();
+
+  await db.schema.createIndex('page_blocks_label_idx').on('page_blocks').columns(['book_id', 'label']).execute();
+  await db.schema.createIndex('citations_page_block_id_idx').on('citations').column('page_block_id').execute();
+  await db.schema.createIndex('citations_source_idx').on('citations')
+    .columns(['source_book_id', 'source_footnote_page']).execute();
+  await db.schema.createIndex('citations_author_title_idx').on('citations').columns(['author', 'title']).execute();
+  await db.schema.createIndex('citation_locations_citation_id_idx').on('citation_locations').column('citation_id').execute();
+}
+
+export async function down(db: Kysely<any>): Promise<void> {
+  await db.schema.dropTable('citation_locations').execute();
+  await db.schema.dropTable('citations').execute();
+  await db.schema.dropTable('page_blocks').execute();
+  await db.schema.dropTable('pages').execute();
+  await db.schema.dropTable('books').execute();
+}

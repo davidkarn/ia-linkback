@@ -10,12 +10,15 @@
   "description": "",
   "devDependencies": {
     "@types/node": "^26.5.1",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   },
   "dependencies": {
     "@citation-js/core": "^0.8.2",
     "jaro-winkler": "^0.2.8",
-    "node-html-parser": "^9.0.4"
+    "kysely": "^0.29.6",
+    "node-html-parser": "^9.0.4",
+    "pg": "^8.23.0"
   }
 }
