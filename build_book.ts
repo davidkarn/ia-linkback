@@ -92,14 +92,16 @@ const suryaPages: SuryaPage[] = data[Object.keys(data)[0]];
 //   - a header number equal to scan + offset scores +2; one OCR digit confusion away (3/8, 5/6, 1/7, 0/8/9)
 //     scores +1, so a run of "884, 885, 887" misread for 384-387 still follows the true offset;
 //   - a page whose header numbers all disagree scores -1; a page with no number scores 0;
-//   - changing the offset costs 4.
+//   - changing the offset by a little (<= 12) costs 4, a big jump costs 30;
+//   - two-page spread scans (headers "8" and "9" on one scan) are numbered two per scan and stored as "8-9".
 // Pages whose own header supports the chosen offset are anchors. Any other page gets scan + offset only when
 // that number lies strictly between the nearest anchors on both sides (so unnumbered inserts get ''), and
 // front matter falls back to a lone Roman numeral in its header ("xii"). Otherwise ''.
 
+// brackets/dashes around a page number are dropped: "[ 43 ]", "— 12 —", "(7)" -> "43", "12", "7"
 const header_texts = (page: SuryaPage) => page.blocks
   .filter(b => b.label === 'PageHeader' || b.label === 'PageFooter')
-  .map(b => squash(strip_tags(b.html)));
+  .map(b => squash(strip_tags(b.html).replace(/[\[\](){}\u2014\u2013]|^\s*-+|-+\s*$/g, ' ')));
 
 const arabic_candidates = (page: SuryaPage): number[] => {
   const out: number[] = [];
@@ -133,31 +135,50 @@ const ocr_close = (read: number, expected: number): boolean => {
   return diffs === 1;
 };
 
+// Two-page spreads (each scan shows printed pages n and n+1, headers "8" ... "9"): numbering runs two per
+// scan, and the page's printed number is stored as "8-9".
+const is_spread_scan = (cands: number[][]) => {
+  const pairs = cands.filter(cs => cs.some(c => cs.includes(c + 1))).length;
+  const withNumbers = cands.filter(cs => cs.length).length;
+  return withNumbers >= 10 && pairs / withNumbers >= 0.4;
+};
+
 const printed_page_numbers = (pages: SuryaPage[]): string[] => {
-  const cands = pages.map(arabic_candidates);
-  const offsets = [...new Set(cands.flatMap((cs, i) => cs.map(c => c - pages[i].page)))];
+  const raw = pages.map(arabic_candidates);
+  const spread = is_spread_scan(raw);
+  // in spread mode work with the left page of each scan: scan s ~ printed 2s + offset
+  const pos = pages.map(p => (spread ? 2 * p.page : p.page));
+  const cands = spread
+    ? raw.map(cs => [...new Set(cs.map(c => (cs.includes(c - 1) ? c - 1 : cs.includes(c + 1) ? c : c)))])
+    : raw;
+  const offsets = [...new Set(cands.flatMap((cs, i) => cs.map(c => c - pos[i])))].sort((x, y) => x - y);
   const blank = pages.map(p => roman_candidate(p) ?? '');
   if (!offsets.length) return blank;
 
-  const SWITCH = 4;
+  // changing the offset by a few pages (a plate, a missing leaf) costs NEAR_SWITCH; a big jump (a new
+  // numbering sequence, e.g. ads at the back) costs FAR_SWITCH, so that a run of OCR misreads ("804" for
+  // 304) can't pull the numbering hundreds of pages off
+  const NEAR = spread ? 24 : 12, NEAR_SWITCH = 4, FAR_SWITCH = 30;
   const emit = (i: number, off: number) => {
     const cs = cands[i];
     if (!cs.length) return 0;
-    const want = pages[i].page + off;
+    const want = pos[i] + off;
     if (cs.includes(want)) return 2;
     if (cs.some(c => ocr_close(c, want))) return 1;
     return -1;
   };
-  // Viterbi
+  const near = offsets.map(o => offsets.map((p, k) => [p, k] as const).filter(([p]) => p !== o && Math.abs(p - o) <= NEAR).map(([, k]) => k));
   let score = offsets.map(o => emit(0, o));
   const back: number[][] = [];
   for (let i = 1; i < pages.length; i++) {
-    const bestPrev = score.reduce((bi, v, k) => (v > score[bi] ? k : bi), 0);
+    const bestAll = score.reduce((bi, v, k) => (v > score[bi] ? k : bi), 0);
     const bp: number[] = [];
     score = offsets.map((o, k) => {
-      const stay = score[k], jump = score[bestPrev] - SWITCH;
-      bp.push(stay >= jump ? k : bestPrev);
-      return Math.max(stay, jump) + emit(i, o);
+      let best = score[k], from = k;
+      for (const j of near[k]) if (score[j] - NEAR_SWITCH > best) { best = score[j] - NEAR_SWITCH; from = j; }
+      if (score[bestAll] - FAR_SWITCH > best) { best = score[bestAll] - FAR_SWITCH; from = bestAll; }
+      bp.push(from);
+      return best + emit(i, o);
     });
     back.push(bp);
   }
@@ -165,14 +186,19 @@ const printed_page_numbers = (pages: SuryaPage[]): string[] => {
   path[pages.length - 1] = score.reduce((bi, v, k) => (v > score[bi] ? k : bi), 0);
   for (let i = pages.length - 1; i > 0; i--) path[i - 1] = back[i - 1][path[i]];
 
-  const value = pages.map((p, i) => p.page + offsets[path[i]]);
+  const value = pages.map((_, i) => pos[i] + offsets[path[i]]);
   const anchored = pages.map((_, i) => emit(i, offsets[path[i]]) > 0 && value[i] >= 1);
+  const show = (v: number) => (spread ? `${v}-${v + 1}` : String(v));
   const out = pages.map((_, i) => {
-    if (anchored[i]) return String(value[i]);
-    let prev: number | null = null, next: number | null = null;
-    for (let j = i - 1; j >= 0 && prev === null; j--) if (anchored[j]) prev = value[j];
-    for (let j = i + 1; j < pages.length && next === null; j++) if (anchored[j]) next = value[j];
-    if (prev !== null && next !== null && value[i] > prev && value[i] < next) return String(value[i]);
+    if (anchored[i]) return show(value[i]);
+    let prev: number | null = null, next: number | null = null, prevAt = -1, nextAt = -1;
+    for (let j = i - 1; j >= 0 && prev === null; j--) if (anchored[j]) { prev = value[j]; prevAt = j; }
+    for (let j = i + 1; j < pages.length && next === null; j++) if (anchored[j]) { next = value[j]; nextAt = j; }
+    if (prev !== null && next !== null && value[i] > prev && value[i] < next) return show(value[i]);
+    // at the start or end of the numbered run, only right next to an anchor (the first text page whose
+    // "1" was read as "I", a blank verso after the last numbered page)
+    if (prev === null && next !== null && nextAt - i <= 2 && value[i] >= 1 && value[i] < next) return show(value[i]);
+    if (next === null && prev !== null && i - prevAt <= 2 && value[i] > prev) return show(value[i]);
     return blank[i];
   });
   // an inferred number that still collides with another page's number is dropped
@@ -248,7 +274,7 @@ const segment_entries = (c: CitationIn, seg: string, explicit_only: boolean): Ci
     mine.forEach((f, j) => {
       const newRun = j === 0 || mine[j - 1].type !== f.type;
       if (newRun) run++;
-      const label = runs > 1 && tokens.length === runs ? tokens[run] : raw;
+      const label = runs > 1 && tokens.length === runs ? trim_label(tokens[run]) || tokens[run] : raw;
       push(label, f, !newRun || runs === 1);
     });
   });
