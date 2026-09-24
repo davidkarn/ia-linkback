@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely } from 'kysely';
 import { jsonArrayFrom } from 'kysely/helpers/postgres';
 import type { CitationLocation } from '../types';
 import { DB } from './database.module';
@@ -11,8 +11,44 @@ export type CitationDto = {
   source: { bookId: string, footnoteIdentifier: string, footnotePage: string },
   author: string,
   title: string,
-  locationsCited: CitationLocation[],
+  locationsCited: { type: CitationLocation['type'], value: number }[],
 };
+
+// Select these from `citations` and pass each row to to_citation_dto.
+export const citation_columns = (eb: ExpressionBuilder<Database, 'citations'>) => [
+  'citations.id',
+  'citations.source_book_id',
+  'citations.source_footnote_identifier',
+  'citations.source_footnote_page',
+  'citations.author',
+  'citations.title',
+  jsonArrayFrom(
+    eb.selectFrom('citation_locations')
+      .select(['citation_locations.type', 'citation_locations.value'])
+      .whereRef('citation_locations.citation_id', '=', 'citations.id')
+      .orderBy('citation_locations.id'),
+  ).as('locations_cited'),
+] as const;
+
+export const to_citation_dto = (r: {
+  id: string,
+  source_book_id: string,
+  source_footnote_identifier: string,
+  source_footnote_page: number,
+  author: string,
+  title: string,
+  locations_cited: CitationDto['locationsCited'],
+}): CitationDto => ({
+  id: r.id,
+  source: {
+    bookId: r.source_book_id,
+    footnoteIdentifier: r.source_footnote_identifier,
+    footnotePage: String(r.source_footnote_page),
+  },
+  author: r.author,
+  title: r.title,
+  locationsCited: r.locations_cited,
+});
 
 @Injectable()
 export class CitationsService {
@@ -33,20 +69,7 @@ export class CitationsService {
       .where('citations.source_book_id', '<>', bookId);
 
     const rows = await matching()
-      .select(eb => [
-        'citations.id',
-        'citations.source_book_id',
-        'citations.source_footnote_identifier',
-        'citations.source_footnote_page',
-        'citations.author',
-        'citations.title',
-        jsonArrayFrom(
-          eb.selectFrom('citation_locations')
-            .select(['citation_locations.type', 'citation_locations.value'])
-            .whereRef('citation_locations.citation_id', '=', 'citations.id')
-            .orderBy('citation_locations.id'),
-        ).as('locations_cited'),
-      ])
+      .select(citation_columns)
       .orderBy('citations.source_book_id')
       .orderBy('citations.source_footnote_page')
       .orderBy('citations.id')
@@ -57,17 +80,7 @@ export class CitationsService {
     const total = await matching().select(eb => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
 
     return {
-      items: rows.map(r => ({
-        id: r.id,
-        source: {
-          bookId: r.source_book_id,
-          footnoteIdentifier: r.source_footnote_identifier,
-          footnotePage: String(r.source_footnote_page),
-        },
-        author: r.author,
-        title: r.title,
-        locationsCited: r.locations_cited,
-      })),
+      items: rows.map(to_citation_dto),
       count: Number(total.count),
     };
   }

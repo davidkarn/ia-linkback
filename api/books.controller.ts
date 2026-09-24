@@ -1,6 +1,6 @@
 import { Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
 import { BooksService } from './books.service';
-import { paging_params, string_param } from './params';
+import { int_param, paging_params, string_param } from './params';
 
 @Controller('books')
 export class BooksController {
@@ -29,6 +29,19 @@ export class BooksController {
     }
     else {
       return book;
+    }
+  }
+
+  @Get(':bookId/pages/:pageId')
+  async getPage(@Param('bookId') bookId: string, @Param('pageId') pageId: string) {
+    const pageNumber = int_param('pageId', pageId, 1, 1, 1000000);
+    const page       = await this.books.getPage(bookId, pageNumber);
+
+    if (!page) {
+      throw new NotFoundException(`No page ${pageId} in book ${bookId}`);
+    }
+    else {
+      return page;
     }
   }
 }

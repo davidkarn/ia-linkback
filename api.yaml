@@ -73,6 +73,33 @@ paths:
                 $ref: '#/components/schemas/BookSummary'
         '404':
           description: no book with this id
+  /books/{bookId}/pages/{pageId}:
+    get:
+      tags:
+        - Books
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: pageId
+          description: a pageId from the book's pageOrder
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      summary: Get one page of a book, with the citations in other books that point to it.
+      responses:
+        '200':
+          description: book page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookPage'
+        '404':
+          description: no such book or page
   /books/{bookId}/citationsTo:
     get:
       tags:
