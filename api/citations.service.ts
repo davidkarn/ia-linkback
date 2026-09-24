@@ -65,7 +65,7 @@ export class CitationsService {
 
     const matching = () => this.db
       .selectFrom('citations')
-      .where('citations.referenceBookId', '=', bookId)
+      .where('citations.reference_book_id', '=', bookId)
       .where('citations.source_book_id', '<>', bookId);
 
     const rows = await matching()

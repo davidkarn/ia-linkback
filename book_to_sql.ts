@@ -8,7 +8,7 @@
 // (blocks, citations, groups and locations cascade) and inserts everything again. Citations are tied to their
 // block through (book_id, page_number, position); each locationsCited group becomes a citation_groups row
 // and each value in a CitationLocation becomes one citation_locations row (raw = rawLabel).
-// "referenceBookId" is left NULL here; link_citations.ts fills it (same author + same title) after loading.
+// reference_book_id is left NULL here; link_citations.ts fills it (same author + same title) after loading.
 import fs from 'node:fs';
 import type { Book, Citation } from './types';
 
@@ -35,7 +35,7 @@ emit(`-- ${book.title} (${book.author}) -- generated from ${file}`);
 emit('BEGIN;');
 emit('');
 // Keep the books row (upsert) so rows pointing at it survive a re-import: other books' citations
-// ("referenceBookId") and queued_book_imports.imported_book_id (ON DELETE CASCADE would delete the queue row).
+// (reference_book_id) and queued_book_imports.imported_book_id (ON DELETE CASCADE would delete the queue row).
 // Deleting the pages cascades to page_blocks -> citations -> citation_groups / citation_locations.
 emit(`INSERT INTO books (id, title, author, url) VALUES (${lit(book.id)}, ${lit(book.title)}, ${lit(book.author)}, ${lit(book.url ?? null)})
   ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, author = EXCLUDED.author, url = EXCLUDED.url;`);
@@ -63,7 +63,7 @@ let citationCount = 0, groupCount = 0, locationRows = 0;
 const citationSql = (c: Citation, pageNumber: number, position: number) => {
   const cte: string[] = [];
   cte.push(
-    `c AS (\n  INSERT INTO citations (page_block_id, source_book_id, source_footnote_identifier, source_footnote_page, "referenceBookId", author, title, location, raw)\n` +
+    `c AS (\n  INSERT INTO citations (page_block_id, source_book_id, source_footnote_identifier, source_footnote_page, reference_book_id, author, title, location, raw)\n` +
     `  SELECT pb.id, ${lit(c.source.bookId)}, ${lit(c.source.footnoteIdentifier)}, ${num(c.source.footnotePage)}, ${lit(c.referenceBookId)}, ${lit(c.author)}, ${lit(c.title)}, ${lit(c.location)}, ${lit(c.raw)}\n` +
     `  FROM page_blocks pb WHERE pb.book_id = ${lit(book.id)} AND pb.page_number = ${num(pageNumber)} AND pb.position = ${position}\n  RETURNING id)`,
   );

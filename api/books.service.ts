@@ -142,7 +142,7 @@ export class BooksService {
       const foreignCitations = printedNumber === null ? [] : await this.db
         .selectFrom('citations')
         .select(citation_columns)
-        .where('citations.referenceBookId', '=', bookId)
+        .where('citations.reference_book_id', '=', bookId)
         .where('citations.source_book_id', '<>', bookId)
         .where(eb => eb.exists(
           eb.selectFrom('citation_locations')

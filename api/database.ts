@@ -34,7 +34,7 @@ export interface CitationsTable {
   source_book_id: string,
   source_footnote_identifier: string,
   source_footnote_page: number,
-  referenceBookId: string | null,  // column name is camelCase in the migration
+  reference_book_id: string | null,
   author: string,
   title: string,
   location: string,
