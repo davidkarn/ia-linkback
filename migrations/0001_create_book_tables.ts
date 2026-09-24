@@ -18,6 +18,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .createTable('pages')
     .addColumn('book_id', 'text', col => col.notNull().references('books.id').onDelete('cascade'))
     .addColumn('page_number', 'integer', col => col.notNull())
+    .addColumn('printed_page_number', 'text', col => col.notNull())
     .addPrimaryKeyConstraint('pages_pkey', ['book_id', 'page_number'])
     .execute();
 
@@ -57,13 +58,32 @@ export async function up(db: Kysely<any>): Promise<void> {
     .execute();
 
   await db.schema
+    .createTable('citation_groups')
+    .addColumn('id', 'bigserial', col => col.primaryKey())
+    .addColumn('citation_id', 'bigint', col => col.notNull().references('citations.id').onDelete('cascade'))
+    .execute();
+
+  await db.schema
     .createTable('citation_locations')
     .addColumn('id', 'bigserial', col => col.primaryKey())
     .addColumn('citation_id', 'bigint', col => col.notNull().references('citations.id').onDelete('cascade'))
+    .addColumn('citation_group_id', 'bigint', col => col.notNull().references('citation_groups.id').onDelete('cascade'))
     .addColumn('type', 'text', col => col.notNull())
+    .addColumn('raw', 'text', col => col.notNull())
     .addColumn('value', 'integer', col => col.notNull())
     .addCheckConstraint('citation_locations_type_check', sql`type in (${quoted_list(LOCATION_TYPES)})`)
     .execute();
+
+    await db.schema
+      .createTable('queued_book_imports')
+      .addColumn('id', 'bigserial', col => col.primaryKey())
+      .addColumn('title', 'text', col => col.notNull())
+      .addColumn('author', 'text', col => col.notNull())
+      .addColumn('archive_url', 'text')
+      .addColumn('pdf_url', 'text')
+      .addColumn('status', 'text', col => col.notNull())
+      .addColumn('imported_book_id', 'text', col => col.references('books.id').onDelete('cascade'))
+      .execute();
 
   await db.schema.createIndex('page_blocks_label_idx').on('page_blocks').columns(['book_id', 'label']).execute();
   await db.schema.createIndex('citations_page_block_id_idx').on('citations').column('page_block_id').execute();
@@ -75,7 +95,9 @@ export async function up(db: Kysely<any>): Promise<void> {
 }
 
 export async function down(db: Kysely<any>): Promise<void> {
+  await db.schema.dropTable('queued_book_imports').execute();
   await db.schema.dropTable('citation_locations').execute();
+  await db.schema.dropTable('citation_groups').execute();
   await db.schema.dropTable('citations').execute();
   await db.schema.dropTable('page_blocks').execute();
   await db.schema.dropTable('pages').execute();

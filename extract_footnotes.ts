@@ -5,6 +5,8 @@
 // Output:             output/footnotes.json, output/citations.csv, output/summary.json
 import fs from 'node:fs';
 import path from 'node:path';
+import { add_citation_locations } from './citation_locations';
+import type { CitationLocation } from './types';
 
 const SURYA_DIR = '../scholshelf/results/surya';
 const PDF_DIR = '../scholshelf';
@@ -27,6 +29,7 @@ type Citation = {
   // set when author/title were inherited from an earlier citation (Ibid., op. cit.)
   resolved_from?: { footnote_number: string | null, page: number | null },
   raw: string,
+  citationLocations: CitationLocation[],   // see citation_locations.ts
 };
 
 type Footnote = {
@@ -520,8 +523,9 @@ type History = { author: string | null, title: string | null, footnote_number: s
 
 const surname = (author: string | null) => author ? author.split(/\s+/).pop()!.toLowerCase().replace(/[^\p{L}]/gu, '') : null;
 
-const finish = (c: Omit<Citation, 'confidence'>): Citation => ({
+const finish = (c: Omit<Citation, 'confidence' | 'citationLocations'>): Citation => ({
   ...c,
+  citationLocations: [],
   confidence: (c.author && c.title && c.location) ? 'high' : 'medium',
 });
 
@@ -753,6 +757,7 @@ const process_book = (book: string, pdfs: string[]) => {
     };
     const working = to_working(html);
     record.citations = extract_citations(working, history, { footnote_number: raw.marker, page: printed[i] });
+    add_citation_locations(record.citations);
     record.has_citation = record.citations.length > 0;
     footnotes.push(record);
   }
