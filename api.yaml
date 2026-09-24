@@ -53,6 +53,26 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/BookSummary'
+  /books/{bookId}:
+    get:
+      tags:
+        - Books
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+      summary: Get a book's summary, with its pages in order under pageOrder.
+      responses:
+        '200':
+          description: book summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookSummary'
+        '404':
+          description: no book with this id
   /books/{bookId}/citationsTo:
     get:
       tags:
@@ -145,8 +165,10 @@ components:
           items:
             type: object
             properties:
-              pageId: number
-              printedPageNumber: string
+              pageId:
+                type: number
+              printedPageNumber:
+                type: string
     Citation:
       type: object
       required:

@@ -4,6 +4,7 @@ import { DB } from './database.module';
 import type { Database } from './database';
 
 export type BookSummary = { id: string, title: string, author: string, url?: string, pageCount: number };
+export type PageOrderEntry = { pageId: number, printedPageNumber: string };
 
 // Escape LIKE wildcards so a user's "50%" or "a_b" is searched literally.
 const like_pattern = (q: string) => '%' + q.replace(/[\\%_]/g, m => '\\' + m) + '%';
@@ -16,10 +17,15 @@ export class BooksService {
   async search(opts: { offset: number, length: number, query?: string | undefined }): Promise<{ items: BookSummary[], count: number }> {
     const matching = () => {
       let q = this.db.selectFrom('books');
+
       if (opts.query) {
         const pattern = like_pattern(opts.query);
-        q = q.where(eb => eb.or([eb('books.title', 'ilike', pattern), eb('books.author', 'ilike', pattern)]));
+        q = q.where(eb => eb.or([
+          eb('books.title', 'ilike', pattern),
+          eb('books.author', 'ilike', pattern)
+        ]));
       }
+      
       return q;
     };
 
@@ -40,7 +46,9 @@ export class BooksService {
       .offset(opts.offset)
       .execute();
 
-    const total = await matching().select(eb => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
+    const total = await matching()
+      .select(eb => eb.fn.countAll<string>().as('count'))
+      .executeTakeFirstOrThrow();
 
     return {
       items: rows.map(r => ({
@@ -52,5 +60,37 @@ export class BooksService {
       })),
       count: Number(total.count),
     };
+  }
+
+  async get(bookId: string): Promise<(BookSummary & { pageOrder: PageOrderEntry[] }) | null> {
+    const book = await this.db
+      .selectFrom('books')
+      .select(['books.id', 'books.title', 'books.author', 'books.url'])
+      .where('books.id', '=', bookId)
+      .executeTakeFirst();
+    
+    if (!book) {
+      return null;
+    }
+    else {
+      const pages = await this.db
+        .selectFrom('pages')
+        .select(['pages.page_number', 'pages.printed_page_number'])
+        .where('pages.book_id', '=', bookId)
+        .orderBy('pages.page_number')
+        .execute();
+
+      return {
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        ...(book.url ? { url: book.url } : {}),
+        pageCount: pages.length,
+        pageOrder: pages.map(p => ({
+          pageId: p.page_number,
+          printedPageNumber: p.printed_page_number
+        })),
+      };
+    }
   }
 }

@@ -12,6 +12,7 @@ export interface BooksTable {
 export interface PagesTable {
   book_id: string,
   page_number: number,
+  printed_page_number: string,
 }
 
 export interface PageBlocksTable {
