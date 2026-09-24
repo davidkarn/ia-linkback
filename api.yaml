@@ -96,6 +96,32 @@ paths:
                       $ref: '#/components/schemas/Citation'
 components:
   schemas:
+    BookPage:
+      type: object
+      properties:
+        printedPageNumber:
+          type: string
+        pageNumber:
+          type: number
+        bookId:
+          type: string
+        foreignCitations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        blocks:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              html:
+                type: string
+              citations:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Citation'                                
     BookSummary:
       type: object
       required:
@@ -114,6 +140,13 @@ components:
           type: string
         pageCount:
           type: number
+        pageOrder:
+          type: array
+          items:
+            type: object
+            properties:
+              pageId: number
+              printedPageNumber: string
     Citation:
       type: object
       required:
@@ -144,22 +177,26 @@ components:
         locationsCited:
           type: array
           items:
-            type: object
-            properties:
-              type:
-                type: string
-                enum:
-                  - page
-                  - chapter
-                  - book
-                  - volume
-                  - question
-                  - article
-                  - lecture
-                  - position
-                  - verse
-              value:
-                type: number
+            type: array
+            items: 
+              type: object
+              properties:
+                type:              
+                  type: string
+                  enum:
+                    - page
+                    - chapter
+                    - book
+                    - volume
+                    - question
+                    - article
+                    - lecture
+                    - position
+                    - verse
+                  rawlabel:
+                    type: string
+                  value:
+                    type: number
               
 
         
