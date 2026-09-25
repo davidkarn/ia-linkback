@@ -176,6 +176,7 @@ components:
         - title
         - author
         - pageCount
+        - citedByCount
       properties:
         id:
           type: string
@@ -189,6 +190,9 @@ components:
           description: cover image, relative to the frontend's root (e.g. covers/<id>.jpg)
           type: string
         pageCount:
+          type: number
+        citedByCount:
+          description: number of citations in other books that reference this book
           type: number
         pageOrder:
           type: array

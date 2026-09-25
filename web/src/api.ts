@@ -6,6 +6,7 @@ export type BookSummary = {
   url?: string,
   coverPhotoPath?: string,  // relative to the site root: <img src={`/${coverPhotoPath}`}>
   pageCount: number,
+  citedByCount: number,  // citations in other books that reference this one
 };
 
 export type BookList = { meta: { count: number }, items: BookSummary[] };

@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely } from 'kysely';
 import { DB } from './database.module';
 import type { Database } from './database';
 import { citation_columns, to_citation_dto, type CitationDto } from './citations.service';
 
-export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number };
+export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number, citedByCount: number };
 export type PageOrderEntry = { pageId: number, printedPageNumber: string };
 
 // The BookPage schema in api.yaml
@@ -15,6 +15,14 @@ export type BookPage = {
   blocks: { label: string, html: string, citations: CitationDto[] }[],
   foreignCitations: CitationDto[],
 };
+
+// How many citations in other books point at the book (as /books/{id}/citationsTo counts them).
+const cited_by_count = (eb: ExpressionBuilder<Database, 'books'>) =>
+  eb.selectFrom('citations')
+    .select(eb.fn.countAll<string>().as('n'))
+    .whereRef('citations.reference_book_id', '=', 'books.id')
+    .whereRef('citations.source_book_id', '<>', 'books.id')
+    .as('cited_by_count');
 
 // Escape LIKE wildcards so a user's "50%" or "a_b" is searched literally.
 const like_pattern = (q: string) => '%' + q.replace(/[\\%_]/g, m => '\\' + m) + '%';
@@ -55,6 +63,7 @@ export class BooksService {
           .select(eb.fn.countAll<string>().as('n'))
           .whereRef('pages.book_id', '=', 'books.id')
           .as('page_count'),
+        cited_by_count(eb),
       ])
       .orderBy('books.title')
       .orderBy('books.id')
@@ -74,6 +83,7 @@ export class BooksService {
         url: r.url ?? null,
         coverPhotoPath: r.cover_photo_path ?? null,
         pageCount: Number(r.page_count ?? 0),
+        citedByCount: Number(r.cited_by_count ?? 0),
       })),
       count: Number(total.count),
     };
@@ -84,8 +94,9 @@ export class BooksService {
   ): Promise<(BookSummary & { pageOrder: PageOrderEntry[] }) | null> {
     const book = await this.db
       .selectFrom('books')
-      .select([
-        'books.id', 'books.title', 'books.author', 'books.url', 'books.cover_photo_path'
+      .select(eb => [
+        'books.id', 'books.title', 'books.author', 'books.url', 'books.cover_photo_path',
+        cited_by_count(eb),
       ])
       .where('books.id', '=', bookId)
       .executeTakeFirst();
@@ -108,6 +119,7 @@ export class BooksService {
         ...(book.url ? { url: book.url } : {}),
         ...(book.cover_photo_path ? { coverPhotoPath: book.cover_photo_path } : {}),
         pageCount: pages.length,
+        citedByCount: Number(book.cited_by_count ?? 0),
         pageOrder: pages.map(p => ({
           pageId: p.page_number,
           printedPageNumber: p.printed_page_number
