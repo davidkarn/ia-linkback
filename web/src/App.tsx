@@ -1,4 +1,5 @@
 import { useEffect, useState, createElement as __, Fragment } from 'react'
+import { Link } from 'react-router'
 import { fetchBooks, type BookList } from './api'
 import { match } from 'ts-pattern';
 import { assertCond } from './lib';
@@ -32,16 +33,16 @@ export default function App() {
             __('ol', {className: "bookshelf"},
               books.items.map(book => (
                 __('li', {key: book.id, className: 'book'},
-                  __('img', {
-                    className: 'book-cover',
-                    src: book.coverPhotoPath,
-                    title: 'Cover page'
-                  }),
+                  __(Link, {to: '/books/' + encodeURIComponent(book.id)},
+                    __('img', {
+                      className: 'book-cover',
+                      src: book.coverPhotoPath && '/' + book.coverPhotoPath,
+                      title: 'Cover page'
+                    })
+                  ),
                   __('div', {className: 'book-details'},
                     __('span', {className: "title"},
-                      book.url
-                        ? __('a', {href: book.url}, book.title)
-                        : book.title
+                      __(Link, {to: '/books/' + encodeURIComponent(book.id)}, book.title)
                     ),
                     __('span', {className: "author"}, book.author),
                     __('span', {className: "pages"}, book.pageCount, ' pages')
