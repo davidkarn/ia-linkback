@@ -203,6 +203,9 @@ components:
                 type: number
               printedPageNumber:
                 type: string
+              citedByCount:
+                description: number of citations in other books that reference this page
+                type: number
     Citation:
       type: object
       required:

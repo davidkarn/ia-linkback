@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import { DB } from './database.module';
 import type { Database } from './database';
 import { citation_columns, to_citation_dto, type CitationDto } from './citations.service';
 
 export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number, citedByCount: number };
-export type PageOrderEntry = { pageId: number, printedPageNumber: string };
+// citedByCount: citations in other books that cite this page (the foreignCitations of GET /books/{id}/pages/{id})
+export type PageOrderEntry = { pageId: number, printedPageNumber: string, citedByCount: number };
 
 // The BookPage schema in api.yaml
 export type BookPage = {
@@ -112,6 +113,22 @@ export class BooksService {
         .orderBy('pages.page_number')
         .execute();
 
+      // Citations match a page the way getPage matches them: a "page" location equal to the page's printed
+      // number, when that is an integer. A range (pp. 42-51) counts on each of its pages.
+      const citedPages = await this.db
+        .selectFrom('citations')
+        .innerJoin('citation_locations', 'citation_locations.citation_id', 'citations.id')
+        .innerJoin('pages', join => join
+          .onRef('pages.book_id', '=', 'citations.reference_book_id')
+          .on(sql<boolean>`case when pages.printed_page_number ~ '^[0-9]+$' then pages.printed_page_number::numeric end = citation_locations.value`))
+        .select(eb => ['pages.page_number', eb.fn.count<string>('citations.id').distinct().as('n')])
+        .where('citations.reference_book_id', '=', bookId)
+        .where('citations.source_book_id', '<>', bookId)
+        .where('citation_locations.type', '=', 'page')
+        .groupBy('pages.page_number')
+        .execute();
+      const citedBy = new Map(citedPages.map(r => [r.page_number, Number(r.n)]));
+
       return {
         id: book.id,
         title: book.title,
@@ -122,7 +139,8 @@ export class BooksService {
         citedByCount: Number(book.cited_by_count ?? 0),
         pageOrder: pages.map(p => ({
           pageId: p.page_number,
-          printedPageNumber: p.printed_page_number
+          printedPageNumber: p.printed_page_number,
+          citedByCount: citedBy.get(p.page_number) ?? 0,
         })),
       };
     }

@@ -12,8 +12,9 @@ export type BookSummary = {
 export type BookList = { meta: { count: number }, items: BookSummary[] };
 
 // GET /books/{bookId}: every page in reading order. pageId is the scan's page number; printedPageNumber
-// is the number printed on the page, '' when it has none.
-export type PageOrderEntry = { pageId: number, printedPageNumber: string };
+// is the number printed on the page, '' when it has none. citedByCount: citations in other books that cite
+// this page (its foreignCitations).
+export type PageOrderEntry = { pageId: number, printedPageNumber: string, citedByCount: number };
 export type Book = BookSummary & { pageOrder: PageOrderEntry[] };
 
 export type CitationLocation = { type: string, value: number };
