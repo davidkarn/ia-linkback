@@ -18,16 +18,18 @@ export default function App() {
   }, [])
 
   return (
-    __('main', {},
-      __('h1', {}, 'Aurea Tela'),
-
-      match<boolean, React.ReactElement>(true)
-        .with(!!error, () => __('p', {className: "error"}, "Couldn't load books: ", error))
-        .with(!books, () => __('p', {className: "muted"}, 'Loading'))
-        .otherwise(() => (
-          assertCond(books !== null),
+    __('main', {className: 'home'},
+      __('header', {className: 'page-header'},
+        __('h1', {}, 'Aurea Tela'),
+      ),
+      __('section', {className: 'page-body'},
+        match<boolean, React.ReactElement>(true)
+          .with(!!error, () => __('p', {className: "error"}, "Couldn't load books: ", error))
+          .with(!books, () => __('p', {className: "muted"}, 'Loading'))
+          .otherwise(() => (
+            assertCond(books !== null),
           __(Fragment, {}, 
-            __('p', {className: "muted"},
+            __('p', {},
               'Showing ' + books.items.length + ' of ' + books.meta.count + ' books.'
             ),
             __('ol', {className: "bookshelf"},
@@ -51,7 +53,8 @@ export default function App() {
               ))
             )
           )
-        ))
+          ))
+      )
     )
   );
 }

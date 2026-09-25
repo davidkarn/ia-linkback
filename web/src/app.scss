@@ -1,32 +1,148 @@
+/* 1. Use a more-intuitive box-sizing model */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+/* 2. Remove default margin */
+*:not(dialog) {
+  margin: 0;
+}
+/* 3. Enable keyword animations */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    interpolate-size: allow-keywords;
+  }
+}
 body {
-    background: #111;
-    font-size: 16px;
+  /* 4. Increase line-height */
+  line-height: 1.5;
+  /* 5. Improve text rendering */
+  -webkit-font-smoothing: antialiased;
+}
+/* 6. Improve media defaults */
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+/* 7. Inherit fonts for form controls */
+input, button, textarea, select {
+  font: inherit;
+}
+/* 8. Avoid text overflows */
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+}
+/* 9. Improve line wrapping */
+p {
+  text-wrap: pretty;
+}
+h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+}
+/*
+  10. Create a root stacking context
+*/
+#root, #__next {
+  isolation: isolate;
 }
 
-main {
-    max-width: 70rem;
-    padding-left: 3rem;
-    padding-right: 3rem;
+$pale-oak: #E1CAABff;
+$old-lace: #FAF3E5ff;
+$toffee-brown: #855E43ff;
+$carbon-black: #222423ff;
+$ash-brown: #604F42ff;
+
+body {
+    background: #111;
+    font-family: pt sans, sans serif;    
+    font-size: 16px;
+    background: #352F39;
+    padding: 2rem;
+    color: $carbon-black;
+    line-height: 1.4
+}
+
+/**
+#554F59
+#343959
+#345573
+#1E91D9
+#6B484C
+*/
+
+h1,h2,h3,h4,h5,h6 {
+    font-family: crimson text, serif;
+    font-weight:normal;
+}
+
+h1 {
+    font-family: playfair display, crimson text, serif;
+    font-weight: normal;
+}
+
+div#root {
+    min-width:100%;
+    min-height: 100%;
+    
+    background-color: white;
+
+    > main.home {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: 100%;
+        padding: 0;
+        align-items: stretch;
+
+        > header.page-header {
+            display: flex;
+            flex-direction: row;
+            padding: 1rem;
+            padding-left: 2.5rem;
+            width: 100%;
+
+            background-color: #855E4311;
+
+            h1 {
+                color: #343959;
+                font-family: crimson text, serif;
+                font-weight: 500
+            }
+        }
+
+        > section.page-body {
+            padding-left: 2.5rem;
+            padding-right: 2.5rem;
+            padding-top: 1rem;
+            padding-bottom: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+    }
+}
+
+a {
+    text-decoration: none;
 }
 
 .bookshelf {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 2rem;
+    gap: 1rem;
     padding: 0;
     margin: 0;
     width: 100%;
 
     .book {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         gap: 0.5rem;
-        width: 16rem;
+        width: 11rem;
 
         img.book-cover {
-            height: 11.2rem;
-            width: 8rem;
+            height: 15rem;
+            width: 11rem;
             object-fit: cover;
             box-shadow: 2px 2px 5x 4px rgba(0, 0, 0, 0.25);
         }
@@ -35,6 +151,8 @@ main {
             display: flex;
             flex-direction: column;
             gap: 0.125rem;
+            padding: 0.5rem;
+            padding-top: 0;
 
             .title {
                 font-weight: bold;
