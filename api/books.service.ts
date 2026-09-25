@@ -4,7 +4,7 @@ import { DB } from './database.module';
 import type { Database } from './database';
 import { citation_columns, to_citation_dto, type CitationDto } from './citations.service';
 
-export type BookSummary = { id: string, title: string, author: string, url?: string, pageCount: number };
+export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number };
 export type PageOrderEntry = { pageId: number, printedPageNumber: string };
 
 // The BookPage schema in api.yaml
@@ -24,7 +24,12 @@ export class BooksService {
   constructor(@Inject(DB) private readonly db: Kysely<Database>) {}
 
   // One page of matching books, plus how many books match in total (ignoring offset/length).
-  async search(opts: { offset: number, length: number, query?: string | undefined }): Promise<{ items: BookSummary[], count: number }> {
+  async search(opts: {
+    offset: number,
+    length: number,
+    query?: string | undefined }
+  ): Promise<{ items: BookSummary[], count: number }> {
+
     const matching = () => {
       let q = this.db.selectFrom('books');
 
@@ -45,6 +50,7 @@ export class BooksService {
         'books.title',
         'books.author',
         'books.url',
+        'books.cover_photo_path',
         eb.selectFrom('pages')
           .select(eb.fn.countAll<string>().as('n'))
           .whereRef('pages.book_id', '=', 'books.id')
@@ -65,17 +71,22 @@ export class BooksService {
         id: r.id,
         title: r.title,
         author: r.author,
-        ...(r.url ? { url: r.url } : {}),
+        url: r.url ?? null,
+        coverPhotoPath: r.cover_photo_path ?? null,
         pageCount: Number(r.page_count ?? 0),
       })),
       count: Number(total.count),
     };
   }
 
-  async get(bookId: string): Promise<(BookSummary & { pageOrder: PageOrderEntry[] }) | null> {
+  async get(
+    bookId: string
+  ): Promise<(BookSummary & { pageOrder: PageOrderEntry[] }) | null> {
     const book = await this.db
       .selectFrom('books')
-      .select(['books.id', 'books.title', 'books.author', 'books.url'])
+      .select([
+        'books.id', 'books.title', 'books.author', 'books.url', 'books.cover_photo_path'
+      ])
       .where('books.id', '=', bookId)
       .executeTakeFirst();
     
@@ -95,6 +106,7 @@ export class BooksService {
         title: book.title,
         author: book.author,
         ...(book.url ? { url: book.url } : {}),
+        ...(book.cover_photo_path ? { coverPhotoPath: book.cover_photo_path } : {}),
         pageCount: pages.length,
         pageOrder: pages.map(p => ({
           pageId: p.page_number,

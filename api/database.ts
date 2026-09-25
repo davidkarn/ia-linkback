@@ -7,6 +7,7 @@ export interface BooksTable {
   title: string,
   author: string,
   url: string | null,
+  cover_photo_path: string | null,
 }
 
 export interface PagesTable {

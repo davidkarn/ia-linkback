@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, createElement as __, Fragment } from 'react'
 import { fetchBooks, type BookList } from './api'
+import { match } from 'ts-pattern';
+import { assertCond } from './lib';
+import './app.scss';
 
 const PAGE_LENGTH = 20
 
@@ -14,30 +17,40 @@ export default function App() {
   }, [])
 
   return (
-    <main>
-      <h1>Books</h1>
-      {error ? (
-        <p className="error">Couldn't load books: {error}</p>
-      ) : !books ? (
-        <p className="muted">Loading…</p>
-      ) : (
-        <>
-          <p className="muted">
-            Showing {books.items.length} of {books.meta.count} books
-          </p>
-          <ol className="books">
-            {books.items.map(book => (
-              <li key={book.id}>
-                <span className="title">
-                  {book.url ? <a href={book.url}>{book.title}</a> : book.title}
-                </span>
-                <span className="author">{book.author}</span>
-                <span className="pages">{book.pageCount} pages</span>
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
-    </main>
-  )
+    __('main', {},
+      __('h1', {}, 'Aurea Tela'),
+
+      match<boolean, React.ReactElement>(true)
+        .with(!!error, () => __('p', {className: "error"}, "Couldn't load books: ", error))
+        .with(!books, () => __('p', {className: "muted"}, 'Loading'))
+        .otherwise(() => (
+          assertCond(books !== null),
+          __(Fragment, {}, 
+            __('p', {className: "muted"},
+              'Showing ' + books.items.length + ' of ' + books.meta.count + ' books.'
+            ),
+            __('ol', {className: "bookshelf"},
+              books.items.map(book => (
+                __('li', {key: book.id, className: 'book'},
+                  __('img', {
+                    className: 'book-cover',
+                    src: book.coverPhotoPath,
+                    title: 'Cover page'
+                  }),
+                  __('div', {className: 'book-details'},
+                    __('span', {className: "title"},
+                      book.url
+                        ? __('a', {href: book.url}, book.title)
+                        : book.title
+                    ),
+                    __('span', {className: "author"}, book.author),
+                    __('span', {className: "pages"}, book.pageCount, ' pages')
+                  )
+                )
+              ))
+            )
+          )
+        ))
+    )
+  );
 }

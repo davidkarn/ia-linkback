@@ -5,11 +5,11 @@
 // Output:             output/footnotes.json, output/citations.csv, output/summary.json
 import fs from 'node:fs';
 import path from 'node:path';
+import { list_pdfs, pdf_for_book } from './book_pdfs';
 import { add_citation_locations } from './citation_locations';
 import type { CitationLocation } from './types';
 
 const SURYA_DIR = '../scholshelf/results/surya';
-const PDF_DIR = '../scholshelf';
 const OUT_DIR = 'output';
 
 // ---------------------------------------------------------------------------
@@ -693,15 +693,6 @@ const extract_citations = (body: string, history: History[], ctx: { footnote_num
 // ---------------------------------------------------------------------------
 // Book processing
 // ---------------------------------------------------------------------------
-
-const list_pdfs = (): string[] => fs.existsSync(PDF_DIR) ? fs.readdirSync(PDF_DIR).filter(f => f.endsWith('.pdf')) : [];
-
-// Folder names are PDF stems, truncated at the first "." for the numbered "2015.*" files.
-const PDF_OVERRIDES: Record<string, string> = { '2015': '2015.932.Types-Of-Philosophy-1929.pdf' }; // 549 pages, "Types of Philosophy" (Hocking)
-const pdf_for_book = (book: string, pdfs: string[]): string | null => {
-  if (PDF_OVERRIDES[book]) return PDF_OVERRIDES[book];
-  return pdfs.find(p => p === book + '.pdf') ?? null;
-};
 
 const process_book = (book: string, pdfs: string[]) => {
   const file = path.join(SURYA_DIR, book, 'results.json');

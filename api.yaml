@@ -185,6 +185,9 @@ components:
           type: string
         url:
           type: string
+        coverPhotoPath:
+          description: cover image, relative to the frontend's root (e.g. covers/<id>.jpg)
+          type: string
         pageCount:
           type: number
         pageOrder:

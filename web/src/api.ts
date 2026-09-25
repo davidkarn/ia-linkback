@@ -4,6 +4,7 @@ export type BookSummary = {
   title: string,
   author: string,
   url?: string,
+  coverPhotoPath?: string,  // relative to the site root: <img src={`/${coverPhotoPath}`}>
   pageCount: number,
 };
 
@@ -15,6 +16,10 @@ export const fetchBooks = async (opts: { offset?: number, length?: number } = {}
   if (opts.length !== undefined) params.set('length', String(opts.length));
 
   const res = await fetch(`/api/books?${params}`);
-  if (!res.ok) throw new Error(`GET /books failed: ${res.status} ${res.statusText}`);
-  return res.json();
+  if (!res.ok) {
+    throw new Error(`GET /books failed: ${res.status} ${res.statusText}`);
+  }
+  else {
+    return res.json();
+  }
 };
