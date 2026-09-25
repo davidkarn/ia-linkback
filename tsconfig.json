@@ -41,5 +41,7 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  }
+  },
+  // web/ is its own project with its own tsconfig
+  "exclude": ["node_modules", "web"]
 }

@@ -1,0 +1,86 @@
+:root {
+  --text: #3d3a42;
+  --text-muted: #6b6375;
+  --text-h: #08060d;
+  --bg: #fff;
+  --border: #e5e4e7;
+  --accent: #6d28d9;
+  --error: #b42318;
+
+  font: 16px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #d6d3db;
+    --text-muted: #9ca3af;
+    --text-h: #f3f4f6;
+    --bg: #16171d;
+    --border: #2e303a;
+    --accent: #c084fc;
+    --error: #f97066;
+  }
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+h1 {
+  color: var(--text-h);
+  margin: 0 0 0.25rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--error);
+}
+
+.books {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+}
+
+.books li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.books .title {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.books .author {
+  grid-row: 2;
+  color: var(--text-muted);
+}
+
+.books .pages {
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
