@@ -6,6 +6,9 @@ import type { Database } from '../api/database';
 import type { Citation, CitationLocation, SuryaBook, SuryaPage } from '../types';
 import dotenv from 'dotenv';
 import path from 'node:path';
+import { setTimeout } from 'node:timers/promises';
+import { JSONSchema7 } from "json-schema";
+
 dotenv.config()
 
 const db = new Kysely<Database>({
@@ -33,6 +36,43 @@ const getBookContents = (book: Database.QueuedBookImportsTable): Promise<SuryaBo
   ).then(data => JSON.parse(data));
 }
 
+// Two insights are the same when they differ only in case, spacing, quote style or trailing punctuation.
+const insightKey = (insight: string) => (
+  insight
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[‘’`]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, ' ')
+    .replace(/[\s.;:,!]+$/, '')
+    .trim()
+);
+
+// insights without repeats, keeping the first spelling of each, in order; blank insights are dropped
+const removeDuplicateInsights = (insights: string[]): string[] => {
+  const seen = new Set<string>();
+
+  return insights.filter(insight => {
+    const key = insightKey(insight);
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    else {
+      seen.add(key);
+      return true;
+    }
+  });
+};
+
+// Every insight in footnote_extraction_insights, oldest first
+const getInsights = () => (
+  db.selectFrom('footnote_extraction_insights')
+    .select('insight')
+    .orderBy('id')
+    .execute()
+    .then(rows => rows.map(r => r.insight))
+);
+
 const log = (...items: any[]) => console.log(util.inspect(items, { depth: null }));
 
 type ORMessage = {
@@ -42,7 +82,7 @@ type ORMessage = {
 
 type ORResponseFormat = {
   type: 'json_schema',
-  json_schema: object
+  json_schema: JSONSchema7
 };
 
 const makeOpenRouterRequest = (
@@ -144,7 +184,8 @@ const FOOTNOTES_FORMAT = {
   },
 };
 
-const FOOTNOTES_PROMPT = `You extract bibliographic citations from the footnotes of one page of a scanned book.
+// The system prompt for extracting one page's citations. insights: footnote_extraction_insights rows.
+const footnotesPrompt = (insights: string[]) => `You extract bibliographic citations from the footnotes of one page of a scanned book.
 The footnotes are OCR output as HTML, in reading order. Return every footnote on the page, in order:
 
 - identifier: the footnote's marker as printed ("12", "*", "†"), without <sup> tags. A footnote that
@@ -164,14 +205,9 @@ The footnotes are OCR output as HTML, in reading order. Return every footnote on
     the book's position in the Catholic (Douay) canon (1-73), then "chapter" and "verse".
 
     Following is a list of insights that will assist with recognizing cited works and their location parts:
+ 
+${insights.map(insight => '    - ' + insight).join('\n')}
 
-    - The 'Summa Theologiae' is commonly cited as 'ST' in theological works, or 'Summa Theol.', it's citations include a book, question, article, then optionally an objection (ob), response (respondeo/corpus/co), or reply (ad).
-    - The City of God by St Augustine is commonly cited as 'De Civ. Dei', and structure includes book numbers and chapter numbers.
-    - Works of Aristotle are referenced by Bekker numbers
-    - Works of Plato are referenced by Stephanus numbers
-    - The Illiad, The Aeneid, and other works of classical poetry are frequently referenced by book and line number.
-    - Titles often include numbers which should not be counted as parts of the citation. For example: "Breve de 26. Sept. 1835 Adversus Hermesium." is the full title of a work, which is the Papal Brief issued on the 26 of Sept. Or "Epistle IV" represents the fifth letter of an author and 'IV' in this case is not a reference to the part of a citation.
-    
     Track any insights learned during the extraction of citations that will help with future extractions into the 'additionalInsights' field.
 `;
 
@@ -183,11 +219,11 @@ const footnoteHtml = (page: SuryaPage) => (
     .join('\n')
 );
 
-const requestPageFootnotes = async (page: SuryaPage, attempts = 3): Promise<PageFootnotes> => {
+const requestPageFootnotes = async (page: SuryaPage, prompt: string, attempts = 3): Promise<PageFootnotes> => {
   let lastError: unknown;
   
   const response = await makeOpenRouterRequest([
-    { role: 'system', content: FOOTNOTES_PROMPT },
+    { role: 'system', content: prompt },
     { role: 'user', content: footnoteHtml(page) },
   ], FOOTNOTES_FORMAT);
   log(response);
@@ -246,18 +282,18 @@ const extractFootnoteCitations = async (
   const failedPages: { page: number, error: string }[] = [];
   
   const footnotePages = pages.filter(p => p.blocks.some(b => b.label === 'Footnote'));
-  let   insights      = [];
+  let   insights      = await getInsights();
   const allNotes      = [];
 
   const perPage = await mapLimited(footnotePages, opts.concurrency ?? 1, async page => {
     try {
-      const result = await requestPageFootnotes(page);
+      const result = await requestPageFootnotes(page, footnotesPrompt(insights));
       
-      insights = insights.concat(result.additionalInsights);
+      insights = removeDuplicateInsights(insights.concat(result.additionalInsights));
 
       await setTimeout(3200); // 20 per minute rate limit
 
-      footnotes.map(footnote => footnote.citations.map((c) => {
+      result.footnotes.map(footnote => footnote.citations.map((c) => {
         allNotes.push({
           source: {
             bookId,

@@ -7,11 +7,12 @@
     "start": "tsx api/main.ts",
     "migrate": "tsx migrate.ts"
   },
-    "type": "module",
+  "type": "module",
   "author": "",
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@types/json-schema": "^7.0.15",
     "@types/node": "^26.5.1",
     "@types/pg": "^8.23.1",
     "sass-embedded": "^1.105.0",
