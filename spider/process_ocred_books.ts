@@ -2,12 +2,15 @@ import util from 'util';
 import fs from 'node:fs/promises';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
-import type { Database } from '../api/database';
-import type { Citation, CitationLocation, SuryaBook, SuryaPage } from '../types';
+import type { Selectable } from 'kysely';
+import type { Database, QueuedBookImportsTable } from '../api/database.ts';
+import { build_pages, strip_tags } from '../book_pages.ts';
+import type { Citation, CitationLocation, SuryaBook, SuryaPage } from '../types.ts';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { setTimeout } from 'node:timers/promises';
-import { JSONSchema7 } from "json-schema";
+import type { JSONSchema7 } from "json-schema";
+import { arrayToMapOfRecords } from '../lib.ts';
 
 dotenv.config()
 
@@ -20,15 +23,20 @@ const db = new Kysely<Database>({
 });
 
 const getNextBook = () => (
-    db.selectFrom('queued_book_imports')
-        .selectAll()
-        .where('status', '=', 'inProgress')
-        .orderBy('id')
-        .limit(1)
-        .executeTakeFirst()
+  db.selectFrom('queued_book_imports')
+    .selectAll()
+    .where('status', '=', 'inProgress')
+    .orderBy('id')
+    .limit(1)
+    .executeTakeFirst()
 );
 
-const getBookContents = (book: Database.QueuedBookImportsTable): Promise<SuryaBook> => {
+type QueuedBook = Selectable<QueuedBookImportsTable>;
+
+const getBookContents = (book: QueuedBook): Promise<SuryaBook> => {
+  if (!book.pdf_url) {
+    throw new Error(`queued book ${book.id} has no pdf_url`);
+  }
   const fileName = path.basename(book.pdf_url, path.extname(book.pdf_url));
   return fs.readFile(
     '../scholshelf/results/surya/' + fileName + '/results.json',
@@ -323,12 +331,255 @@ const extractFootnoteCitations = async (
   return { citations: allNotes, failedPages, insights };
 };
 
-getNextBook()
-  .then(book => getBookContents(book))
-  .then(contents => {
-  
-  extractFootnoteCitations(contents).then(extracted => {
-    log(extracted);
-    log(JSON.stringify(extracted));
+const INT_MIN = -2147483648, INT_MAX = 2147483647;
+
+// Insert rows in batches, keeping each statement well under Postgres's 65535 parameters
+const inChunks = <T>(rows: T[], size = 500): T[][] => (
+  Array.from(
+    {
+      length: Math.ceil(rows.length / size)
+    },
+    (_, i) => rows.slice(i * size, (i + 1) * size)
+  )
+);
+
+// The book's row, pages and blocks (built as build_book.ts builds them), replacing any earlier copy: deleting
+// its pages also deletes their blocks and citations. The books row is upserted, so other books' citations of
+// it keep their reference_book_id. Returns the book id: the SuryaBook's key, the OCR folder name.
+const storeBook = async (queued: QueuedBook, suryaBook: SuryaBook): Promise<string> => {
+  const [bookId, suryaPages] = Object.entries(suryaBook)[0] ?? [];
+  if (!bookId || !suryaPages) {
+    throw new Error('SuryaBook has no pages');
+  }
+  const { pages } = build_pages(suryaPages);
+
+  await db.transaction().execute(async trx => {
+    await trx.insertInto('books')
+      .values({ id: bookId, title: queued.title, author: queued.author, url: queued.archive_url })
+      .onConflict(oc => oc.column('id').doUpdateSet(eb => ({
+        title: eb.ref('excluded.title'),
+        author: eb.ref('excluded.author'),
+        url: eb.ref('excluded.url'),
+    })))
+      .execute();
+
+    await trx.deleteFrom('pages').where('book_id', '=', bookId).execute();
+
+    for (const chunk of inChunks(pages)) {
+      await trx.insertInto('pages')
+        .values(chunk.map(p => ({ book_id: bookId, page_number: p.pageNumber, printed_page_number: p.printedPageNumber })))
+        .execute();
+    }
+
+    const blocks = pages.flatMap(p => p.blocks.map((b, position) => ({
+      book_id: bookId,
+      page_number: p.pageNumber,
+      position,
+      bbox_x0: b.bbox[0],
+      bbox_y0: b.bbox[1],
+      bbox_x1: b.bbox[2],
+      bbox_y1: b.bbox[3],
+      label: b.label,
+      html: b.html,
+    })));
+    for (const chunk of inChunks(blocks)) {
+      await trx.insertInto('page_blocks').values(chunk).execute();
+    }
   });
-});
+
+  return bookId;
+};
+
+// The Footnote block a citation belongs to: the one on its page where its marker starts a footnote
+// ("<sup>12</sup>", or "12 " at the start of a line), else the page's first Footnote block.
+const footnoteBlockFor = (
+  blocks: { id: string, html: string }[],
+  identifier: string
+): { id: string, html: string } | undefined => {
+  if (identifier) {
+    const marker = identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const sup    = new RegExp('<sup>\\s*' + marker + '\\s*</sup>');
+    const line   = new RegExp('(^|\\n)\\s*' + marker + '[\\s.)]');
+    const found  = blocks.find(
+      b => sup.test(b.html)
+        || line.test(strip_tags(b.html.replace(/<\/p>|<br\s*\/?>/gi, '\n')))
+    );
+
+    if (found) {
+      return found;
+    }
+    else {
+      return undefined;
+    }
+  }
+  else {
+    return blocks[0];
+  }
+};
+
+const saveCitationsToDatabase = async (
+  bookId: string,
+  extracted: Awaited<ReturnType<typeof extractFootnoteCitations>>
+) => {
+  for (const failed of extracted.failedPages) {
+    console.log(`${bookId}: page ${failed.page} failed: ${failed.error}`);
+  }
+
+  const footnoteBlocks = await db.selectFrom('page_blocks')
+    .select(['id', 'page_number', 'html'])
+    .where('book_id', '=', bookId)
+    .where('label', '=', 'Footnote')
+    .orderBy('page_number')
+    .orderBy('position')
+    .execute();
+  
+  const blocksByPage = arrayToMapOfRecords(footnoteBlocks, 'page_number');  
+
+  const counts = { citations: 0, groups: 0, locations: 0, skippedValues: 0, newInsights: 0 };
+  // citations whose page has no Footnote block in the database (so nothing to attach them to)
+  const unplaced: Citation[] = [];
+
+  await db.transaction().execute(async trx => {
+    await trx.deleteFrom('citations').where('source_book_id', '=', bookId).execute();
+
+    for (const c of extracted.citations) {
+      const block = footnoteBlockFor(
+        blocksByPage.get(c.source.footnotePage) ?? [],
+        c.source.footnoteIdentifier
+      );
+      
+      if (!block) {
+        unplaced.push(c);
+        continue;
+      }
+      else {
+        const { id: citationId } = await trx.insertInto('citations')
+          .values({
+            page_block_id: block.id,
+            source_book_id: bookId,
+            source_footnote_identifier: c.source.footnoteIdentifier,
+            source_footnote_page: c.source.footnotePage,
+            reference_book_id: c.referenceBookId,
+            author: c.author,
+            title: c.title,
+            location: c.location,
+            raw: c.raw,
+        })
+          .returning('id')
+          .executeTakeFirstOrThrow();
+        
+        counts.citations++;
+
+        for (const group of c.locationsCited) {
+          const values = group.flatMap(
+            loc => loc.values.filter(v => {
+              const ok = Number.isInteger(v) && v >= INT_MIN && v <= INT_MAX;
+            
+              if (!ok) {
+                counts.skippedValues++;
+              }
+              
+              return ok;
+            }).map(value => ({
+              type: loc.type,
+              raw: loc.rawLabel,
+              value
+            }))
+          );
+              
+          
+          if (!values.length) {
+            continue;
+          }
+          else {
+            const { id: groupId } = await trx.insertInto('citation_groups')
+              .values({ citation_id: citationId })
+              .returning('id')
+              .executeTakeFirstOrThrow();
+            
+            await trx.insertInto('citation_locations')
+              .values(values.map(v => ({
+                ...v,
+                citation_id: citationId,
+                citation_group_id: groupId
+            })))
+              .execute();
+
+            counts.groups++;
+            counts.locations += values.length;
+          }
+        }
+      }
+    }
+
+    const existing = new Set((
+      await trx
+        .selectFrom('footnote_extraction_insights')
+        .select('insight')
+        .execute()
+    )
+      .map(r => insightKey(r.insight)));
+    
+    const newInsights = removeDuplicateInsights(
+      extracted.insights
+    ).filter(i => !existing.has(insightKey(i)));
+    
+    if (newInsights.length) {
+      await trx.insertInto('footnote_extraction_insights')
+        .values(newInsights.map(insight => ({ insight })))
+        .execute();
+    }
+    
+    counts.newInsights = newInsights.length;
+  });
+
+  for (const c of unplaced) {
+    console.log(
+      `${bookId}: page ${c.source.footnotePage} has no Footnote block `
+        + `for "${c.raw.slice(0, 60)}"`
+    );
+  }
+  
+  return {
+    ...counts,
+    unplaced: unplaced.length,
+    failedPages: extracted.failedPages.length
+  };
+};
+
+const processAndStoreBook = async (queued: QueuedBook) => {
+  await db.updateTable('queued_book_imports')
+    .set({status: 'processingContents'})
+    .where('id', '=', queued.id)
+    .execute();
+
+  const contents  = await getBookContents(queued);
+  const bookId    = await storeBook(queued, contents);
+  const extracted = await extractFootnoteCitations(contents);
+  const saved     = await saveCitationsToDatabase(bookId, extracted);
+
+  await db.updateTable('queued_book_imports')
+    .set({ imported_book_id: bookId, status: 'imported' as const })
+    .where('id', '=', queued.id)
+    .execute();
+
+  return { bookId, ...saved };
+};
+
+const processABook = async () => {
+  while (true) {
+    const nextBook = await getNextBook();
+    log('starting book: ' + Object.keys(nextBook)[0]);
+    
+    if (!nextBook) {
+      break;
+    }
+    else {
+      log(await processAndStoreBook(nextBook));
+      
+      return;
+    }
+  }
+};
+
+processABook();

@@ -16,8 +16,12 @@ const file = process.argv[2];
 if (!file) { console.error('usage: tsx book_to_sql.ts <book.json>'); process.exit(1); }
 const book: Book = JSON.parse(fs.readFileSync(file, 'utf8'));
 
-// Location types the migration's check constraint accepts (types.ts also has 'part').
-const DB_LOCATION_TYPES = new Set(['page', 'chapter', 'book', 'volume', 'question', 'article', 'lecture', 'position', 'verse']);
+// Location types the check constraint accepts (migrations/0005_widen_citation_location_types.ts): all of
+// CitationLocation['type'] in types.ts.
+const DB_LOCATION_TYPES = new Set([
+  'page', 'chapter', 'book', 'volume', 'question', 'article', 'lecture', 'position', 'verse', 'part', 'bekker number',
+  'line', 'stephanus number', 'objection', 'sed contra', 'respondeo', 'ad', 'distinction',
+]);
 const INT_MIN = -2147483648, INT_MAX = 2147483647;
 
 const lit = (v: string | null | undefined) =>

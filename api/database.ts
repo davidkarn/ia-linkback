@@ -42,10 +42,19 @@ export interface CitationsTable {
   raw: string,
 }
 
+// One group of a citation's locationsCited
+export interface CitationGroupsTable {
+  id: Generated<string>,
+  citation_id: string,
+}
+
+// One value of a CitationLocation: raw is its rawLabel
 export interface CitationLocationsTable {
   id: Generated<string>,
   citation_id: string,
+  citation_group_id: string,
   type: CitationLocation['type'],
+  raw: string,
   value: number,
 }
 
@@ -55,7 +64,7 @@ export interface QueuedBookImportsTable {
   author: string,
   archive_url: string | null,
   pdf_url: string | null,
-  status: 'queued' | 'pending' | 'inProgress' | 'imported',
+  status: 'queued' | 'pending' | 'inProgress' | 'processingContents' | 'imported',
   imported_book_id: string | null,
 }
 
@@ -71,6 +80,7 @@ export interface Database {
   pages: PagesTable,
   page_blocks: PageBlocksTable,
   citations: CitationsTable,
+  citation_groups: CitationGroupsTable,
   citation_locations: CitationLocationsTable,
   queued_book_imports: QueuedBookImportsTable,
   footnote_extraction_insights: FootnoteExtractionInsightsTable,
