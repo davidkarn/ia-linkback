@@ -64,7 +64,7 @@ export interface QueuedBookImportsTable {
   author: string,
   archive_url: string | null,
   pdf_url: string | null,
-  status: 'queued' | 'pending' | 'inProgress' | 'processingContents' | 'imported',
+  status: 'queued' | 'pending' | 'inProgress' | 'processingContents' | 'imported' | 'importedAndCrawled',
   imported_book_id: string | null,
 }
 
