@@ -1,0 +1,158 @@
+
+.book-view {
+    .breadcrumb {
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+    }
+
+    .book-header {
+        display: flex;
+        flex-direction: row;
+        gap: 1.25rem;
+        margin-bottom: 1.5rem;
+
+        img.book-cover {
+            height: 9.8rem;
+            width: 7rem;
+            object-fit: cover;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            line-height: 1.25;
+        }
+
+        p {
+            margin: 0.25rem 0;
+        }
+    }
+
+    .book-page-view {
+        display: flex;
+        flex-direction: row;
+        gap: 2rem;
+    }
+    
+    .page-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 16rem;
+        gap: 2.5rem;
+        padding-top: 1.5rem;
+        transition: opacity 0.15s;
+
+        &.loading {
+            opacity: 0.5;
+        }
+
+        @media (max-width: 800px) {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .page-header {
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: row;
+            gap: 0.75rem;
+            font-size: 0.875rem;
+            align-items: flex-start;
+            margin-bottom: 0.25rem;
+
+            .pager-buttons {
+                display: flex;
+                flex-direction: row;
+                gap: 0.125rem;
+
+                svg {
+                    width: 1.25rem;
+                    height: 1.25rem;
+                }
+            }
+        }
+    }
+
+    .page {
+        max-width: 40rem;
+        font-size: 1.0625rem;
+        line-height: 1.6;
+
+        .block {
+            margin-bottom: 0.75rem;
+
+            p {
+                margin: 0 0 0.75rem;
+            }
+
+            table {
+                border-collapse: collapse;
+                font-size: 0.875rem;
+            }
+
+            td, th {
+                border: 1px solid var(--border);
+                padding: 0.125rem 0.5rem;
+            }
+        }
+
+        .block-PageHeader, .block-PageFooter {
+            color: var(--text-muted);
+            font-size: 0.8125rem;
+            text-align: center;
+        }
+
+        .block-SectionHeader {
+            color: var(--text-h);
+            font-weight: bold;
+
+            h1, h2, h3, h4, h5, h6 {
+                font-size: 1.125rem;
+                margin: 1rem 0 0.5rem;
+            }
+        }
+
+        .block-Footnote {
+            font-size: 0.875rem;
+            line-height: 1.45;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .citations {
+            list-style: none;
+            margin: 0 0 0 1rem;
+            padding: 0;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+
+            li::before {
+                content: '↳ ';
+            }
+        }
+    }
+
+    .cited-by {
+        font-size: 0.875rem;
+
+        h2 {
+            font-size: 1rem;
+            margin: 0 0 0.75rem;
+            color: var(--text-h);
+        }
+
+        ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        li {
+            padding: 0.5rem 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .muted {
+            font-size: 0.75rem;
+        }
+    }
+}
+
+

@@ -1,0 +1,89 @@
+
+// BookPager: one line per page; hovering fans out the page numbers around the pointer
+.book-pager {
+    --label-height: 1.25rem;
+    position: relative;
+    width: 5rem;
+    margin-top: 2.5rem;
+    margin-bottom: 2.5rem;
+    height: min(calc(var(--page-count) * 4px), 75vh);
+    cursor: default;
+    touch-action: none;
+    user-select: none;
+
+    .lines {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .line {
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        margin-top:1px;
+
+        &::after {
+            content: '';
+            display: block;
+            width: 0.75rem;
+            height: 1px;
+            background: #857F89;
+            opacity: 0.75;
+            transition: width 0.1s, opacity 0.1s;
+        }
+        &.with-citations::after {
+            background: #343959;
+        }
+        &.with-many-citations::after {
+            background: #545979;
+        }
+
+
+        &.near::after {
+            width: 1.5rem;
+            opacity: 1;
+        }
+
+        &.hovered::after {
+            width: 2.25rem;
+            background: var(--accent);
+        }
+    }
+
+    &[data-state='hovering'] {
+        cursor: pointer;
+    }
+
+    .labels {
+        position: absolute;
+        left: 2.75rem;
+        transform: translateY(calc((var(--above) + 0.5) * var(--label-height) * -1));
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        pointer-events: none;
+        font-size: 0.75rem;
+        white-space: nowrap;
+
+        li {
+            height: var(--label-height);
+            line-height: var(--label-height);
+            color: var(--text-muted);
+
+            &.hovered {
+            }
+
+            &.with-citations {
+                font-weight: bold;
+                color: #343959;
+            }
+            &.with-many-citations {
+                font-weight: bold;                
+                color: #545979;
+            }
+            
+        }
+    }
+}

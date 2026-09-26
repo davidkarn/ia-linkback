@@ -1,8 +1,11 @@
 import { useEffect, useState, createElement as __, Fragment } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { match } from 'ts-pattern';
+import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchBook, fetchBooks, fetchPage, type Book, type BookPage, type Citation, type PageBlock, type PageOrderEntry } from './api'
 import { assertCond } from './lib';
+import "./BookView.scss"
+import BookPager from './BookPager';
 
 // "p. 12" when the page has a printed number, else its position in the scan: "[scan 3]"
 const pageLabel = (entry: PageOrderEntry) =>
@@ -88,64 +91,55 @@ export default function BookView() {
 
   return (
     __('main', {className: 'book-view'},
-      __('nav', {className: 'breadcrumb'}, __(Link, {to: '/'}, '← All books')),
+      __('header', {className: 'page-header'},
+        __(Link, {
+          className: 'back-icon', to: '/',
+          'aria-label': 'All books',
+          title: 'All books'
+        },
+          __(ArrowLeft, {size: '1em', 'aria-hidden': true})
+        ),
+        book && (
+          __('div', {className: 'header-with-subheader'},
+            __('h1', {}, book?.title),
+            __('div', {className: 'subheading'}, book.author)
+          ) 
+        ),
+        __('div', {className: 'spacer'}),
+        __(Link, {className: 'site-name', to: '/'}, 'Aurea tela'),
+      ),
+      __('section', {className: 'page-body'},
 
       match<boolean, React.ReactElement>(true)
         .with(!!error, () => __('p', {className: "error"}, "Couldn't load this book: ", error))
         .with(!book, () => __('p', {className: "muted"}, 'Loading'))
         .otherwise(() => (
           assertCond(book !== null),
-          __(Fragment, {},
-            __(BookHeader, {book}),
+          __('div', {className: 'book-page-view'},
+            __(BookPager, {pages: book.pageOrder, bookId: book.id}),
 
-            book.pageOrder.length === 0
-              ? __('p', {className: 'muted'}, 'This book has no pages.')
-              : __(Fragment, {},
-                  __('div', {className: 'page-nav'},
-                    __('button', {disabled: !prev, onClick: () => goTo(prev), title: 'Previous page (←)'}, '‹ Prev'),
-                    __('select', {
-                        value: index >= 0 ? String(pageId) : '',
-                        onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
-                          goTo(book.pageOrder.find(p => String(p.pageId) === e.target.value)),
-                      },
-                      index < 0 && __('option', {value: ''}, '—'),
-                      book.pageOrder.map(entry => (
-                        __('option', {key: entry.pageId, value: String(entry.pageId)}, pageLabel(entry))
-                      ))
-                    ),
-                    __('span', {className: 'muted'},
-                      index >= 0 ? (index + 1) + ' of ' + book.pageOrder.length : ''
-                    ),
-                    __('button', {disabled: !next, onClick: () => goTo(next), title: 'Next page (→)'}, 'Next ›'),
-                  ),
-
-                  index < 0
-                    ? __('p', {className: 'error'}, 'This book has no page ', params.pageId, '.')
-                    : __(PageView, {bookId, pageId: pageId!})
-                )
+            match<boolean, React.ReactElement>(true)
+              .with(book.pageOrder.length === 0, () => (
+                __('p', {className: 'muted'}, 'This book has no pages.')
+              ))
+              .with(index < 0, () => (
+                __('p', {className: 'error'}, 'This book has no page ', params.pageId, '.')
+              ))
+              .otherwise(() => (
+                __(PageView, {bookId, pageId: pageId!, allPages: book.pageOrder})
+              ))
           )
         ))
-    )
-  );
-}
-
-function BookHeader({book}: {book: Book}) {
-  return (
-    __('header', {className: 'book-header'},
-      book.coverPhotoPath && __('img', {className: 'book-cover', src: '/' + book.coverPhotoPath, alt: ''}),
-      __('div', {className: 'book-details'},
-        __('h1', {}, book.title),
-        __('p', {className: 'author'}, book.author),
-        __('p', {className: 'muted'},
-          book.pageCount + ' pages',
-          book.url && __(Fragment, {}, ' · ', __('a', {href: book.url}, 'Internet Archive'))
-        )
       )
     )
   );
 }
 
-function PageView({bookId, pageId}: {bookId: string, pageId: number}) {
+function PageView({
+  bookId, pageId, allPages
+}: {
+  bookId: string, pageId: number, allPages: PageOrderEntry[]
+}) {
   const [page, setPage] = useState<BookPage | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -162,17 +156,49 @@ function PageView({bookId, pageId}: {bookId: string, pageId: number}) {
   // keep showing the previous page, dimmed, until the next one arrives
   const loading = !page || page.bookId !== bookId || page.pageNumber !== pageId;
 
+  const headerBlocks = page?.blocks.filter((block) => block.label === 'PageHeader') ?? [];
+  const bodyBlocks   = page?.blocks.filter((block) => block.label !== 'PageHeader') ?? [];
+
+  const thisPageIndex = allPages.findIndex(p => p.pageId === pageId);
+  const nextPage = thisPageIndex && thisPageIndex < allPages.length - 1 && (
+    '/books/' + encodeURIComponent(bookId) + '/pages/' + allPages[thisPageIndex + 1].pageId
+  );
+  const prevPage = thisPageIndex && thisPageIndex > 0 && (
+    '/books/' + encodeURIComponent(bookId) + '/pages/' + allPages[thisPageIndex - 1].pageId 
+  );
+
   return (
     match<boolean, React.ReactElement>(true)
       .with(!!error, () => __('p', {className: "error"}, "Couldn't load this page: ", error))
       .with(!page, () => __('p', {className: "muted"}, 'Loading'))
       .otherwise(() => (
         assertCond(page !== null),
+        
         __('div', {className: 'page-layout' + (loading ? ' loading' : '')},
           __('article', {className: 'page'},
+            __('div', {className: 'page-header'},
+              headerBlocks.map((block) => (
+                __('div', {className: 'page-header-item'},
+                  __('div', {dangerouslySetInnerHTML: {__html: block.html}}),
+                )
+              )),
+              __('div', {className: 'spacer'}),
+              __('div', {className: 'pager-buttons'},
+                prevPage && (
+                  __('div', {className: 'pager-button'},
+                    __(Link, {to: prevPage}, __(ChevronLeft, {}))
+                  )
+                ),
+                nextPage && (
+                  __('div', {className: 'pager-button'},
+                    __(Link, {to: nextPage}, __(ChevronRight, {}))
+                  )
+                )
+              ),
+            ),
             page.blocks.length === 0
               ? __('p', {className: 'muted'}, 'No text on this page.')
-              : page.blocks.map((block, i) => __(Block, {key: i, block}))
+              : bodyBlocks.map((block, i) => __(Block, {key: i, block}))
           ),
           __('aside', {className: 'cited-by'},
             __('h2', {}, 'Cited by'),
