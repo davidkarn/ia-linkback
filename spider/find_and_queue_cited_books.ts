@@ -371,10 +371,15 @@ const processImportedCitations = async (book: QueuedBook) => {
   );
 
   const archiveCopies = await findArchiveCopies(notReferencing);
-  const numRefsSaved = await linkReferences(referencing);
-  const queuedResults = await queueBooksFromArchive(archiveCopies);
-  
-  log({numRefsSaved, queuedResults});
+  const numRefsSaved  = await linkReferences(referencing);
+  const queuedResults = await queueBooksFromArchive(archiveCopies.found);
+
+  await db.updateTable('queued_book_imports')
+    .set({ status: 'importedAndCrawled' })
+    .where('id', '=', book.id)
+    .execute();
+
+  log({numRefsSaved, queuedResults, archiveSearchFailures: archiveCopies.failed.length});
 };
 
 const main = async () => {
