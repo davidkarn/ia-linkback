@@ -1,0 +1,8 @@
+.env
+*~
+*#*
+output
+node_modules
+web/node_modules
+web/public
+.DS_Store
