@@ -59,6 +59,13 @@ export interface QueuedBookImportsTable {
   imported_book_id: string | null,
 }
 
+// Insights passed to the LLM when extracting citations from footnotes
+export interface FootnoteExtractionInsightsTable {
+  id: Generated<string>,          // bigserial
+  insight: string,
+  created_at: Generated<Date>,
+}
+
 export interface Database {
   books: BooksTable,
   pages: PagesTable,
@@ -66,4 +73,5 @@ export interface Database {
   citations: CitationsTable,
   citation_locations: CitationLocationsTable,
   queued_book_imports: QueuedBookImportsTable,
+  footnote_extraction_insights: FootnoteExtractionInsightsTable,
 }

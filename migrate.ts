@@ -22,7 +22,7 @@ const main = async () => {
   });
   const migrator = new Migrator({
     db,
-    provider: new FileMigrationProvider({ fs, path, migrationFolder: path.join(__dirname, 'migrations') }),
+    provider: new FileMigrationProvider({ fs, path, migrationFolder: path.join(import.meta.dirname, 'migrations') }),
   });
 
   const { error, results } = await (
