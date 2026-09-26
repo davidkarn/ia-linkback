@@ -1,0 +1,53 @@
+$pale-oak: #E1CAABff;
+$old-lace: #FAF3E5ff;
+$toffee-brown: #855E43ff;
+$carbon-black: #222423ff;
+$ash-brown: #604F42ff;
+
+// Previous / numbered pages / next
+.pager {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    align-self:stretch;
+
+    button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.25rem;
+        height: 100%;
+        align-self:stretch;
+        padding: 0 0.25rem;
+        border: 1px solid #547593aa;
+        border-radius: 4px;
+        background: white;
+        color: #343959aa;
+        cursor: pointer;
+        font-family: pt sans, sans serif;
+        cursor: pointer;
+
+        &:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        &.current, &:hover {
+            border: 1px solid #547593;
+            color: #343959ff;
+            cursor: pointer;
+        }
+
+        &.current, &:disabled {
+            cursor: default;
+        }
+    }
+
+    .gap {
+        min-width: 1.5rem;
+        text-align: center;
+        color: $ash-brown;
+    }
+}

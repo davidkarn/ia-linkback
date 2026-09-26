@@ -53,10 +53,12 @@ const getJson = async <T>(path: string): Promise<T> => {
   }
 };
 
-export const fetchBooks = async (opts: { offset?: number, length?: number } = {}): Promise<BookList> => {
+// query: search titles and authors
+export const fetchBooks = async (opts: { offset?: number, length?: number, query?: string } = {}): Promise<BookList> => {
   const params = new URLSearchParams();
   if (opts.offset !== undefined) params.set('offset', String(opts.offset));
   if (opts.length !== undefined) params.set('length', String(opts.length));
+  if (opts.query) params.set('query', opts.query);
 
   return getJson(`/books?${params}`);
 };
