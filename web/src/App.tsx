@@ -1,5 +1,5 @@
 import { useEffect, useState, createElement as __, Fragment } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { fetchBooks, type BookList } from './api'
 import { match } from 'ts-pattern';
 import { Search } from 'lucide-react';
@@ -11,6 +11,7 @@ const PAGE_LENGTH = 20
 const SEARCH_DELAY_MS = 250
 
 export default function App() {
+  const navigate = useNavigate();
   // ?q=<search>&page=<1-based page>, so reloading, sharing and the back button keep your place
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q') ?? '';
@@ -98,12 +99,14 @@ export default function App() {
             ),
             __('ol', {className: "bookshelf"},
               books.items.map(book => (
-                __('li', {key: book.id, className: 'book'},
+                __('li', {key: book.id, className: 'book', onClick: () => {
+                  navigate('/books/' + encodeURIComponent(book.id));
+                }},
                   __(Link, {to: '/books/' + encodeURIComponent(book.id)},
                     __('img', {
                       className: 'book-cover',
                       src: book.coverPhotoPath && '/' + book.coverPhotoPath,
-                      title: 'Cover page'
+                      alt: 'Cover page'
                     })
                   ),
                   __('div', {className: 'book-details'},
@@ -114,7 +117,8 @@ export default function App() {
                     __('span', {className: "pages"}, book.pageCount, ' pages')
                   )
                 )
-              ))
+              )),
+              __('div', {className: 'overlay'})
             ),
           )
           ))
