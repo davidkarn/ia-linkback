@@ -4,7 +4,7 @@ import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import type { Selectable } from 'kysely';
 import type { Database, QueuedBookImportsTable } from '../api/database.ts';
-import { build_pages, strip_tags } from '../book_pages.ts';
+import { build_pages, strip_tags } from './book_pages.ts';
 import type { Citation, CitationLocation, SuryaBook, SuryaPage } from '../types.ts';
 import dotenv from 'dotenv';
 import path from 'node:path';
