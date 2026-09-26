@@ -54,7 +54,11 @@ export type Citation = {
 
 export type CitationLocation = {
   rawLabel: string,
-  type: 'page'|'chapter'|'book'|'volume'|'question'|'article'|'lecture'|'position'|'verse'|'part',
+  type: (
+      'page' | 'chapter' | 'book' | 'volume' | 'question' | 'article' | 'lecture'
+     | 'position' | 'verse' | 'part' | 'bekker number' | 'line' | 'stephanus number'
+     | 'objection' | 'sed contra' | 'respondeo' | 'ad' | 'distinction'
+  ), 
   values: number[]
 };
 
@@ -67,3 +71,24 @@ export type QueuedBookImport = {
   status: 'pending'|'imported'|'inProgress';
 }
 
+export type SuryaBook = {
+  [bookName: string]: SuryaPage[]
+}
+
+export type SuryaBlock = {
+  polygon: [number, number][],
+  confidence: number,
+  label: "SectionHeader"|"Text"|"PageHeader"|"PageFooter"|"Footnote",
+  raw_label: "Section-Header"|"Text"|"Page-Header"|"Page-Footer"|"Footnote",
+  reading_order: number,
+  html: string,
+  skipped: boolean,
+  error: boolean,
+  bbox: [number, number, number, number]
+};
+
+export type SuryaPage = {
+  blocks: SuryaBlock[],
+  page: number,
+  image_bbox: [number, number, number, number]
+};
