@@ -49,10 +49,21 @@ export interface CitationLocationsTable {
   value: number,
 }
 
+export interface QueuedBookImportsTable {
+  id: Generated<string>,          // bigserial
+  title: string,
+  author: string,
+  archive_url: string | null,
+  pdf_url: string | null,
+  status: 'queued' | 'pending' | 'inProgress' | 'imported',
+  imported_book_id: string | null,
+}
+
 export interface Database {
   books: BooksTable,
   pages: PagesTable,
   page_blocks: PageBlocksTable,
   citations: CitationsTable,
   citation_locations: CitationLocationsTable,
+  queued_book_imports: QueuedBookImportsTable,
 }
