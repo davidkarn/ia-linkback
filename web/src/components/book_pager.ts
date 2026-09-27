@@ -9,20 +9,25 @@ const NEIGHBORS = 2;
 const pagerLabel = (entry: PageOrderEntry) => entry.printedPageNumber || '[' + entry.pageId + ']';
 
 // A column with one horizontal line per page. Hovering shows the page numbers around the pointer; clicking
-// opens the page under it.
-export default function BookPager({pages, bookId}: {pages: PageOrderEntry[], bookId: string}) {
+// opens the page under it, at hrefForPage(pageId) (the URL with this book's column turned to that page).
+export default function BookPager({pages, hrefForPage}: {
+  pages: PageOrderEntry[],
+  hrefForPage: (pageId: number) => string,
+}) {
   const navigate = useNavigate();
 
   // openPage runs from the machine, so it reads the latest props through a ref
-  const latest = useRef({pages, bookId, navigate});
-  useEffect(() => { latest.current = {pages, bookId, navigate}; });
+  const latest = useRef({pages, hrefForPage, navigate});
+  useEffect(() => { latest.current = {pages, hrefForPage, navigate}; });
 
   const [state, send] = useMachine(BookPagerMachine.provide({
     actions: {
       openPage: (_, {index}) => {
-        const {pages, bookId, navigate} = latest.current;
+        const {pages, hrefForPage, navigate} = latest.current;
         const page = pages[index];
-        navigate('/books/' + encodeURIComponent(bookId) + '/pages/' + page.pageId);
+        if (page) {
+          navigate(hrefForPage(page.pageId));
+        }
       },
     },
   }));

@@ -10,8 +10,8 @@ createRoot(document.getElementById('root')!).render(
     __(BrowserRouter, {},
       __(Routes, {},
         __(Route, {path: '/', element: __(App)}),
-        __(Route, {path: '/books/:bookId', element: __(BookView)}),
-        __(Route, {path: '/books/:bookId/pages/:pageId', element: __(BookView)}),
+        // one or more open books: /books/<id>[/pages/<n>]/books/<id>[/pages/<n>]... (see core/open_books.ts)
+        __(Route, {path: '/books/*', element: __(BookView)}),
       )
     )
   ),

@@ -1,3 +1,8 @@
+.book-page-view {
+        height: 100%;
+
+}
+
 .page-with-citations {
     display: flex;
     gap: 0;
@@ -118,6 +123,45 @@
                 border-radius: 2px;
                 padding: 0 0.125rem;
             }
+        }
+    }
+}
+
+// In a narrow column (several books open), "Cited by" moves below the page, and a very narrow one drops the
+// page-line pager (Previous / Next page still work)
+@container (max-width: 56rem) {
+    .page-with-citations {
+
+        .full-page-layout {
+            .page {
+                font-size: 0.875rem;
+            }
+        }
+
+        aside.cited-by {
+            max-width: 15rem;
+        }
+    }
+}
+
+@container (max-width: 30rem) {
+    .page-with-citations .book-pager {
+        display: none;
+    }
+    .page-with-citations {
+        flex-wrap: wrap;
+
+        // the page shrinks to fit beside the pager instead of wrapping below it
+        .full-page-layout {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+
+        aside.cited-by {
+            flex-basis: 100%;
+            max-width: none;
+            border-left: none;
+            border-top: 1px solid var(--light-accent);
         }
     }
 }

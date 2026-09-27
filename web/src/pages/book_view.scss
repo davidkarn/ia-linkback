@@ -134,3 +134,24 @@
 }
 
 
+
+// Open books side by side, sharing the width equally (see core/open_books.ts). #root raises this above the
+// page-wide `div#root > main > section.page-body` layout.
+div#root > main.book-view > section.book-columns {
+    display: grid;
+    grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+    gap: 0;
+    align-items: start;
+
+    > .book-column {
+        min-width: 0;
+        // lets book_page.scss lay a column out by its own width, not the window's
+        container-type: inline-size;
+        height: 100%;
+        align-self: stretch;
+
+        & + .book-column {
+            border-left: 1px solid var(--light-accent);
+        }
+    }
+}

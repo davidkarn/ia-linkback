@@ -1,6 +1,6 @@
 import { createElement as __, useEffect, useMemo, useRef, useState } from 'react'
 import './book_page.scss';
-import { fetchPage, type Book, type BookPage } from '../api';
+import { fetchPage, type Book, type BookPage, type PageBlock, type PageCitation } from '../api';
 import { match } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
@@ -9,12 +9,16 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatLocations, useBookTitles } from '../core/page_rendering';
 import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
 
+// One book's page, in one of the side-by-side columns. hrefForPage(pageId) is the URL with this column turned
+// to that page; hrefForCitingBook(bookId, pageId) is the URL with that book opened to this column's right.
 export const BookPageView = ({
-  book, index, pageId
+  book, index, pageId, hrefForPage, hrefForCitingBook
 }: {
   book: Book,
   index: number,
-  pageId: number
+  pageId: number,
+  hrefForPage: (pageId: number) => string,
+  hrefForCitingBook: (bookId: string, pageId: number) => string,
 }) => {
   const bookId   = book.id;
   const allPages = book.pageOrder;
@@ -39,12 +43,10 @@ export const BookPageView = ({
   const bodyBlocks   = page?.blocks.filter((block) => block.label !== 'PageHeader') ?? [];
 
   const thisPageIndex = allPages.findIndex(p => p.pageId === pageId);
-  const nextPage = thisPageIndex && thisPageIndex < allPages.length - 1 && (
-    '/books/' + encodeURIComponent(bookId) + '/pages/' + allPages[thisPageIndex + 1].pageId
-  );
-  const prevPage = thisPageIndex && thisPageIndex > 0 && (
-    '/books/' + encodeURIComponent(bookId) + '/pages/' + allPages[thisPageIndex - 1].pageId 
-  );
+  const nextEntry     = thisPageIndex >= 0 ? allPages[thisPageIndex + 1] : undefined;
+  const prevEntry     = thisPageIndex > 0 ? allPages[thisPageIndex - 1] : undefined;
+  const nextPage      = nextEntry && hrefForPage(nextEntry.pageId);
+  const prevPage      = prevEntry && hrefForPage(prevEntry.pageId);
 
   return match<boolean, React.ReactElement>(true)
     .with(!!error, () => __('p', {className: "error"}, "Couldn't load this page: ", error))
@@ -52,7 +54,7 @@ export const BookPageView = ({
     .otherwise(() => (
       assertCond(page !== null),
         __('div', {className: 'page-with-citations'},
-          __(BookPager, {pages: book.pageOrder, bookId: book.id}),
+          __(BookPager, {pages: book.pageOrder, hrefForPage}),
           __('div', {className: 'full-page-layout' + (loading ? ' loading' : '')},
             __('header', {className: 'book-header'},
               __('div', {className: 'page-header'},
@@ -94,7 +96,7 @@ export const BookPageView = ({
             __('h2', {}, 'Cited by'),
             page.foreignCitations.length === 0
               ? __('p', {className: 'muted'}, 'No other books in the collection cite this page.')
-              : __('ul', {}, page.foreignCitations.map(c => __(CitedBy, {key: c.id, citation: c})))
+              : __('ul', {}, page.foreignCitations.map(c => __(CitedBy, {key: c.id, citation: c, hrefForCitingBook})))
           )
         )
     ));
@@ -118,13 +120,17 @@ function Block({block}: {block: PageBlock}) {
 }
 
 
-function CitedBy({citation}: {citation: PageCitation}) {
+// Its title opens the citing book, at the citing page, to the right of this column
+function CitedBy({citation, hrefForCitingBook}: {
+  citation: PageCitation,
+  hrefForCitingBook: (bookId: string, pageId: number) => string,
+}) {
   const titles = useBookTitles();
   const source = citation.source;
 
   return (
     __('li', {},
-      __(Link, {to: '/books/' + encodeURIComponent(source.bookId) + '/pages/' + source.footnotePage},
+      __(Link, {to: hrefForCitingBook(source.bookId, Number(source.footnotePage))},
         __('cite', {}, titles.get(source.bookId) ?? source.bookId)
       ),
       __('div', {className: 'muted'},
