@@ -1,4 +1,4 @@
-import { useEffect, useRef, createElement as __ } from 'react'
+import { useEffect, useRef, createElement as __, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useMachine } from '@xstate/react'
 import type { PageOrderEntry } from '../api'
@@ -15,10 +15,11 @@ export default function BookPager({pages, hrefForPage}: {
   hrefForPage: (pageId: number) => string,
 }) {
   const navigate = useNavigate();
-
-  // openPage runs from the machine, so it reads the latest props through a ref
-  const latest = useRef({pages, hrefForPage, navigate});
-  useEffect(() => { latest.current = {pages, hrefForPage, navigate}; });
+  const latest   = useRef({pages, hrefForPage, navigate});
+  
+  useEffect(() => {
+    latest.current = {pages, hrefForPage, navigate};
+  });
 
   const [state, send] = useMachine(BookPagerMachine.provide({
     actions: {
@@ -32,72 +33,44 @@ export default function BookPager({pages, hrefForPage}: {
     },
   }));
 
-  // The page under the pointer: lines can be under a pixel tall, so go by position rather than element
-  const indexAt = (e: React.PointerEvent<HTMLElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const index = Math.floor((e.clientY - rect.top) / rect.height * pages.length);
-    return Math.min(Math.max(index, 0), pages.length - 1);
-  };
-
   const hovered = state.matches('hovering') ? state.context.hoveredIndex : null;
-  const near = (i: number) => hovered !== null && Math.abs(i - hovered) <= NEIGHBORS;
-  const shown = hovered === null ? [] : pages
-    .map((page, i) => ({page, i}))
-    .slice(Math.max(hovered - NEIGHBORS, 0), hovered + NEIGHBORS + 1);
+  const near = (i: number) => hoveredLine !== null && Math.abs(i - hoveredLine) <= NEIGHBORS;
 
+  const hoveredLine = state.context.hoveredIndex;
+  
   return (
-    __('div', {
+    __('div', {className: 'book-pager-wrapper'},
+      __('div', {
         className: 'book-pager',
+        onMouseOut: () => send({type: 'pointer.leave'}),
         'data-state': String(state.value),
         style: {'--page-count': pages.length} as React.CSSProperties,
-        onPointerMove: (e: React.PointerEvent<HTMLElement>) => send({type: 'pointer.move', index: indexAt(e)}),
-        onPointerDown: (e: React.PointerEvent<HTMLElement>) => send({type: 'pointer.move', index: indexAt(e)}),
-        onPointerLeave: () => send({type: 'pointer.leave'}),
-        onClick: () => send({type: 'page.click'}),
       },
-      __('div', {className: 'lines'},
-        pages.map((page, i) => (
-          __('div', {
-            key: page.pageId,
-            className: 'line' + (
-              hovered && near(i)
-                ? (i > hovered ? ' near near-after' : ' near near-before')
-                : ''
-            ) + (
-              i === hovered ? ' hovered' : ''
-            ) + (
-              page.citedByCount > 0
-                ? (page.citedByCount > 4 ? ' with-many-citations' : ' with-citations')
-                : ''
-            ),
-          })
-        ))
-      ),
-
-      hovered !== null && (
-        __('ol', {
-          className: 'labels',
-          // the hovered label sits on the hovered line, with --above labels over it
-          style: {
-            top: ((hovered + 0.5) / pages.length * 100) + '%',
-            '--above': hovered - (shown[0]?.i ?? hovered),
-          } as React.CSSProperties,
-        },
-          shown.map(({page, i}) => (
-            __('li', {
+        __('div', {className: 'lines'},
+          pages.map((page, i) => (
+            __('div', {
               key: page.pageId,
-              className: (
-                i === hovered ? 'hovered' : ''
+              onMouseOver: () => send({type: 'pointer.move', index: i}),
+              onClick: () => send({type: 'page.click'}),
+              className: 'line' + (
+                hoveredLine && hoveredLine !== i && near(i) 
+                  ? (Math.abs(i - hoveredLine) === 1
+                  ? ' near'
+                  : (i > hoveredLine ? ' near near-fafter' : ' near fnear-before')
+                  )
+                  : ''
+              ) + (
+                i === hoveredLine ? ' hovered' : ''
               ) + (
                 page.citedByCount > 0
                   ? (page.citedByCount > 4 ? ' with-many-citations' : ' with-citations')
                   : ''
-              )
+              ),
             },
-              pagerLabel(page)
+              hoveredLine === i ? page.printedPageNumber : null
             )
           ))
-        )
+        ),
       )
     )
   );

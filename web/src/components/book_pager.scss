@@ -1,17 +1,26 @@
 
-// BookPager: one line per page; hovering fans out the page numbers around the pointer
+.book-pager-wrapper {
+   overflow-y: auto;
+   height: min(calc(var(--page-count) * 4px), 75vh);
+   max-height: 90vh;
+    
+   &::-webkit-scrollbar {
+       display: none;
+   }
+
+}
 .book-pager {
     --label-height: 1.25rem;
     position: relative;
-    width: 5rem;
+    width: 2.5rem;
     margin-top: 2.5rem;
     margin-bottom: 2.5rem;
-    height: min(calc(var(--page-count) * 4px), 75vh);
+    height: calc(var(--page-count) * 4px);
     cursor: default;
     touch-action: none;
     user-select: none;
-    min-width: 5rem;
-
+    min-width: 2.5rem;
+   
     .lines {
         display: flex;
         flex-direction: column;
@@ -19,72 +28,71 @@
     }
 
     .line {
-        flex: 1 1 0;
-        min-height: 0;
         display: flex;
         align-items: center;
-        margin-top:1px;
+        cursor: pointer;
+        flex-grow: 1;
 
         &::after {
-            content: '';
-            display: block;
-            width: 0.75rem;
+            width: 1rem;
+            background: #857F89bb;
             height: 1px;
-            background: #857F89;
-            opacity: 0.75;
-            transition: width 0.1s, opacity 0.1s;
+            margin-left:0.5rem;
+            content: ' ';
         }
+
         &.with-citations::after {
-            background: #343959;
+            border-color: #343959;
+            height: 2px;
+            width: 1.25rem;
         }
         &.with-many-citations::after {
-            background: #545979;
-        }
-
-
-        &.near::after {
+            border-color: #545979;
+            height: 2px;            
             width: 1.5rem;
-            opacity: 1;
         }
 
-        &.hovered::after {
-            width: 2.25rem;
-            background: var(--accent);
+
+        &.near, &.hovered {
+            line-height: 1.2;
+            padding: 0;
+        }
+
+        &.near {
+            font-size: 0.625rem;
+            padding-left: 0.125rem;
+            
+            &::after {
+                padding-left: 1rem;
+            }
+        }
+
+        &.near.near-after {
+            font-size: 0.5rem;            
+        }
+        &.near.near-before {
+            font-size: 0.5rem;            
+        }
+
+        &.hovered {
+            font-size: 0.75rem;
+            padding-left: 0rem;
+            &::after {
+                display: none;
+            }
+
+            &.with-many-citations {            
+                color: #545979;
+                font-weight: bold;
+            }
+            &.with-citations {
+                color: #343959;
+                font-weight: bold;
+            }
         }
     }
 
     &[data-state='hovering'] {
         cursor: pointer;
-    }
-
-    .labels {
-        position: absolute;
-        left: 2.75rem;
-        transform: translateY(calc((var(--above) + 0.5) * var(--label-height) * -1));
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        pointer-events: none;
-        font-size: 0.75rem;
-        white-space: nowrap;
-
-        li {
-            height: var(--label-height);
-            line-height: var(--label-height);
-            color: var(--text-muted);
-
-            &.hovered {
-            }
-
-            &.with-citations {
-                font-weight: bold;
-                color: #343959;
-            }
-            &.with-many-citations {
-                font-weight: bold;                
-                color: #545979;
-            }
-            
-        }
     }
 }
