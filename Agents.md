@@ -1,4 +1,4 @@
-
+- keep comments to a margin of 80 characters
 - Try to keep a margin of around ~90 characters
 - Prefer to use explicit else if and else cases instead of early returns, ideally every branch of if/else cases should end in a return (or break or continue or throw) where possible. This can be ignored for highly imperative code such as controllers and cli jobs or where it would result in uglier code.
 

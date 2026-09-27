@@ -12,6 +12,7 @@
 //     disputation / dissertation -> `question`; sectio / dubium -> `article`; tractatus -> `book`;
 //     distinctio -> `chapter`; Part -> `volume`.
 import type { CitationLocation } from './types';
+import { DOUAY_CANON } from './core/bible.ts';
 
 type LocType = CitationLocation['type'];
 // One cited item: a location type and one value (build_book.ts groups these into CitationLocations)
@@ -65,17 +66,6 @@ const expand_range = (a: number, b: number, arabic: boolean): number[] => {
 // Bible
 // ---------------------------------------------------------------------------
 
-const DOUAY_CANON                           = [
-  'genesis', 'exodus', 'leviticus', 'numbers', 'deuteronomy', 'josue', 'judges', 'ruth',
-  '1 kings', '2 kings', '3 kings', '4 kings', '1 paralipomenon', '2 paralipomenon', '1 esdras', '2 esdras',
-  'tobias', 'judith', 'esther', 'job', 'psalms', 'proverbs', 'ecclesiastes', 'canticles', 'wisdom',
-  'ecclesiasticus', 'isaias', 'jeremias', 'lamentations', 'baruch', 'ezechiel', 'daniel', 'osee', 'joel',
-  'amos', 'abdias', 'jonas', 'micheas', 'nahum', 'habacuc', 'sophonias', 'aggeus', 'zacharias', 'malachias',
-  '1 machabees', '2 machabees', 'matthew', 'mark', 'luke', 'john', 'acts', 'romans', '1 corinthians',
-  '2 corinthians', 'galatians', 'ephesians', 'philippians', 'colossians', '1 thessalonians', '2 thessalonians',
-  '1 timothy', '2 timothy', 'titus', 'philemon', 'hebrews', 'james', '1 peter', '2 peter', '1 john', '2 john',
-  '3 john', 'jude', 'apocalypse',
-];
 const BIBLE_ALIASES: Record<string, string> = {
   joshua:          'josue',
   jos:             'josue',
