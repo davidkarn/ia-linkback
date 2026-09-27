@@ -8,6 +8,7 @@ import { Link } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatLocations, useBookTitles } from '../core/page_rendering';
 import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
+import { PageInsightsSummary } from './page_insights';
 
 // One book's page, in one of the side-by-side columns. hrefForPage(pageId) is the URL with this column turned
 // to that page; hrefForCitingBook(bookId, pageId) is the URL with that book opened to this column's right.
@@ -93,10 +94,18 @@ export const BookPageView = ({
             )
           ),
           __('aside', {className: 'cited-by'},
+            page.foreignCitations.length > 0
+              && __(PageInsightsSummary, {bookId, pageId}),
+            
             __('h2', {}, 'Cited by'),
+            
             page.foreignCitations.length === 0
-              ? __('p', {className: 'muted'}, 'No other books in the collection cite this page.')
-              : __('ul', {}, page.foreignCitations.map(c => __(CitedBy, {key: c.id, citation: c, hrefForCitingBook})))
+              ? __('p', {className: 'muted'},
+                'No other books in the collection cite this page.'
+              )
+              : __('ul', {}, page.foreignCitations.map(
+                c => __(CitedBy, {key: c.id, citation: c, hrefForCitingBook})
+              ))
           )
         )
     ));
