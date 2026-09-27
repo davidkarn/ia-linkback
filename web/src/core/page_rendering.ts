@@ -1,4 +1,19 @@
-import type { Citation } from "../api";
+import { useEffect, useState } from "react";
+import { fetchBook, fetchBooks, type Citation } from "../api";
+
+let bookTitles: Promise<Map<string, string>> | null = null;
+export const useBookTitles = () => {
+  const [titles, setTitles] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    bookTitles ??= fetchBooks({ length: 100 })
+      .then(list => new Map(list.items.map(b => [b.id, b.title])));
+    bookTitles.then(setTitles).catch(() => {});
+  }, []);
+
+  return titles;
+};
+
 
 export const LOCATION_LABELS: Record<string, string> = {
   page: 'p.', chapter: 'ch.', book: 'bk.', volume: 'vol.', question: 'q.', article: 'a.',

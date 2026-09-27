@@ -10,6 +10,7 @@
     cursor: default;
     touch-action: none;
     user-select: none;
+    min-width: 5rem;
 
     .lines {
         display: flex;

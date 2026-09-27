@@ -1,9 +1,9 @@
 import { useEffect, useRef, createElement as __ } from 'react'
 import { useNavigate } from 'react-router'
 import { useMachine } from '@xstate/react'
-import type { PageOrderEntry } from './api'
-import { BookPagerMachine } from './BookPagerMachine'
-import "./BookPager.scss"
+import type { PageOrderEntry } from '../api'
+import { BookPagerMachine } from './book_pager_machine'
+import "./book_pager.scss"
 
 const NEIGHBORS = 2;
 const pagerLabel = (entry: PageOrderEntry) => entry.printedPageNumber || '[' + entry.pageId + ']';

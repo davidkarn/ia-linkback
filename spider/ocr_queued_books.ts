@@ -11,11 +11,10 @@ import { SURYA_RESULTS_DIR, ocrFolderName, pdfPath, suryaResultsPath } from '../
 
 dotenv.config();
 
-
 const db = new Kysely<Database>({
   dialect: new PostgresDialect({
     pool: new Pool({
-        connectionString:../ core / book_files.jsE_URL
+      connectionString: process.env.DATABASE_URL
     })
   }),
 });
