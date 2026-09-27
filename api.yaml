@@ -155,7 +155,7 @@ components:
         foreignCitations:
           type: array
           items:
-            $ref: '#/components/schemas/Citation'
+            $ref: '#/components/schemas/PageCitation'
         blocks:
           type: array
           items:
@@ -168,7 +168,18 @@ components:
               citations:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Citation'                                
+                  $ref: '#/components/schemas/PageCitation'                                
+    PageCitation:
+      description: a Citation with the HTML of the page its footnote is on
+      allOf:
+        - $ref: '#/components/schemas/Citation'
+        - type: object
+          required:
+            - sourcePageText
+          properties:
+            sourcePageText:
+              description: the citing page's blocks' HTML, in reading order, one per line, without running headers and footers and with only this citation's footnote
+              type: string
     BookSummary:
       type: object
       required:
@@ -228,6 +239,8 @@ components:
           footnoteIdentifier:
             type: string
           footnotePage:
+            type: string
+          sourcePageText:
             type: string
         author:
           type: string

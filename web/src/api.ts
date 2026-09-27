@@ -28,10 +28,15 @@ export type Citation = {
   locationsCited: CitationLocation[],
 };
 
+// A Citation in GET /books/{bookId}/pages/{pageId}, with the HTML of the page its footnote is on (its blocks'
+// HTML in reading order, one per line, without running headers and footers, and with only this citation's
+// footnote)
+export type PageCitation = Citation & { sourcePageText: string };
+
 export type PageBlock = {
   label: 'SectionHeader' | 'Text' | 'PageHeader' | 'PageFooter' | 'Footnote',
   html: string,
-  citations: Citation[],
+  citations: PageCitation[],
 };
 
 // GET /books/{bookId}/pages/{pageId}
@@ -40,7 +45,7 @@ export type BookPage = {
   pageNumber: number,
   printedPageNumber: string,
   blocks: PageBlock[],
-  foreignCitations: Citation[],  // citations in other books that point to this page
+  foreignCitations: PageCitation[],  // citations in other books that point to this page
 };
 
 const getJson = async <T>(path: string): Promise<T> => {

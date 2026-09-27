@@ -13,9 +13,67 @@ export type BookPage = {
   bookId: string,
   pageNumber: number,
   printedPageNumber: string,
-  blocks: { label: string, html: string, citations: CitationDto[] }[],
-  foreignCitations: CitationDto[],
+  blocks: { label: string, html: string, citations: PageCitationDto[] }[],
+  foreignCitations: PageCitationDto[],
 };
+
+// A citation with the HTML of the page its footnote is on (see citation_page_html)
+export type PageCitationDto = CitationDto & { sourcePageText: string };
+
+type SourceBlock = { id: string, label: string, html: string };
+
+// The footnote marker a paragraph starts with ("<p><sup>18</sup> ...", "<p>18 ...", "<p>1) ...", "<p>* ..."),
+// without trailing ")" or "."; null for a paragraph that continues the footnote before it
+const paragraph_marker = (p: string): string | null => {
+  const m = p.match(/^\s*<p>\s*(?:<sup>\s*([^<]+?)\s*<\/sup>|(\d{1,3}\)?|[*†‡])\s)/i);
+  const marker = m?.[1] ?? m?.[2];
+  return marker === undefined ? null : marker.trim().replace(/[).]+$/, '');
+};
+
+// The paragraphs of a citation's footnote among its page's Footnote blocks: from the paragraph in the
+// citation's block whose marker is its identifier (or, for a footnote continued from the previous page, with
+// no identifier, from the block's first paragraph) through the unmarked paragraphs after it, which can run on
+// into later blocks, up to the next marked footnote. If no paragraph matches, the citation's whole block.
+// Returns the kept paragraphs' HTML per block id.
+const footnote_paragraphs = (footnoteBlocks: SourceBlock[], blockId: string, identifier: string) => {
+  const paragraphs = footnoteBlocks.flatMap(b => (
+    b.html.split(/(?=<p[\s>])/i).filter(p => p.trim()).map(html => ({ blockId: b.id, html, marker: paragraph_marker(html) }))
+  ));
+  const wanted = identifier.trim().replace(/[).]+$/, '');
+
+  let start = paragraphs.findIndex(p => p.blockId === blockId && (wanted ? p.marker === wanted : true));
+  if (start >= 0 && !wanted && paragraphs[start]!.marker !== null) {
+    start = -1;   // no identifier, but the block starts a new footnote: can't tell which
+  }
+
+  const kept = new Map<string, string[]>();
+  if (start < 0) {
+    const block = footnoteBlocks.find(b => b.id === blockId);
+    if (block) kept.set(block.id, [block.html]);
+    return kept;
+  }
+  for (let i = start; i < paragraphs.length && (i === start || paragraphs[i]!.marker === null); i++) {
+    const p = paragraphs[i]!;
+    kept.set(p.blockId, [...(kept.get(p.blockId) ?? []), p.html]);
+  }
+  return kept;
+};
+
+// sourcePageText: the HTML of the page a citation's footnote is on, one block per line in reading order,
+// without running headers and footers, and with only the citation's own footnote of the page's footnotes
+const citation_page_html = (blocks: SourceBlock[], blockId: string, identifier: string) => {
+  const footnote = footnote_paragraphs(blocks.filter(b => b.label === 'Footnote'), blockId, identifier);
+
+  return blocks
+    .flatMap(b => (
+      b.label === 'PageHeader' || b.label === 'PageFooter' ? []
+        : b.label === 'Footnote' ? (footnote.has(b.id) ? [footnote.get(b.id)!.join('').trim()] : [])
+        : [b.html]
+    ))
+    .join('\n');
+};
+
+const page_key = (bookId: string, pageNumber: number) => bookId + '\u0000' + pageNumber;
 
 // How many citations in other books point at the book (as /books/{id}/citationsTo counts them).
 const cited_by_count = (eb: ExpressionBuilder<Database, 'books'>) =>
@@ -183,7 +241,7 @@ export class BooksService {
 
       const foreignCitations = printedNumber === null ? [] : await this.db
         .selectFrom('citations')
-        .select(citation_columns)
+        .select(eb => [...citation_columns(eb), 'citations.page_block_id'])
         .where('citations.reference_book_id', '=', bookId)
         .where('citations.source_book_id', '<>', bookId)
         .where(eb => eb.exists(
@@ -197,6 +255,41 @@ export class BooksService {
         .orderBy('citations.id')
         .execute();
 
+      // The HTML of every page a citation's footnote is on: this one, and the citing pages in other books
+      const sourcePages = [...new Map(
+        [...blockCitations, ...foreignCitations]
+          .map(c => [page_key(c.source_book_id, c.source_footnote_page), c] as const)
+      ).values()];
+      const sourceBlocks = sourcePages.length === 0 ? [] : await this.db
+        .selectFrom('page_blocks')
+        .select(['page_blocks.id', 'page_blocks.book_id', 'page_blocks.page_number', 'page_blocks.label', 'page_blocks.html'])
+        .where(eb => eb.or(sourcePages.map(c => eb.and([
+          eb('page_blocks.book_id', '=', c.source_book_id),
+          eb('page_blocks.page_number', '=', c.source_footnote_page),
+        ]))))
+        .orderBy('page_blocks.book_id')
+        .orderBy('page_blocks.page_number')
+        .orderBy('page_blocks.position')
+        .execute();
+
+      const blocksByPage = new Map<string, SourceBlock[]>();
+      for (const b of sourceBlocks) {
+        const key = page_key(b.book_id, b.page_number);
+        blocksByPage.set(key, [...(blocksByPage.get(key) ?? []), b]);
+      }
+      const with_source_text = (
+        c: typeof blockCitations[number] | typeof foreignCitations[number]
+      ): PageCitationDto => ({
+        ...to_citation_dto(c),
+        sourcePageText: citation_page_html(
+          blocksByPage.get(
+            page_key(c.source_book_id, c.source_footnote_page)
+          ) ?? [],
+          c.page_block_id,
+          c.source_footnote_identifier
+        ),
+      });
+
       return {
         bookId,
         pageNumber: page.page_number,
@@ -206,9 +299,9 @@ export class BooksService {
           html: b.html,
           citations: blockCitations
             .filter(c => c.page_block_id === b.id)
-            .map(to_citation_dto),
+            .map(with_source_text),
         })),
-        foreignCitations: foreignCitations.map(to_citation_dto),
+        foreignCitations: foreignCitations.map(with_source_text),
       };
     }
   }
