@@ -63,15 +63,19 @@ export const BookPageView = ({
                 __('div', {className: 'spacer'}),
                 __('div', {className: 'pager-buttons'},
                   prevPage && (
-                    __('div', {className: 'pager-button'},
-                      __(Link, {to: prevPage}, __(ChevronLeft, {})),
-                      'Previous page',
+                    __(Link, {to: prevPage}, 
+                      __('div', {className: 'pager-button'},
+                        __(ChevronLeft, {}),
+                        'Previous page',
+                      )
                     )
                   ),
                   nextPage && (
-                    __('div', {className: 'pager-button'},
-                      'Next page', 
-                      __(Link, {to: nextPage}, __(ChevronRight, {}))
+                    __(Link, {to: nextPage},
+                      __('div', {className: 'pager-button'},
+                        'Next page', 
+                        __(ChevronRight, {})
+                      )
                     )
                   )
                 ),

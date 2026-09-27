@@ -187,13 +187,6 @@ a {
     // As many columns as fit at 11rem or more, stretched to fill the row: widening the window grows the
     // covers until there's room for another column. auto-fill (not auto-fit) keeps a short list, like a
     // search with two results, at normal size instead of stretching it across the row.
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-    gap: 1rem;
-    padding: 0;
-    margin: 0;
-    width: 100%;
-    position: relative;
 
     .overlay {
         background: #FFF8;
@@ -278,33 +271,174 @@ a {
     flex-grow: 1;
 }
 
-// Index page search box, in the page header
-.search {
+
+
+.home-library {
+    padding: 1rem;
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+    padding-bottom: 2rem;
+    flex-direction: column;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    align-self: center;
-    width: min(20rem, 100%);
-    padding: 0.25rem 0.5rem;
-    background: white;
-    border-radius: 4px;
-    color: $ash-brown;
+    gap: 2rem;
 
-    transition-property: color, border-color;
-    transition-duration: 250ms;
-    border: 1px solid #547593;
-
+    background-color: var(--light-background);
     
-    &:focus-within {
-        border: 1px solid #345573;
+    .library-header {
+        flex-direction: column;
+        display: flex;
+        gap: 1rem;
+        
+        h1 {
+            font-size: 1.75rem;
+            margin: 0;
+        }
+        
+        .library-toolbar {
+            display: flex;
+            flex-direction: row;
+            gap: 1rem;
+            
+            .search-box {
+                width: min(20rem, 100%);                
+                .search {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    align-self: center;
+                    width: min(30rem, 100%);
+                    padding: 0.25rem 0.5rem;
+                    background: white;
+                    border-radius: 4px;
+                    color: $ash-brown;
+                    font-size: 0.875rem;
+
+                    transition-property: color, border-color;
+                    transition-duration: 250ms;
+                    border: 1px solid #547593;
+                    
+                    &:focus-within {
+                        border: 1px solid #345573;
+                    }
+
+                    input {
+                        flex-grow: 1;
+                        min-width: 0;
+                        border: none;
+                        outline: none;
+                        background: transparent;
+                        color: $carbon-black;
+                    }
+                }                
+            }
+
+            .showing-info {
+                font-size: 0.875rem;
+            }
+            
+        }
     }
 
-    input {
-        flex-grow: 1;
-        min-width: 0;
-        border: none;
-        outline: none;
-        background: transparent;
-        color: $carbon-black;
+    ol.bookshelf {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+        gap: 1rem;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+    
+        li.book-card {
+            background: white;
+            display: flex;
+            flex-direction: column;
+            list-style-type: none;
+            border: 1px solid var(--light-accent);
+            padding: 1rem;
+
+            box-shadow: 0px 4px 5px rgba(0, 0, 0, 0.5);
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.05);
+            
+            
+            
+            .book-details {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+                height: 100%;
+                
+                .title {
+                    font-size: 1rem;
+                    margin: 0;
+                    padding: 0;
+                }
+                
+                .author {
+                    font-size: 0.75rem;
+                    margin: 0;
+                }
+
+                hr {
+                    margin-top: 1rem;
+                    margin-bottom: 0.25rem;
+                }
+
+                .book-stats {
+                    display: flex;
+                    flex-direction: row;
+                    gap: 1rem;
+                    
+                    .stat {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0rem;
+                        line-height: 1.2;
+                        
+                        .stat-label {
+                            text-transform: uppercase;
+                            font-size: 0.625rem;
+                        }
+                        
+                        span {
+                            font-size: 0.875rem;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    nav.pager {
+        align-self: center;
+        
+        button {
+            align-self: stretch;
+            height: 100%;
+        }
+    }
+}
+
+hr {
+    width: 100%;
+    align-self: stretch;
+    height: 1px;
+    background-color: var(--light-accent);
+    border: 0;
+}
+
+a {
+    text-transform: none;
+    color: var(--deep-blue);
+    
+    &:hover, &:focus {
+        cursor: pointer;
+        font-weight: bold;
+        
+    }
+    
+    &:visited {
+        color: var(--deep-purple);
+    }
+
+    &:active {
     }
 }

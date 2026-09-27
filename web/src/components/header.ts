@@ -4,9 +4,11 @@ import './header.scss';
 export const Header = () => {
   return (
     __('header', {className: 'site-header'},
-      __('div', {className: 'site-name'},
-        __('img', {src: '/logo-small.png', id: 'site-logo'}),
-        __('div', {}, "Tela Lucis"),
+      __('a', {href: '/'},
+        __('div', {className: 'site-name'},
+          __('img', {src: '/logo-small.png', id: 'site-logo'}),
+          __('div', {}, "Tela Lucis"),
+        )
       ),
       __('div', {className: 'separator'}),
       __('nav', {className: 'navbar'},

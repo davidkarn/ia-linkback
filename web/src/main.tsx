@@ -2,7 +2,7 @@ import { StrictMode, createElement as __ } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import './index.css'
-import App from './App.tsx'
+import App from './pages/home.ts'
 import BookView from './pages/book_view.ts'
 
 createRoot(document.getElementById('root')!).render(
