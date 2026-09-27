@@ -152,6 +152,31 @@
         .muted {
             font-size: 0.75rem;
         }
+
+        // the citing page, scrolled to where it cites this one
+        .source-page {
+            position: relative;   // so marks' offsetTop is measured from here
+            max-height: 14rem;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 0.8125rem;
+            line-height: 1.5;
+
+            p {
+                margin: 0 0 0.5rem;
+            }
+
+            mark {
+                background: #fde68a;
+                color: inherit;
+                border-radius: 2px;
+                padding: 0 0.125rem;
+            }
+        }
     }
 }
 

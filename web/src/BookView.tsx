@@ -1,8 +1,8 @@
-import { useEffect, useState, createElement as __, Fragment } from 'react'
+import { useEffect, useMemo, useRef, useState, createElement as __, Fragment } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { match } from 'ts-pattern';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
-import { fetchBook, fetchBooks, fetchPage, type Book, type BookPage, type Citation, type PageBlock, type PageOrderEntry } from './api'
+import { fetchBook, fetchBooks, fetchPage, type Book, type BookPage, type Citation, type PageBlock, type PageCitation, type PageOrderEntry } from './api'
 import { assertCond } from './lib';
 import "./BookView.scss"
 import BookPager from './BookPager';
@@ -229,7 +229,7 @@ function Block({block}: {block: PageBlock}) {
   );
 }
 
-function CitedBy({citation}: {citation: Citation}) {
+function CitedBy({citation}: {citation: PageCitation}) {
   const titles = useBookTitles();
   const source = citation.source;
 
@@ -241,7 +241,63 @@ function CitedBy({citation}: {citation: Citation}) {
       __('div', {className: 'muted'},
         'footnote ' + source.footnoteIdentifier,
         citation.locationsCited.length > 0 && ' · cites ' + formatLocations(citation.locationsCited)
-      )
+      ),
+      citation.sourcePageText && __(SourcePage, {citation})
     )
   );
+}
+
+// A footnote marker as printed, for comparing: "18", "1)", "18." -> "18", "1", "18"
+const markerKey = (marker: string) => marker.trim().replace(/[).]+$/, '');
+
+// The citing page's HTML with every occurrence of the citation's footnote marker wrapped in <mark>: the note
+// reference in the body text ("...Christology<sup>18</sup>") and the marker that starts the footnote itself,
+// whether superscript or a plain "18 " at the start of its paragraph.
+const highlightFootnote = (html: string, identifier: string): string => {
+  const key = markerKey(identifier);
+  if (!key) return html;
+
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const wrap = (node: Node) => {
+    const mark = document.createElement('mark');
+    node.parentNode!.replaceChild(mark, node);
+    mark.appendChild(node);
+  };
+
+  for (const sup of [...template.content.querySelectorAll('sup')]) {
+    if (markerKey(sup.textContent ?? '') === key) wrap(sup);
+  }
+  for (const p of [...template.content.querySelectorAll('p')]) {
+    const first = p.firstChild;
+    const match = first?.nodeType === Node.TEXT_NODE ? first.textContent!.match(/^\s*(\S+)\s/) : null;
+    if (first && match && markerKey(match[1]!) === key) {
+      // split "18 Cfr. ..." into "18" (marked) and " Cfr. ..."
+      const text = first as Text;
+      const start = text.textContent!.indexOf(match[1]!);
+      const marker = text.splitText(start);
+      marker.splitText(match[1]!.length);
+      wrap(marker);
+    }
+  }
+  return template.innerHTML;
+};
+
+// The citing page's text under a "Cited by" entry, scrolled to the first highlighted marker (usually where the
+// body text cites this page)
+function SourcePage({citation}: {citation: PageCitation}) {
+  const box = useRef<HTMLDivElement>(null);
+  const html = useMemo(
+    () => highlightFootnote(citation.sourcePageText, citation.source.footnoteIdentifier),
+    [citation.sourcePageText, citation.source.footnoteIdentifier]
+  );
+
+  useEffect(() => {
+    const mark = box.current?.querySelector('mark');
+    if (box.current && mark) {
+      box.current.scrollTop = Math.max(0, mark.offsetTop - box.current.clientHeight / 3);
+    }
+  }, [html]);
+
+  return __('div', {className: 'source-page', ref: box, dangerouslySetInnerHTML: {__html: html}});
 }
