@@ -6,7 +6,7 @@
 // src/), so the same author and title are only searched once. Requests are spaced ~1s apart.
 
 import fs from 'node:fs';
-import { fold, sameAuthor, sameTitle, surnames, tokens } from './citation_matching.ts';
+import { fold, sameAuthor, sameTitle, surnames, tokens } from './citation_matching.js';
 
 const ARCHIVE_BASE = process.env.ARCHIVE_BASE ?? 'https://archive.org';
 const CACHE_FILE   = 'output/archive_cache.json';

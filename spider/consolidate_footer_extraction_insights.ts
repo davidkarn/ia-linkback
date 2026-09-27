@@ -3,7 +3,7 @@ import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 import type { Database } from '../api/database.ts';
-import { makeOpenRouterRequest, parseJsonResponse, type ORResponseFormat } from './open_router.ts';
+import { makeOpenRouterRequest, parseJsonResponse, type ORResponseFormat } from '../lib/open_router.js';
 
 dotenv.config()
 

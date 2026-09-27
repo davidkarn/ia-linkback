@@ -13,7 +13,7 @@ import dotenv from 'dotenv';
 import type { Book } from '../types.js';
 import { arrayToMapOfRecords } from '../lib/lib.js';
 import type { Database, QueuedBookImportsTable } from '../api/database.js';
-import { SURYA_RESULTS_DIR, ocrFolderName, pdfPath, suryaResultsPath } from './book_files.ts';
+import { SURYA_RESULTS_DIR, ocrFolderName, pdfPath, suryaResultsPath } from '../lib/book_files.js';
 
 dotenv.config()
 
