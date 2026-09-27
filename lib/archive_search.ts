@@ -55,12 +55,12 @@ const getJson = async<T>(url: string): Promise<T | undefined> => {
         await new Promise((r) => setTimeout(r, 5000 * (attempt + 1)));
         continue;
       }
-
-      if (!res.ok) {
+      else if (!res.ok) {
         throw new Error(`${ res.status } ${ url }`);
       }
-
-      return await res.json();
+      else {
+        return await res.json();
+      }
     }
     catch (e) {
       if (attempt === 2) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { ocrFolderName, pdfFileName } from './book_files.ts';
+import { ocrFolderName, pdfFileName } from './book_files.js';
 
 describe('pdfFileName', () => {
   it('is the last part of the pdf url, still URL-encoded', () => {

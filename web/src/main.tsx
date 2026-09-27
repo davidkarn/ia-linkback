@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import './index.css'
 import App from './App.tsx'
-import BookView from './BookView.tsx'
+import BookView from './pages/book_view.ts'
 
 createRoot(document.getElementById('root')!).render(
   __(StrictMode, {},

@@ -7,9 +7,29 @@
   --accent: #6d28d9;
   --error: #b42318;
 
+  --gray-purple: #554F59;
+  --deep-purple: #343959;
+  --deep-blue: #345573;
+  --bright-blue: #1E91D9;
+  --reddish-brown: #6B484C;
+
+--pale-oak: #E1CAABff;
+--old-lace: #FAF3E5ff;
+--toffee-brown: #855E43ff;
+--carbon-black: #222423ff;
+--ash-brown: #604F42ff;
+
+--primary-color: #443969;
+--secondary-color: #554F59;
+--accent-color: #6B484C;
+--red-color: #BB484C;
+--light-accent: #E2E4E3;
+--light-background: #f7f9f8;
+
+
   font: 16px;
   line-height: 1.4;
-    font-family: crimson text, serif;
+  font-family: crimson text, serif;
   color-scheme: light dark;
   color: var(--text);
   background: var(--bg);
