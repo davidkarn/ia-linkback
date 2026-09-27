@@ -12,7 +12,7 @@ import { citedTitle, sameAuthor, sameTitle, skipCitation, volumeOf } from './cit
 import { searchArchive } from './archive_search.ts';
 import dotenv from 'dotenv';
 import type { Book } from '../types.js';
-import { arrayToMapOfRecords } from '../lib.js';
+import { arrayToMapOfRecords } from '../lib/lib.js';
 
 dotenv.config()
 

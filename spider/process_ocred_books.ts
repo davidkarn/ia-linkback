@@ -5,12 +5,14 @@ import { Pool } from 'pg';
 import type { Selectable } from 'kysely';
 import type { Database, QueuedBookImportsTable } from '../api/database.ts';
 import { build_pages, strip_tags } from './book_pages.ts';
+import { pdfForBookId, suryaResultsPath } from './book_files.ts';
+import { find_cover_page, render_page } from './cover_images.ts';
 import type { Citation, CitationLocation, SuryaBook, SuryaPage } from '../types.ts';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import type { JSONSchema7 } from "json-schema";
-import { arrayToMapOfRecords } from '../lib.ts';
+import { arrayToMapOfRecords } from '../lib/lib.js';
 
 dotenv.config()
 
@@ -37,11 +39,8 @@ const getBookContents = (book: QueuedBook): Promise<SuryaBook> => {
   if (!book.pdf_url) {
     throw new Error(`queued book ${book.id} has no pdf_url`);
   }
-  const fileName = path.basename(book.pdf_url, path.extname(book.pdf_url));
-  return fs.readFile(
-    '../scholshelf/results/surya/' + fileName + '/results.json',
-    { encoding: 'utf8' }
-  ).then(data => JSON.parse(data));
+  return fs.readFile(suryaResultsPath(book.pdf_url), { encoding: 'utf8' })
+    .then(data => JSON.parse(data));
 }
 
 // Two insights are the same when they differ only in case, spacing, quote style or trailing punctuation.
@@ -545,6 +544,39 @@ const saveCitationsToDatabase = async (
     unplaced: unplaced.length,
     failedPages: extracted.failedPages.length
   };
+};
+
+// The frontend's covers folder (web/public/covers); the path is relative to this file, not the working directory
+const COVERS_DIR = path.join(import.meta.dirname, '../web/public/covers');
+
+/**
+ * find the cover image from the book in the downloaded pdf,
+ * save it to ../web/public/covers/, then update the books table with the
+ * cover image path
+ *
+ * The cover is the first page that isn't blank or a scanner's notice (see cover_images.ts), rendered 600px wide.
+ * books.cover_photo_path is set to "covers/<file>", relative to web/public, so the frontend serves it at
+ * /covers/<file>. The file name is the book id with anything but letters, digits, "_" and "-" made "_": book
+ * ids can hold URL escapes ("Dieu%2C%20son..."), which the browser would decode when asking for the image.
+ */
+const saveCoverImage = async (bookId: string) => {
+  const pdf = await pdfForBookId(bookId);
+  if (!pdf) {
+    throw new Error(`no PDF for book ${bookId} in the scholshelf folder`);
+  }
+
+  const fileName = bookId.replace(/[^A-Za-z0-9_-]/g, '_') + '.jpg';
+  const cover    = find_cover_page(pdf);
+
+  await fs.mkdir(COVERS_DIR, { recursive: true });
+  render_page(pdf, cover.page, path.join(COVERS_DIR, fileName));
+
+  await db.updateTable('books')
+    .set({ cover_photo_path: 'covers/' + fileName })
+    .where('id', '=', bookId)
+    .execute();
+
+  return { coverPhotoPath: 'covers/' + fileName, page: cover.page + 1, skipped: cover.skipped };
 };
 
 const processAndStoreBook = async (queued: QueuedBook) => {
