@@ -120,6 +120,7 @@ paths:
       summary: >-
         What other books in the collection say about this page: an LLM summary of the passages
         that cite it (each citing page with two pages before and after), with this page as context.
+        The result is cached per page until a citation is newly linked to the page.
       responses:
         '200':
           description: the insights

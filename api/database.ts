@@ -1,6 +1,7 @@
 // Kysely table types. They mirror migrations/0001_create_book_tables.ts and the shapes in ../types.ts.
-import type { Generated } from 'kysely';
+import type { ColumnType, Generated } from 'kysely';
 import type { CitationLocation, PageBlock } from '../types';
+import type { PageInsights } from '../core/page_insights';
 
 export interface BooksTable {
   id: string,
@@ -75,6 +76,14 @@ export interface FootnoteExtractionInsightsTable {
   created_at: Generated<Date>,
 }
 
+// The last insights made for a page; insights is written as a JSON string and read back parsed
+export interface PageInsightsCacheTable {
+  book_id: string,
+  page_number: number,
+  insights: ColumnType<PageInsights, string, string>,
+  created_at: Generated<Date>,
+}
+
 export interface Database {
   books: BooksTable,
   pages: PagesTable,
@@ -84,4 +93,5 @@ export interface Database {
   citation_locations: CitationLocationsTable,
   queued_book_imports: QueuedBookImportsTable,
   footnote_extraction_insights: FootnoteExtractionInsightsTable,
+  page_insights_cache: PageInsightsCacheTable,
 }

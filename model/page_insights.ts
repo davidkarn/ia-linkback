@@ -1,9 +1,9 @@
 // Database reads for pages and the citations of them: a page, the citations in other books
 // that cite it, those books' titles and authors, and the text of the pages around each citing
 // page.
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
-import type { CitingCitation, ContextPage } from '../core/page_insights.ts';
+import type { CitingCitation, ContextPage, PageInsights } from '../core/page_insights.ts';
 
 export const findPage = (db: Kysely<Database>, bookId: string, pageNumber: number) => (
   db.selectFrom('pages')
@@ -105,4 +105,56 @@ export const findContextPages = async(
   }
 
   return { get: (bookId, pageNumber) => pages.get(pageKey(bookId, pageNumber)) };
+};
+
+// The cached insights for a page, if any
+export const findCachedInsights = async(
+  db: Kysely<Database>, bookId: string, pageNumber: number
+): Promise<PageInsights | undefined> => {
+  const row = await db.selectFrom('page_insights_cache')
+    .select('page_insights_cache.insights')
+    .where('page_insights_cache.book_id', '=', bookId)
+    .where('page_insights_cache.page_number', '=', pageNumber)
+    .executeTakeFirst();
+
+  return row?.insights;
+};
+
+export const saveCachedInsights = (db: Kysely<Database>, insights: PageInsights) => (
+  db.insertInto('page_insights_cache')
+    .values({
+      book_id:     insights.bookId,
+      page_number: insights.pageId,
+      insights:    JSON.stringify(insights),
+    })
+    .onConflict((oc) => oc.columns(['book_id', 'page_number']).doUpdateSet((eb) => ({
+      insights:   eb.ref('excluded.insights'),
+      created_at: sql<Date>`now()`,
+    })))
+    .execute()
+);
+
+// Delete the cached insights of every page these citations point to: in the book each references,
+// the pages whose printed number is one of the citation's page locations (the rule
+// citationsOfPage uses). Returns how many were deleted.
+export const invalidateInsightsCitedBy = async(
+  db: Kysely<Database>, citationIds: string[]
+): Promise<number> => {
+  if (!citationIds.length) {
+    return 0;
+  }
+  else {
+    const result = await sql`
+      DELETE FROM page_insights_cache cache
+      USING citations c
+      JOIN citation_locations l ON l.citation_id = c.id AND l.type = 'page'
+      JOIN pages p ON p.book_id = c.reference_book_id
+        AND CASE WHEN p.printed_page_number ~ '^[0-9]+$'
+                 THEN p.printed_page_number::numeric END = l.value
+      WHERE c.id = ANY(${ citationIds }::bigint[])
+        AND cache.book_id = p.book_id
+        AND cache.page_number = p.page_number`.execute(db);
+
+    return Number(result.numAffectedRows ?? 0);
+  }
 };

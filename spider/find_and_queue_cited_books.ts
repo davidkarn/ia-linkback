@@ -9,8 +9,9 @@ import { Kysely, PostgresDialect, sql } from 'kysely';
 import { Pool } from 'pg';
 import type { Selectable } from 'kysely';
 import type { CitationsTable, Database, QueuedBookImportsTable } from '../api/database.ts';
-import { citedTitle, sameAuthor, sameTitle, skipCitation, volumeOf } from '../lib/citation_matching.js';
+import { citedTitle, sameAuthor, sameTitle, skipCitation, volumeOf } from '../core/citation_matching.ts';
 import { searchArchive } from '../lib/archive_search.js';
+import { invalidateInsightsCitedBy } from '../model/page_insights.ts';
 import dotenv from 'dotenv';
 import type { Book } from '../types.js';
 import { arrayToMapOfRecords } from '../lib/lib.js';
@@ -217,15 +218,22 @@ const linkReferences = async(
     return 0;
   }
   else {
-    const result = await sql`
-      UPDATE citations SET reference_book_id = r.book_id
-      FROM unnest(
-        ${ referencing.map((r) => String(r.citationId)) }::bigint[],
-        ${ referencing.map((r) => r.bookId) }::text[]
-      ) AS r(citation_id, book_id)
-      WHERE citations.id = r.citation_id`.execute(db);
+    return db.transaction().execute(async(trx) => {
+      const citationIds = referencing.map((r) => String(r.citationId));
+      const result      = await sql`
+        UPDATE citations SET reference_book_id = r.book_id
+        FROM unnest(
+          ${ citationIds }::bigint[],
+          ${ referencing.map((r) => r.bookId) }::text[]
+        ) AS r(citation_id, book_id)
+        WHERE citations.id = r.citation_id`.execute(trx);
 
-    return Number(result.numAffectedRows ?? 0);
+      // the pages these citations now point to have a new citing source: their cached
+      // insights are out of date
+      await invalidateInsightsCitedBy(trx, citationIds);
+
+      return Number(result.numAffectedRows ?? 0);
+    });
   }
 };
 

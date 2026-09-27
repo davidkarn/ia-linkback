@@ -7,7 +7,7 @@ import {
   toPageInsights, type CitingSource, type InsightsAnswer, type PageInsights,
 } from '../core/page_insights';
 import {
-  findBooks, findCitingCitations, findContextPages, findPage,
+  findBooks, findCachedInsights, findCitingCitations, findContextPages, findPage, saveCachedInsights,
 } from '../model/page_insights';
 import { makeOpenRouterRequest, parseJsonResponse } from '../lib/open_router';
 
@@ -21,10 +21,30 @@ export class OpenRouterFailed extends Error {}
 export class InsightsService {
   constructor(@Inject(DB) private readonly db: Kysely<Database>) {}
 
-  // What other books say about a page they cite, summarized by the model from this page and, for
-  // each citing page, it and the pages around it. 'no page' when the book has no such page;
-  // 'no citations' when nothing in the collection cites it (no request is made then).
+  // What other books say about a page they cite: the cached insights for the page, else new ones
+  // (see makeInsights), which are then cached. 'no page' when the book has no such page;
+  // 'no citations' when nothing in the collection cites it (not cached: no request is made then).
   async pageInsights(
+    bookId: string, pageNumber: number
+  ): Promise<PageInsights | 'no page' | 'no citations'> {
+    const cached = await findCachedInsights(this.db, bookId, pageNumber);
+
+    if (cached) {
+      return cached;
+    }
+    else {
+      const insights = await this.makeInsights(bookId, pageNumber);
+
+      if (typeof insights === 'object') {
+        await saveCachedInsights(this.db, insights);
+      }
+      return insights;
+    }
+  }
+
+  // Insights summarized by the model from this page and, for each citing page, it and the pages
+  // around it
+  private async makeInsights(
     bookId: string, pageNumber: number
   ): Promise<PageInsights | 'no page' | 'no citations'> {
     const page          = await findPage(this.db, bookId, pageNumber);

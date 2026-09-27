@@ -7,7 +7,7 @@ import { Pool } from 'pg';
 import type { Selectable } from 'kysely';
 import dotenv from 'dotenv';
 import type { Database, QueuedBookImportsTable } from '../api/database.js';
-import { SURYA_RESULTS_DIR, ocrFolderName, pdfPath, suryaResultsPath } from '../lib/book_files.js';
+import { SURYA_RESULTS_DIR, ocrFolderName, pdfPath, suryaResultsPath } from '../core/book_files.ts';
 
 dotenv.config();
 

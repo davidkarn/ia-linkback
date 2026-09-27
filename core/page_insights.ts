@@ -99,8 +99,13 @@ export const contextPageNumbers = (
 );
 
 const ENTITIES: Record<string, string> = {
-  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"',
-  '&#x27;': "'", '&#39;': "'", '&nbsp;': ' ',
+  '&amp;':  '&',
+  '&lt;':   '<',
+  '&gt;':   '>',
+  '&quot;': '"',
+  '&#x27;': "'",
+  '&#39;':  "'",
+  '&nbsp;': ' ',
 };
 
 // A page as plain text for the model: its blocks in reading order without running headers and
@@ -161,7 +166,7 @@ export const buildInsightsMessages = ({ book, page, sources }: {
         `SOURCE ${ sourceId(i) }: "${ s.title }" by ${ s.author }. `
           + `It cites the page in footnote `
           + `${ s.footnoteIdentifiers.join(', ') || '(unnumbered)' } on `
-            `scan page ${ s.pageNumber }.`,
+          + `scan page ${ s.pageNumber }.`,
         ...s.context.map((p) => (
           pageHeading(p) + (
             p.pageNumber === s.pageNumber
