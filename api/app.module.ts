@@ -4,10 +4,12 @@ import { BooksService } from './books.service';
 import { CitationsController } from './citations.controller';
 import { CitationsService } from './citations.service';
 import { DatabaseModule } from './database.module';
+import { InsightsController } from './insights.controller';
+import { InsightsService } from './insights.service';
 
 @Module({
   imports:     [DatabaseModule],
-  controllers: [BooksController, CitationsController],
-  providers:   [BooksService, CitationsService],
+  controllers: [BooksController, CitationsController, InsightsController],
+  providers:   [BooksService, CitationsService, InsightsService],
 })
 export class AppModule {}

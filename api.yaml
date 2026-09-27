@@ -100,6 +100,41 @@ paths:
                 $ref: '#/components/schemas/BookPage'
         '404':
           description: no such book or page
+  /books/{bookId}/pages/{pageId}/insights:
+    get:
+      tags:
+        - Books
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: pageId
+          description: a pageId from the book's pageOrder
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      summary: >-
+        What other books in the collection say about this page: an LLM summary of the passages
+        that cite it (each citing page with two pages before and after), with this page as context.
+      responses:
+        '200':
+          description: the insights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageInsights'
+        '204':
+          description: nothing in the collection cites this page (no summary is made)
+        '404':
+          description: no such book or page
+        '502':
+          description: the OpenRouter request failed
+        '503':
+          description: insights are unavailable (OPENROUTER_KEY is not set)
   /books/{bookId}/citationsTo:
     get:
       tags:
@@ -169,6 +204,57 @@ components:
                 type: array
                 items:
                   $ref: '#/components/schemas/PageCitation'                                
+    PageInsights:
+      type: object
+      required:
+        - bookId
+        - pageId
+        - printedPageNumber
+        - overview
+        - sources
+      properties:
+        bookId:
+          type: string
+        pageId:
+          type: number
+        printedPageNumber:
+          type: string
+        overview:
+          description: how the citing sources, taken together, treat this page
+          type: string
+        sources:
+          description: one per page in another book that cites this page, with what it says
+          type: array
+          items:
+            type: object
+            required:
+              - bookId
+              - title
+              - author
+              - pageId
+              - printedPageNumber
+              - footnoteIdentifiers
+              - summary
+            properties:
+              bookId:
+                type: string
+              title:
+                type: string
+              author:
+                type: string
+              pageId:
+                description: the citing page (a pageId of that book)
+                type: number
+              printedPageNumber:
+                type: string
+              footnoteIdentifiers:
+                description: the footnote markers on that page that cite this page
+                type: array
+                items:
+                  type: string
+              summary:
+                description: what that author says about this page ('' if the model gave none)
+                type: string
     PageCitation:
       description: a Citation with the HTML of the page its footnote is on
       allOf:

@@ -3,6 +3,8 @@ import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import { DB } from './database.module';
 import type { Database } from './database';
 import { citation_columns, to_citation_dto, type CitationDto } from './citations.service';
+import { citablePageNumber } from '../core/page_insights';
+import { citationsOfPage } from '../model/page_insights';
 
 export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number, citedByCount: number };
 // citedByCount: citations in other books that cite this page (the foreignCitations of GET /books/{id}/pages/{id})
@@ -233,26 +235,13 @@ export class BooksService {
         .orderBy('citations.id')
         .execute();
 
-      // Citations give page numbers as integers, so pages printed with roman numerals (or unnumbered)
-      // can't be matched.
-      const printedNumber = /^\d+$/.test(page.printed_page_number)
-        ? Number(page.printed_page_number)
-        : null;
+      // pages printed with roman numerals (or unnumbered) can't be cited by number
+      const printedNumber = citablePageNumber(page.printed_page_number);
 
-      const foreignCitations = printedNumber === null ? [] : await this.db
-        .selectFrom('citations')
+      const foreignCitations = printedNumber === null ? [] : await citationsOfPage(
+        this.db, bookId, printedNumber
+      )
         .select((eb) => [...citation_columns(eb), 'citations.page_block_id'])
-        .where('citations.reference_book_id', '=', bookId)
-        .where('citations.source_book_id', '<>', bookId)
-        .where((eb) => eb.exists(
-          eb.selectFrom('citation_locations')
-            .whereRef('citation_locations.citation_id', '=', 'citations.id')
-            .where('citation_locations.type', '=', 'page')
-            .where('citation_locations.value', '=', printedNumber),
-        ))
-        .orderBy('citations.source_book_id')
-        .orderBy('citations.source_footnote_page')
-        .orderBy('citations.id')
         .execute();
 
       // The HTML of every page a citation's footnote is on: this one, and the citing pages in other books
