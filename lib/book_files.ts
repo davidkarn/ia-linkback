@@ -27,8 +27,8 @@ export const suryaResultsPath = (pdfUrl: string) => (
 );
 
 // The PDF in SCHOLSHELF whose OCR folder name (and so book id) is bookId, or undefined if there is none
-export const pdfForBookId = async (bookId: string) => {
+export const pdfForBookId = async(bookId: string) => {
   const files = await fs.readdir(SCHOLSHELF);
-  const file  = files.find(f => /\.pdf$/i.test(f) && folderForFile(f) === bookId);
+  const file  = files.find((f) => /\.pdf$/i.test(f) && folderForFile(f) === bookId);
   return file ? path.join(SCHOLSHELF, file) : undefined;
 };

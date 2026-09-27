@@ -1,0 +1,15 @@
+
+- Try to keep a margin of around ~90 characters
+
+## Backend code patterns
+- update api.yaml with all endpoint changes, ensure types are updated to match openapi spec on both backend and frontend
+- store business logic to modules in the core/ folder. Prefer to write business logic as pure functions with no side effects that can be unit-tested. Try to keep pure business logic separate from imperative code with side effects.
+- store code that handles writing queries, and saving, reading, and formatting code from the database in modules in the model/ folder, try to keep database code abstracted and separate from business logic and controller code.
+
+## Frontend code patterns
+- utilize helper functions in lib/lib.ts to handle common tasks on common data types such as arrays, objects, maps, dates, and sets.
+- create new helper functions when there is a likelyhood that the behavior will need to be used repeatedly and the behavior is generic.
+- Prefer match() from ts-pattern over chained ternaries, in order to preserve a sequential reading of the possible cases.
+ 
+## Testing instructions
+- Prefer writing unit tests on pure functions to testing the same behavior in controllers

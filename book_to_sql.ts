@@ -22,44 +22,46 @@ const DB_LOCATION_TYPES = new Set([
   'page', 'chapter', 'book', 'volume', 'question', 'article', 'lecture', 'position', 'verse', 'part', 'bekker number',
   'line', 'stephanus number', 'objection', 'sed contra', 'respondeo', 'ad', 'distinction',
 ]);
-const INT_MIN = -2147483648, INT_MAX = 2147483647;
+const INT_MIN           = -2147483648, INT_MAX = 2147483647;
 
 const lit = (v: string | null | undefined) =>
-  v === null || v === undefined ? 'NULL' : `'${String(v).replace(/\u0000/g, '').replace(/'/g, "''")}'`;
+  v === null || v === undefined ? 'NULL' : `'${ String(v).replaceAll('\u0000', '').replace(/'/g, "''") }'`;
 const num = (n: number) => {
-  if (!Number.isFinite(n)) throw new Error(`not a number: ${n}`);
+  if (!Number.isFinite(n)) {throw new Error(`not a number: ${ n }`);}
   return String(n);
 };
 
-const out: string[] = [];
+const out: string[]      = [];
 const emit = (s: string) => out.push(s);
 const warnings: string[] = [];
 
-emit(`-- ${book.title} (${book.author}) -- generated from ${file}`);
+emit(`-- ${ book.title } (${ book.author }) -- generated from ${ file }`);
 emit('BEGIN;');
 emit('');
 // Keep the books row (upsert) so rows pointing at it survive a re-import: other books' citations
 // (reference_book_id) and queued_book_imports.imported_book_id (ON DELETE CASCADE would delete the queue row).
 // Deleting the pages cascades to page_blocks -> citations -> citation_groups / citation_locations.
-emit(`INSERT INTO books (id, title, author, url) VALUES (${lit(book.id)}, ${lit(book.title)}, ${lit(book.author)}, ${lit(book.url ?? null)})
+emit(`INSERT INTO books (id, title, author, url) VALUES (${ lit(book.id) }, ${ lit(book.title) }, ${ lit(book.author) }, ${ lit(book.url ?? null) })
   ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, author = EXCLUDED.author, url = EXCLUDED.url;`);
-emit(`DELETE FROM pages WHERE book_id = ${lit(book.id)};`);
+emit(`DELETE FROM pages WHERE book_id = ${ lit(book.id) };`);
 emit('');
 
-const CHUNK = 500;
+const CHUNK      = 500;
 const insertRows = (head: string, rows: string[]) => {
-  for (let i = 0; i < rows.length; i += CHUNK) emit(`${head} VALUES\n  ${rows.slice(i, i + CHUNK).join(',\n  ')};`);
+  for (let i = 0; i < rows.length; i += CHUNK) {emit(`${ head } VALUES\n  ${ rows.slice(i, i + CHUNK).join(',\n  ') };`);}
 };
 
 insertRows('INSERT INTO pages (book_id, page_number, printed_page_number)',
-  book.pages.map(p => `(${lit(book.id)}, ${num(p.pageNumber)}, ${lit(p.printedPageNumber ?? '')})`));
+           book.pages.map((p) => `(${ lit(book.id) }, ${ num(p.pageNumber) }, ${ lit(p.printedPageNumber ?? '') })`));
 emit('');
 
 const blockRows: string[] = [];
-for (const p of book.pages) p.blocks.forEach((b, position) => {
-  const [x0, y0, x1, y1] = b.bbox;
-  blockRows.push(`(${lit(book.id)}, ${num(p.pageNumber)}, ${position}, ${num(x0)}, ${num(y0)}, ${num(x1)}, ${num(y1)}, ${lit(b.label)}, ${lit(b.html)})`);
-});
+for (const p of book.pages) {
+  p.blocks.forEach((b, position) => {
+    const [x0, y0, x1, y1] = b.bbox;
+    blockRows.push(`(${ lit(book.id) }, ${ num(p.pageNumber) }, ${ position }, ${ num(x0) }, ${ num(y0) }, ${ num(x1) }, ${ num(y1) }, ${ lit(b.label) }, ${ lit(b.html) })`);
+  });
+}
 insertRows('INSERT INTO page_blocks (book_id, page_number, position, bbox_x0, bbox_y0, bbox_x1, bbox_y1, label, html)', blockRows);
 emit('');
 
@@ -67,47 +69,54 @@ let citationCount = 0, groupCount = 0, locationRows = 0;
 const citationSql = (c: Citation, pageNumber: number, position: number) => {
   const cte: string[] = [];
   cte.push(
-    `c AS (\n  INSERT INTO citations (page_block_id, source_book_id, source_footnote_identifier, source_footnote_page, reference_book_id, author, title, location, raw)\n` +
-    `  SELECT pb.id, ${lit(c.source.bookId)}, ${lit(c.source.footnoteIdentifier)}, ${num(c.source.footnotePage)}, ${lit(c.referenceBookId)}, ${lit(c.author)}, ${lit(c.title)}, ${lit(c.location)}, ${lit(c.raw)}\n` +
-    `  FROM page_blocks pb WHERE pb.book_id = ${lit(book.id)} AND pb.page_number = ${num(pageNumber)} AND pb.position = ${position}\n  RETURNING id)`,
+    `c AS (\n  INSERT INTO citations (page_block_id, source_book_id, source_footnote_identifier, source_footnote_page, reference_book_id, author, title, location, raw)\n`
+    + `  SELECT pb.id, ${ lit(c.source.bookId) }, ${ lit(c.source.footnoteIdentifier) }, ${ num(c.source.footnotePage) }, ${ lit(c.referenceBookId) }, ${ lit(c.author) }, ${ lit(c.title) }, ${ lit(c.location) }, ${ lit(c.raw) }\n`
+    + `  FROM page_blocks pb WHERE pb.book_id = ${ lit(book.id) } AND pb.page_number = ${ num(pageNumber) } AND pb.position = ${ position }\n  RETURNING id)`,
   );
   const selects: string[] = [];
   c.locationsCited.forEach((group, g) => {
     const values: string[] = [];
     for (const loc of group) {
       if (!DB_LOCATION_TYPES.has(loc.type)) {
-        warnings.push(`p${pageNumber} "${c.raw.slice(0, 60)}": location type '${loc.type}' not allowed by the schema, skipped`);
+        warnings.push(`p${ pageNumber } "${ c.raw.slice(0, 60) }": location type '${ loc.type }' not allowed by the schema, skipped`);
         continue;
       }
       for (const v of loc.values) {
         if (!Number.isInteger(v) || v < INT_MIN || v > INT_MAX) {
-          warnings.push(`p${pageNumber} "${c.raw.slice(0, 60)}": value ${v} is not a 32-bit integer, skipped`);
+          warnings.push(`p${ pageNumber } "${ c.raw.slice(0, 60) }": value ${ v } is not a 32-bit integer, skipped`);
           continue;
         }
-        values.push(`(${lit(loc.type)}, ${lit(loc.rawLabel)}, ${v})`);
+        values.push(`(${ lit(loc.type) }, ${ lit(loc.rawLabel) }, ${ v })`);
       }
     }
-    if (!values.length) return;
-    cte.push(`g${g} AS (INSERT INTO citation_groups (citation_id) SELECT id FROM c RETURNING id, citation_id)`);
-    selects.push(`SELECT g${g}.citation_id, g${g}.id, v.type, v.raw, v.value FROM g${g}, (VALUES ${values.join(', ')}) AS v(type, raw, value)`);
+    if (!values.length) {return;}
+    cte.push(`g${ g } AS (INSERT INTO citation_groups (citation_id) SELECT id FROM c RETURNING id, citation_id)`);
+    selects.push(`SELECT g${ g }.citation_id, g${ g }.id, v.type, v.raw, v.value FROM g${ g }, (VALUES ${ values.join(', ') }) AS v(type, raw, value)`);
     groupCount++;
     locationRows += values.length;
   });
   citationCount++;
-  if (!selects.length) return cte[0].replace(/^c AS \(\n  /, '').replace(/\n  RETURNING id\)$/, ';');
-  return `WITH ${cte.join(',\n')}\nINSERT INTO citation_locations (citation_id, citation_group_id, type, raw, value)\n${selects.join('\nUNION ALL\n')};`;
+  if (!selects.length) {return cte[0].replace(/^c AS \(\n {2}/, '').replace(/\n {2}RETURNING id\)$/, ';');}
+  return `WITH ${ cte.join(',\n') }\nINSERT INTO citation_locations (citation_id, citation_group_id, type, raw, value)\n${ selects.join('\nUNION ALL\n') };`;
 };
 
-for (const p of book.pages) p.blocks.forEach((b, position) => {
-  for (const c of b.citations) emit(citationSql(c, p.pageNumber, position));
-});
+for (const p of book.pages) {
+  p.blocks.forEach((b, position) => {
+    for (const c of b.citations) {emit(citationSql(c, p.pageNumber, position));}
+  });
+}
 
 emit('');
 emit('COMMIT;');
 
 process.stdout.write(out.join('\n') + '\n');
 console.error(JSON.stringify({
-  book: book.id, pages: book.pages.length, blocks: blockRows.length, citations: citationCount,
-  citation_groups: groupCount, citation_location_rows: locationRows, warnings: warnings.length,
+  book:                   book.id,
+  pages:                  book.pages.length,
+  blocks:                 blockRows.length,
+  citations:              citationCount,
+  citation_groups:        groupCount,
+  citation_location_rows: locationRows,
+  warnings:               warnings.length,
 }));
-for (const w of warnings.slice(0, 20)) console.error('  ' + w);
+for (const w of warnings.slice(0, 20)) {console.error('  ' + w);}

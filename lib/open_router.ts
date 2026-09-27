@@ -11,28 +11,34 @@ export type ORResponseFormat = {
   json_schema: { name: string, strict: boolean, schema: JSONSchema7 }
 };
 
+// The parts of an OpenRouter chat completion response this code reads
+export type ORResponse = {
+  error?: { message?: string },
+  choices?: { message?: { content?: unknown } }[],
+};
+
 export const makeOpenRouterRequest = (
   msgs: ORMessage[], responseFormat?: ORResponseFormat
 ) => (
   fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
+    method:  'POST',
     headers: {
-      Authorization: 'Bearer ' + process.env.OPENROUTER_KEY,
+      Authorization:  'Bearer ' + process.env.OPENROUTER_KEY,
       'HTTP-Referer': 'https://webdever.net',
-      'X-Title': 'Webdever',
+      'X-Title':      'Webdever',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'openai/gpt-4o',
+      model:    'openai/gpt-4o',
       messages: msgs,
       ...(responseFormat ? { response_format: responseFormat } : {}),
     }),
   })
-    .then(result => result.json())
+    .then((result) => result.json() as Promise<ORResponse>)
 );
 
 // The message content of a structured-output response, parsed; throws on an error response
-export const parseJsonResponse = <T>(response: any): T => {
+export const parseJsonResponse = <T>(response: ORResponse): T => {
   if (response.error) {
     throw new Error(response.error.message ?? JSON.stringify(response.error));
   }

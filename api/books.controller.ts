@@ -16,7 +16,7 @@ export class BooksController {
       ...paging_params(offset, length),
       query: string_param('query', query),
     });
-    
+
     return { meta: { count }, items };
   }
 
@@ -25,7 +25,7 @@ export class BooksController {
     const book = await this.books.get(bookId);
 
     if (!book) {
-      throw new NotFoundException(`No book with id ${bookId}`);
+      throw new NotFoundException(`No book with id ${ bookId }`);
     }
     else {
       return book;
@@ -38,7 +38,7 @@ export class BooksController {
     const page       = await this.books.getPage(bookId, pageNumber);
 
     if (!page) {
-      throw new NotFoundException(`No page ${pageId} in book ${bookId}`);
+      throw new NotFoundException(`No page ${ pageId } in book ${ bookId }`);
     }
     else {
       return page;

@@ -29,38 +29,48 @@ const saveCache = () => {
   fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 1));
 };
 
+// The parts of archive.org's search and metadata answers this code reads
+type ArchiveDoc = { identifier: string, title?: string | string[], creator?: string | string[] };
+type ArchiveFile = { name: string, format?: string, private?: string | boolean };
+type SearchAnswer = { response?: { docs?: ArchiveDoc[] } };
+type MetadataAnswer = { metadata?: Record<string, string | string[] | undefined>, files?: ArchiveFile[] };
+
 let lastRequest = 0;
-const getJson = async (url: string): Promise<any> => {
+// undefined when archive.org keeps answering 429 or 5xx
+const getJson = async<T>(url: string): Promise<T | undefined> => {
   const wait = lastRequest + 1000 - Date.now();
-  
+
   if (wait > 0) {
-    await new Promise(r => setTimeout(r, wait));
+    await new Promise((r) => setTimeout(r, wait));
   }
-  
+
   lastRequest = Date.now();
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(url, {
         headers: { 'User-Agent': 'references-citation-linker/1.0' }
       });
-      
+
       if (res.status === 429 || res.status >= 500) {
-        await new Promise(r => setTimeout(r, 5000 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 5000 * (attempt + 1)));
         continue;
       }
-      
+
       if (!res.ok) {
-        throw new Error(`${res.status} ${url}`);
+        throw new Error(`${ res.status } ${ url }`);
       }
-      
+
       return await res.json();
-    } catch (e) {
+    }
+    catch (e) {
       if (attempt === 2) {
         throw e;
       }
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 3000));
     }
   }
+
+  return undefined;
 };
 
 const one = (v: unknown) => (
@@ -71,14 +81,14 @@ const one = (v: unknown) => (
 
 const queryWords = (s: string, max: number) =>
   tokens(s).filter(
-    t => t.length > 2
+    (t) => t.length > 2
       && !['the', 'and', 'for', 'with', 'from'].includes(t)
   ).slice(0, max);
 
-export const searchArchive = async (
+export const searchArchive = async(
   author: string, title: string
 ): Promise<ArchiveHit> => {
-  const key = `${fold(author)}|${fold(title)}`;
+  const key = `${ fold(author) }|${ fold(title) }`;
 
   if (key in cache && cache[key]) {
     return cache[key];
@@ -86,25 +96,25 @@ export const searchArchive = async (
   else {
     const words         = queryWords(title, 8), names = surnames(author);
     let hit: ArchiveHit = null;
-    
+
     if (words.length && names.length) {
-      const q = `title:(${words.join(' ')}) AND creator:`
-        + `(${names.join(' OR ')}) AND mediatype:texts`;
-      
-      const url = `${ARCHIVE_BASE}/advancedsearch.php?q=${encodeURIComponent(q)}` 
+      const q = `title:(${ words.join(' ') }) AND creator:`
+        + `(${ names.join(' OR ') }) AND mediatype:texts`;
+
+      const url = `${ ARCHIVE_BASE }/advancedsearch.php?q=${ encodeURIComponent(q) }`
         + '&fl[]=identifier&fl[]=title&fl[]=creator&rows=15&output=json';
-      
-      const docs: any[] = (await getJson(url))?.response?.docs ?? [];
-      const candidates  = docs.filter(
-        d => sameTitle(title, one(d.title))
+
+      const docs: ArchiveDoc[] = (await getJson<SearchAnswer>(url))?.response?.docs ?? [];
+      const candidates         = docs.filter(
+        (d) => sameTitle(title, one(d.title))
           && sameAuthor(author, one(d.creator))
       ).slice(0, 4);
-      
+
       for (const d of candidates) {
-        const meta = await getJson(
-          `${ARCHIVE_BASE}/metadata/` + encodeURIComponent(d.identifier)
+        const meta = await getJson<MetadataAnswer>(
+          `${ ARCHIVE_BASE }/metadata/` + encodeURIComponent(d.identifier)
         );
-            
+
         if (!meta?.metadata || one(meta.metadata['access-restricted-item']) === 'true') {
           continue;   // lending library only
         }
@@ -112,24 +122,24 @@ export const searchArchive = async (
           const pdfs = (
             meta.files ?? []
           ).filter(
-            (f: any) => /\.pdf$/i.test(f.name)
+            (f) => /\.pdf$/i.test(f.name)
               && f.private !== 'true'
               && f.private !== true
           );
-          
+
           const pdf = pdfs.find(
-            (f: any) => f.format === 'Text PDF'
-          ) ?? pdfs.find((f: any) => !/_bw\.pdf$/i.test(f.name)) ?? pdfs[0];
-          
+            (f) => f.format === 'Text PDF'
+          ) ?? pdfs.find((f) => !/_bw\.pdf$/i.test(f.name)) ?? pdfs[0];
+
           if (!pdf) {
             continue;
           }
           else {
             hit = {
               identifier: d.identifier,
-              title: one(meta.metadata.title) || one(d.title),
-              creator: one(meta.metadata.creator) || one(d.creator),
-              pdf: ARCHIVE_BASE.replace(/^http:/, 'https:')
+              title:      one(meta.metadata.title) || one(d.title),
+              creator:    one(meta.metadata.creator) || one(d.creator),
+              pdf:        ARCHIVE_BASE.replace(/^http:/, 'https:')
                 + '/download/' + encodeURIComponent(d.identifier)
                 + '/' + pdf.name.split('/').map(encodeURIComponent).join('/'),
             };
@@ -138,10 +148,10 @@ export const searchArchive = async (
         }
       }
     }
-    
+
     cache[key] = hit;
     saveCache();
-    
+
     return hit;
   }
 };

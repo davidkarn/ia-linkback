@@ -14,14 +14,14 @@ import { setTimeout } from 'node:timers/promises';
 import type { JSONSchema7 } from "json-schema";
 import { arrayToMapOfRecords } from '../lib/lib.js';
 
-dotenv.config()
+dotenv.config();
 
 const db = new Kysely<Database>({
-    dialect: new PostgresDialect({
-        pool: new Pool({
-            connectionString: process.env.DATABASE_URL
-        })
-    }),
+  dialect: new PostgresDialect({
+    pool: new Pool({
+      connectionString: process.env.DATABASE_URL
+    })
+  }),
 });
 
 const getNextBook = () => (
@@ -37,11 +37,11 @@ type QueuedBook = Selectable<QueuedBookImportsTable>;
 
 const getBookContents = (book: QueuedBook): Promise<SuryaBook> => {
   if (!book.pdf_url) {
-    throw new Error(`queued book ${book.id} has no pdf_url`);
+    throw new Error(`queued book ${ book.id } has no pdf_url`);
   }
   return fs.readFile(suryaResultsPath(book.pdf_url), { encoding: 'utf8' })
-    .then(data => JSON.parse(data));
-}
+    .then((data) => JSON.parse(data));
+};
 
 // Two insights are the same when they differ only in case, spacing, quote style or trailing punctuation.
 const insightKey = (insight: string) => (
@@ -59,7 +59,7 @@ const insightKey = (insight: string) => (
 const removeDuplicateInsights = (insights: string[]): string[] => {
   const seen = new Set<string>();
 
-  return insights.filter(insight => {
+  return insights.filter((insight) => {
     const key = insightKey(insight);
     if (!key || seen.has(key)) {
       return false;
@@ -77,10 +77,10 @@ const getInsights = () => (
     .select('insight')
     .orderBy('id')
     .execute()
-    .then(rows => rows.map(r => r.insight))
+    .then((rows) => rows.map((r) => r.insight))
 );
 
-const log = (...items: any[]) => console.log(util.inspect(items, { depth: null }));
+const log = (...items: unknown[]) => console.log(util.inspect(items, { depth: null }));
 
 type ORMessage = {
   role: 'system' | 'user',
@@ -96,24 +96,24 @@ const makeOpenRouterRequest = (
   msgs: ORMessage[], responseFormat?: ORResponseFormat
 ) => (
   fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
+    method:  'POST',
     headers: {
-      Authorization: 'Bearer ' + process.env.OPENROUTER_KEY,
+      Authorization:  'Bearer ' + process.env.OPENROUTER_KEY,
       'HTTP-Referer': 'https://webdever.net',
-      'X-Title': 'Webdever',
+      'X-Title':      'Webdever',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'openai/gpt-4o',
+      model:    'openai/gpt-4o',
       messages: msgs,
       ...(responseFormat ? { response_format: responseFormat } : {}),
     }),
   })
-    .then(result => result.json())
+    .then((result) => result.json())
 );
 
 const LOCATION_TYPES: CitationLocation['type'][] = [
-  'page', 'chapter', 'book', 'volume', 'question', 'article', 'lecture', 'position', 'verse', 'part', 'bekker number', 'line', 'stephanus number', 'objection', 'sed contra', 'respondeo', 'ad', 'distinction', 
+  'page', 'chapter', 'book', 'volume', 'question', 'article', 'lecture', 'position', 'verse', 'part', 'bekker number', 'line', 'stephanus number', 'objection', 'sed contra', 'respondeo', 'ad', 'distinction',
 ];
 
 // What the model returns for one page: each footnote on it, and the citations in each footnote.
@@ -132,50 +132,50 @@ type PageFootnotes = {
 };
 
 const FOOTNOTES_FORMAT = {
-  type: 'json_schema',
+  type:        'json_schema',
   json_schema: {
-    name: 'page_footnotes',
+    name:   'page_footnotes',
     strict: true,
     schema: {
-      type: 'object',
+      type:                 'object',
       additionalProperties: false,
-      required: ['footnotes', 'additionalInsights'],
-      properties: {
+      required:             ['footnotes', 'additionalInsights'],
+      properties:           {
         additionalInsights: {
-          type: "array",
-          items: {type: "string"}
+          type:  "array",
+          items: { type: "string" }
         },
         footnotes: {
-          type: 'array',
+          type:  'array',
           items: {
-            type: 'object',
+            type:                 'object',
             additionalProperties: false,
-            required: ['identifier', 'citations'],
-            properties: {
+            required:             ['identifier', 'citations'],
+            properties:           {
               identifier: { type: 'string' },
-              citations: {
-                type: 'array',
+              citations:  {
+                type:  'array',
                 items: {
-                  type: 'object',
+                  type:                 'object',
                   additionalProperties: false,
-                  required: ['author', 'title', 'location', 'raw', 'locationsCited'],
-                  properties: {
-                    author: { type: 'string' },
-                    title: { type: 'string' },
-                    location: { type: 'string' },
-                    raw: { type: 'string' },
+                  required:             ['author', 'title', 'location', 'raw', 'locationsCited'],
+                  properties:           {
+                    author:         { type: 'string' },
+                    title:          { type: 'string' },
+                    location:       { type: 'string' },
+                    raw:            { type: 'string' },
                     locationsCited: {
-                      type: 'array',
+                      type:  'array',
                       items: {
-                        type: 'array',
+                        type:  'array',
                         items: {
-                          type: 'object',
+                          type:                 'object',
                           additionalProperties: false,
-                          required: ['rawLabel', 'type', 'values'],
-                          properties: {
+                          required:             ['rawLabel', 'type', 'values'],
+                          properties:           {
                             rawLabel: { type: 'string' },
-                            type: { type: 'string', enum: LOCATION_TYPES },
-                            values: { type: 'array', items: { type: 'integer' } },
+                            type:     { type: 'string', enum: LOCATION_TYPES },
+                            values:   { type: 'array', items: { type: 'integer' } },
                           },
                         },
                       },
@@ -207,40 +207,39 @@ The footnotes are OCR output as HTML, in reading order. Return every footnote on
   - locationsCited: the location as groups of {rawLabel, type, values}. Start a new group for each
     separately cited place ("Bk II ch 1-3, also Bk III ch 5" -> two groups). rawLabel is the printed
     locator ("Vol. IV", "ch 1-3", "pp. 33 sqq"). values are integers: convert Roman numerals, expand ranges
-    ("1-3" -> [1, 2, 3], "sqq" adds nothing). Types: ${LOCATION_TYPES.join(', ')}. Use "position" for §,
+    ("1-3" -> [1, 2, 3], "sqq" adds nothing). Types: ${ LOCATION_TYPES.join(', ') }. Use "position" for §,
     n., col., and other locators without a matching type. For the Bible, a "book" entry whose value is
     the book's position in the Catholic (Douay) canon (1-73), then "chapter" and "verse".
 
     Following is a list of insights that will assist with recognizing cited works and their location parts:
  
-${insights.map(insight => '    - ' + insight).join('\n')}
+${ insights.map((insight) => '    - ' + insight).join('\n') }
 
     Track any insights learned during the extraction of citations that will help with future extractions into the 'additionalInsights' field.
 `;
 
 const footnoteHtml = (page: SuryaPage) => (
   page.blocks
-    .filter(b => b.label === 'Footnote')
+    .filter((b) => b.label === 'Footnote')
     .sort((a, b) => a.reading_order - b.reading_order)
-    .map(b => b.html)
+    .map((b) => b.html)
     .join('\n')
 );
 
-const requestPageFootnotes = async (page: SuryaPage, prompt: string, attempts = 3): Promise<PageFootnotes> => {
-  let lastError: unknown;
-  
+const requestPageFootnotes = async(page: SuryaPage, prompt: string): Promise<PageFootnotes> => {
+
   const response = await makeOpenRouterRequest([
     { role: 'system', content: prompt },
     { role: 'user', content: footnoteHtml(page) },
   ], FOOTNOTES_FORMAT);
   log(response);
-  
+
   if (response.error) {
     throw new Error(response.error.message ?? JSON.stringify(response.error));
   }
   else {
     const content = response.choices?.[0]?.message?.content;
-    
+
     if (typeof content !== 'string') {
       throw new Error('no content in response: ' + JSON.stringify(response));
     }
@@ -257,8 +256,8 @@ const mapLimited = async <T, R>(
 ): Promise<R[]> => {
   const results: R[] = new Array(items.length);
   let next           = 0;
-  
-  const worker = async () => {
+
+  const worker = async() => {
     while (next < items.length) {
       const i    = next++;
       results[i] = await fn(items[i]!);
@@ -273,7 +272,7 @@ const mapLimited = async <T, R>(
 // source.footnotePage is the scan page (SuryaPage.page), as in build_book.ts; referenceBookId is left
 // null for link_citations.ts to fill. Pages whose request keeps failing are returned in failedPages
 // rather than failing the whole book.
-const extractFootnoteCitations = async (
+const extractFootnoteCitations = async(
   book: SuryaBook,
   opts: { concurrency?: number } = {}
 ): Promise<{
@@ -287,42 +286,43 @@ const extractFootnoteCitations = async (
   }
 
   const failedPages: { page: number, error: string }[] = [];
-  
-  const footnotePages = pages.filter(p => p.blocks.some(b => b.label === 'Footnote'));
+
+  const footnotePages = pages.filter((p) => p.blocks.some((b) => b.label === 'Footnote'));
   let   insights      = await getInsights();
   const allNotes      = [];
 
-  const perPage = await mapLimited(footnotePages, opts.concurrency ?? 1, async page => {
+  await mapLimited(footnotePages, opts.concurrency ?? 1, async(page) => {
     try {
       const result = await requestPageFootnotes(page, footnotesPrompt(insights));
-      
+
       insights = removeDuplicateInsights(insights.concat(result.additionalInsights));
 
       await setTimeout(3200); // 20 per minute rate limit
 
-      result.footnotes.map(footnote => footnote.citations.map((c) => {
+      result.footnotes.map((footnote) => footnote.citations.map((c) => {
         allNotes.push({
           source: {
             bookId,
             footnoteIdentifier: footnote.identifier,
-            footnotePage: page.page
+            footnotePage:       page.page
           },
           referenceBookId: null,
-          author: c.author,
-          title: c.title,
-          location: c.location,
-          raw: c.raw,
-          locationsCited: c.locationsCited,
+          author:          c.author,
+          title:           c.title,
+          location:        c.location,
+          raw:             c.raw,
+          locationsCited:  c.locationsCited,
         });
       }));
-      
+
       return [];
-    } catch (e) {
+    }
+    catch (e) {
       failedPages.push({
-        page: page.page,
+        page:  page.page,
         error: (e as Error).message ?? String(e)
       });
-      
+
       return [];
     }
   });
@@ -345,41 +345,41 @@ const inChunks = <T>(rows: T[], size = 500): T[][] => (
 // The book's row, pages and blocks (built as build_book.ts builds them), replacing any earlier copy: deleting
 // its pages also deletes their blocks and citations. The books row is upserted, so other books' citations of
 // it keep their reference_book_id. Returns the book id: the SuryaBook's key, the OCR folder name.
-const storeBook = async (queued: QueuedBook, suryaBook: SuryaBook): Promise<string> => {
+const storeBook = async(queued: QueuedBook, suryaBook: SuryaBook): Promise<string> => {
   const [bookId, suryaPages] = Object.entries(suryaBook)[0] ?? [];
   if (!bookId || !suryaPages) {
     throw new Error('SuryaBook has no pages');
   }
   const { pages } = build_pages(suryaPages);
 
-  await db.transaction().execute(async trx => {
+  await db.transaction().execute(async(trx) => {
     await trx.insertInto('books')
       .values({ id: bookId, title: queued.title, author: queued.author, url: queued.archive_url })
-      .onConflict(oc => oc.column('id').doUpdateSet(eb => ({
-        title: eb.ref('excluded.title'),
+      .onConflict((oc) => oc.column('id').doUpdateSet((eb) => ({
+        title:  eb.ref('excluded.title'),
         author: eb.ref('excluded.author'),
-        url: eb.ref('excluded.url'),
-    })))
+        url:    eb.ref('excluded.url'),
+      })))
       .execute();
 
     await trx.deleteFrom('pages').where('book_id', '=', bookId).execute();
 
     for (const chunk of inChunks(pages)) {
       await trx.insertInto('pages')
-        .values(chunk.map(p => ({ book_id: bookId, page_number: p.pageNumber, printed_page_number: p.printedPageNumber })))
+        .values(chunk.map((p) => ({ book_id: bookId, page_number: p.pageNumber, printed_page_number: p.printedPageNumber })))
         .execute();
     }
 
-    const blocks = pages.flatMap(p => p.blocks.map((b, position) => ({
-      book_id: bookId,
+    const blocks = pages.flatMap((p) => p.blocks.map((b, position) => ({
+      book_id:     bookId,
       page_number: p.pageNumber,
       position,
-      bbox_x0: b.bbox[0],
-      bbox_y0: b.bbox[1],
-      bbox_x1: b.bbox[2],
-      bbox_y1: b.bbox[3],
-      label: b.label,
-      html: b.html,
+      bbox_x0:     b.bbox[0],
+      bbox_y0:     b.bbox[1],
+      bbox_x1:     b.bbox[2],
+      bbox_y1:     b.bbox[3],
+      label:       b.label,
+      html:        b.html,
     })));
     for (const chunk of inChunks(blocks)) {
       await trx.insertInto('page_blocks').values(chunk).execute();
@@ -400,7 +400,7 @@ const footnoteBlockFor = (
     const sup    = new RegExp('<sup>\\s*' + marker + '\\s*</sup>');
     const line   = new RegExp('(^|\\n)\\s*' + marker + '[\\s.)]');
     const found  = blocks.find(
-      b => sup.test(b.html)
+      (b) => sup.test(b.html)
         || line.test(strip_tags(b.html.replace(/<\/p>|<br\s*\/?>/gi, '\n')))
     );
 
@@ -416,12 +416,12 @@ const footnoteBlockFor = (
   }
 };
 
-const saveCitationsToDatabase = async (
+const saveCitationsToDatabase = async(
   bookId: string,
   extracted: Awaited<ReturnType<typeof extractFootnoteCitations>>
 ) => {
   for (const failed of extracted.failedPages) {
-    console.log(`${bookId}: page ${failed.page} failed: ${failed.error}`);
+    console.log(`${ bookId }: page ${ failed.page } failed: ${ failed.error }`);
   }
 
   const footnoteBlocks = await db.selectFrom('page_blocks')
@@ -431,14 +431,14 @@ const saveCitationsToDatabase = async (
     .orderBy('page_number')
     .orderBy('position')
     .execute();
-  
-  const blocksByPage = arrayToMapOfRecords(footnoteBlocks, 'page_number');  
+
+  const blocksByPage = arrayToMapOfRecords(footnoteBlocks, 'page_number');
 
   const counts = { citations: 0, groups: 0, locations: 0, skippedValues: 0, newInsights: 0 };
   // citations whose page has no Footnote block in the database (so nothing to attach them to)
   const unplaced: Citation[] = [];
 
-  await db.transaction().execute(async trx => {
+  await db.transaction().execute(async(trx) => {
     await trx.deleteFrom('citations').where('source_book_id', '=', bookId).execute();
 
     for (const c of extracted.citations) {
@@ -446,7 +446,7 @@ const saveCitationsToDatabase = async (
         blocksByPage.get(c.source.footnotePage) ?? [],
         c.source.footnoteIdentifier
       );
-      
+
       if (!block) {
         unplaced.push(c);
         continue;
@@ -454,39 +454,39 @@ const saveCitationsToDatabase = async (
       else {
         const { id: citationId } = await trx.insertInto('citations')
           .values({
-            page_block_id: block.id,
-            source_book_id: bookId,
+            page_block_id:              block.id,
+            source_book_id:             bookId,
             source_footnote_identifier: c.source.footnoteIdentifier,
-            source_footnote_page: c.source.footnotePage,
-            reference_book_id: c.referenceBookId,
-            author: c.author,
-            title: c.title,
-            location: c.location,
-            raw: c.raw,
-        })
+            source_footnote_page:       c.source.footnotePage,
+            reference_book_id:          c.referenceBookId,
+            author:                     c.author,
+            title:                      c.title,
+            location:                   c.location,
+            raw:                        c.raw,
+          })
           .returning('id')
           .executeTakeFirstOrThrow();
-        
+
         counts.citations++;
 
         for (const group of c.locationsCited) {
           const values = group.flatMap(
-            loc => loc.values.filter(v => {
+            (loc) => loc.values.filter((v) => {
               const ok = Number.isInteger(v) && v >= INT_MIN && v <= INT_MAX;
-            
+
               if (!ok) {
                 counts.skippedValues++;
               }
-              
+
               return ok;
-            }).map(value => ({
+            }).map((value) => ({
               type: loc.type,
-              raw: loc.rawLabel,
+              raw:  loc.rawLabel,
               value
             }))
           );
-              
-          
+
+
           if (!values.length) {
             continue;
           }
@@ -495,13 +495,13 @@ const saveCitationsToDatabase = async (
               .values({ citation_id: citationId })
               .returning('id')
               .executeTakeFirstOrThrow();
-            
+
             await trx.insertInto('citation_locations')
-              .values(values.map(v => ({
+              .values(values.map((v) => ({
                 ...v,
-                citation_id: citationId,
+                citation_id:       citationId,
                 citation_group_id: groupId
-            })))
+              })))
               .execute();
 
             counts.groups++;
@@ -517,31 +517,31 @@ const saveCitationsToDatabase = async (
         .select('insight')
         .execute()
     )
-      .map(r => insightKey(r.insight)));
-    
+      .map((r) => insightKey(r.insight)));
+
     const newInsights = removeDuplicateInsights(
       extracted.insights
-    ).filter(i => !existing.has(insightKey(i)));
-    
+    ).filter((i) => !existing.has(insightKey(i)));
+
     if (newInsights.length) {
       await trx.insertInto('footnote_extraction_insights')
-        .values(newInsights.map(insight => ({ insight })))
+        .values(newInsights.map((insight) => ({ insight })))
         .execute();
     }
-    
+
     counts.newInsights = newInsights.length;
   });
 
   for (const c of unplaced) {
     console.log(
-      `${bookId}: page ${c.source.footnotePage} has no Footnote block `
-        + `for "${c.raw.slice(0, 60)}"`
+      `${ bookId }: page ${ c.source.footnotePage } has no Footnote block `
+        + `for "${ c.raw.slice(0, 60) }"`
     );
   }
-  
+
   return {
     ...counts,
-    unplaced: unplaced.length,
+    unplaced:    unplaced.length,
     failedPages: extracted.failedPages.length
   };
 };
@@ -559,10 +559,11 @@ const COVERS_DIR = path.join(import.meta.dirname, '../web/public/covers');
  * /covers/<file>. The file name is the book id with anything but letters, digits, "_" and "-" made "_": book
  * ids can hold URL escapes ("Dieu%2C%20son..."), which the browser would decode when asking for the image.
  */
-const saveCoverImage = async (bookId: string) => {
+// not called yet: exported so it's available (e.g. from processAndStoreBook, after storeBook)
+export const saveCoverImage = async(bookId: string) => {
   const pdf = await pdfForBookId(bookId);
   if (!pdf) {
-    throw new Error(`no PDF for book ${bookId} in the scholshelf folder`);
+    throw new Error(`no PDF for book ${ bookId } in the scholshelf folder`);
   }
 
   const fileName = bookId.replace(/[^A-Za-z0-9_-]/g, '_') + '.jpg';
@@ -579,9 +580,9 @@ const saveCoverImage = async (bookId: string) => {
   return { coverPhotoPath: 'covers/' + fileName, page: cover.page + 1, skipped: cover.skipped };
 };
 
-const processAndStoreBook = async (queued: QueuedBook) => {
+const processAndStoreBook = async(queued: QueuedBook) => {
   await db.updateTable('queued_book_imports')
-    .set({status: 'processingContents'})
+    .set({ status: 'processingContents' })
     .where('id', '=', queued.id)
     .execute();
 
@@ -598,17 +599,17 @@ const processAndStoreBook = async (queued: QueuedBook) => {
   return { bookId, ...saved };
 };
 
-const processABook = async () => {
+const processABook = async() => {
   while (true) {
     const nextBook = await getNextBook();
     log('starting book: ' + Object.keys(nextBook)[0]);
-    
+
     if (!nextBook) {
       break;
     }
     else {
       log(await processAndStoreBook(nextBook));
-      
+
       return;
     }
   }

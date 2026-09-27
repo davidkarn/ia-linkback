@@ -20,9 +20,9 @@ import { PDF_DIR, list_pdfs, pdf_for_book } from './book_pdfs';
 import { find_cover_page, render_page } from './spider/cover_images.ts';
 
 const argv = process.argv.slice(2);
-const opt = (name: string) => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] : undefined; };
-const ONLY_BOOK = opt('book');
-const FORCE = argv.includes('--force');
+const opt  = (name: string) => { const i = argv.indexOf(`--${ name }`); return i >= 0 ? argv[i + 1] : undefined; };
+const ONLY_BOOK  = opt('book');
+const FORCE      = argv.includes('--force');
 const PUBLIC_DIR = 'web/public';
 const COVERS_DIR = 'covers';
 if (!process.env.DATABASE_URL) {
@@ -30,23 +30,23 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const main = async () => {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const main = async() => {
+  const pool   = new Pool({ connectionString: process.env.DATABASE_URL });
   const report = {
-    rendered: 0,
-    existing: 0,
+    rendered:                0,
+    existing:                0,
     // books whose cover isn't page 1, and why the pages before it were skipped
-    not_first_page: [] as { book: string, page: number, skipped: string[] }[],
+    not_first_page:          [] as { book: string, page: number, skipped: string[] }[],
     // books where none of the first MAX_PAGES looked like a cover: page 1 was used
     fell_back_to_first_page: [] as { book: string, skipped: string[] }[],
-    no_pdf: [] as string[],
-    failed: [] as { book: string, error: string }[],
+    no_pdf:                  [] as string[],
+    failed:                  [] as { book: string, error: string }[],
   };
 
   try {
     const books: { id: string }[] = (await pool.query(
-      `SELECT id FROM books ${ONLY_BOOK ? 'WHERE id = $1' : ''} ORDER BY id`, ONLY_BOOK ? [ONLY_BOOK] : [])).rows;
-    if (ONLY_BOOK && !books.length) throw new Error(`book "${ONLY_BOOK}" is not in the database`);
+      `SELECT id FROM books ${ ONLY_BOOK ? 'WHERE id = $1' : '' } ORDER BY id`, ONLY_BOOK ? [ONLY_BOOK] : [])).rows;
+    if (ONLY_BOOK && !books.length) {throw new Error(`book "${ ONLY_BOOK }" is not in the database`);}
 
     const pdfs = list_pdfs();
     fs.mkdirSync(path.join(PUBLIC_DIR, COVERS_DIR), { recursive: true });
@@ -55,23 +55,24 @@ const main = async () => {
       const pdf = pdf_for_book(book.id, pdfs);
       if (!pdf) { report.no_pdf.push(book.id); continue; }
 
-      const coverPath = `${COVERS_DIR}/${path.basename(book.id)}.jpg`;
-      const out = path.join(PUBLIC_DIR, coverPath);
+      const coverPath = `${ COVERS_DIR }/${ path.basename(book.id) }.jpg`;
+      const out       = path.join(PUBLIC_DIR, coverPath);
       if (fs.existsSync(out) && !FORCE) {
         report.existing++;
       }
       else {
         try {
           const pdfPath = path.join(PDF_DIR, pdf);
-          const cover = find_cover_page(pdfPath);
-          const skipped = cover.skipped.map(s => `p${s.page}: ${s.reason}`);
-          if (cover.fallback) report.fell_back_to_first_page.push({ book: book.id, skipped });
-          else if (cover.page > 0) report.not_first_page.push({ book: book.id, page: cover.page + 1, skipped });
+          const cover   = find_cover_page(pdfPath);
+          const skipped = cover.skipped.map((s) => `p${ s.page }: ${ s.reason }`);
+          if (cover.fallback) {report.fell_back_to_first_page.push({ book: book.id, skipped });}
+          else if (cover.page > 0) {report.not_first_page.push({ book: book.id, page: cover.page + 1, skipped });}
 
           render_page(pdfPath, cover.page, out);
           report.rendered++;
-          console.log(`${book.id} -> ${out} (page ${cover.page + 1})`);
-        } catch (e) {
+          console.log(`${ book.id } -> ${ out } (page ${ cover.page + 1 })`);
+        }
+        catch (e) {
           const stderr = (e as { stderr?: Buffer }).stderr?.toString().trim();
           report.failed.push({ book: book.id, error: stderr || (e as Error).message });
           continue;
@@ -80,12 +81,13 @@ const main = async () => {
 
       await pool.query('UPDATE books SET cover_photo_path = $1 WHERE id = $2', [coverPath, book.id]);
     }
-  } finally {
+  }
+  finally {
     await pool.end();
   }
 
   console.log(JSON.stringify(report, null, 2));
-  if (report.failed.length) process.exit(1);
+  if (report.failed.length) {process.exit(1);}
 };
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch((e) => { console.error(e); process.exit(1); });

@@ -10,14 +10,14 @@ import { Kysely, PostgresDialect } from 'kysely';
 import { FileMigrationProvider, Migrator } from 'kysely/migration';
 import { Pool } from 'pg';
 
-const main = async () => {
+const main = async() => {
   const direction = process.argv[2] ?? 'latest';
   if (!process.env.DATABASE_URL) {
     console.error('DATABASE_URL is not set');
     process.exit(1);
   }
 
-  const db = new Kysely<any>({
+  const db       = new Kysely<unknown>({
     dialect: new PostgresDialect({ pool: new Pool({ connectionString: process.env.DATABASE_URL }) }),
   });
   const migrator = new Migrator({
@@ -28,11 +28,11 @@ const main = async () => {
   const { error, results } = await (
     direction === 'down' ? migrator.migrateDown()
       : direction === 'up' ? migrator.migrateUp()
-      : migrator.migrateToLatest()
+        : migrator.migrateToLatest()
   );
 
-  for (const r of results ?? []) console.log(`${r.status.padEnd(9)} ${r.migrationName} (${r.direction})`);
-  if (!results?.length) console.log('nothing to do');
+  for (const r of results ?? []) {console.log(`${ r.status.padEnd(9) } ${ r.migrationName } (${ r.direction })`);}
+  if (!results?.length) {console.log('nothing to do');}
   await db.destroy();
 
   if (error) {

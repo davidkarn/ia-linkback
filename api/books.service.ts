@@ -25,7 +25,7 @@ type SourceBlock = { id: string, label: string, html: string };
 // The footnote marker a paragraph starts with ("<p><sup>18</sup> ...", "<p>18 ...", "<p>1) ...", "<p>* ..."),
 // without trailing ")" or "."; null for a paragraph that continues the footnote before it
 const paragraph_marker = (p: string): string | null => {
-  const m = p.match(/^\s*<p>\s*(?:<sup>\s*([^<]+?)\s*<\/sup>|(\d{1,3}\)?|[*†‡])\s)/i);
+  const m      = p.match(/^\s*<p>\s*(?:<sup>\s*([^<]+?)\s*<\/sup>|(\d{1,3}\)?|[*†‡])\s)/i);
   const marker = m?.[1] ?? m?.[2];
   return marker === undefined ? null : marker.trim().replace(/[).]+$/, '');
 };
@@ -36,20 +36,20 @@ const paragraph_marker = (p: string): string | null => {
 // into later blocks, up to the next marked footnote. If no paragraph matches, the citation's whole block.
 // Returns the kept paragraphs' HTML per block id.
 const footnote_paragraphs = (footnoteBlocks: SourceBlock[], blockId: string, identifier: string) => {
-  const paragraphs = footnoteBlocks.flatMap(b => (
-    b.html.split(/(?=<p[\s>])/i).filter(p => p.trim()).map(html => ({ blockId: b.id, html, marker: paragraph_marker(html) }))
+  const paragraphs = footnoteBlocks.flatMap((b) => (
+    b.html.split(/(?=<p[\s>])/i).filter((p) => p.trim()).map((html) => ({ blockId: b.id, html, marker: paragraph_marker(html) }))
   ));
-  const wanted = identifier.trim().replace(/[).]+$/, '');
+  const wanted     = identifier.trim().replace(/[).]+$/, '');
 
-  let start = paragraphs.findIndex(p => p.blockId === blockId && (wanted ? p.marker === wanted : true));
+  let start = paragraphs.findIndex((p) => p.blockId === blockId && (wanted ? p.marker === wanted : true));
   if (start >= 0 && !wanted && paragraphs[start]!.marker !== null) {
     start = -1;   // no identifier, but the block starts a new footnote: can't tell which
   }
 
   const kept = new Map<string, string[]>();
   if (start < 0) {
-    const block = footnoteBlocks.find(b => b.id === blockId);
-    if (block) kept.set(block.id, [block.html]);
+    const block = footnoteBlocks.find((b) => b.id === blockId);
+    if (block) {kept.set(block.id, [block.html]);}
     return kept;
   }
   for (let i = start; i < paragraphs.length && (i === start || paragraphs[i]!.marker === null); i++) {
@@ -62,13 +62,13 @@ const footnote_paragraphs = (footnoteBlocks: SourceBlock[], blockId: string, ide
 // sourcePageText: the HTML of the page a citation's footnote is on, one block per line in reading order,
 // without running headers and footers, and with only the citation's own footnote of the page's footnotes
 const citation_page_html = (blocks: SourceBlock[], blockId: string, identifier: string) => {
-  const footnote = footnote_paragraphs(blocks.filter(b => b.label === 'Footnote'), blockId, identifier);
+  const footnote = footnote_paragraphs(blocks.filter((b) => b.label === 'Footnote'), blockId, identifier);
 
   return blocks
-    .flatMap(b => (
+    .flatMap((b) => (
       b.label === 'PageHeader' || b.label === 'PageFooter' ? []
         : b.label === 'Footnote' ? (footnote.has(b.id) ? [footnote.get(b.id)!.join('').trim()] : [])
-        : [b.html]
+          : [b.html]
     ))
     .join('\n');
 };
@@ -84,7 +84,7 @@ const cited_by_count = (eb: ExpressionBuilder<Database, 'books'>) =>
     .as('cited_by_count');
 
 // Escape LIKE wildcards so a user's "50%" or "a_b" is searched literally.
-const like_pattern = (q: string) => '%' + q.replace(/[\\%_]/g, m => '\\' + m) + '%';
+const like_pattern = (q: string) => '%' + q.replace(/[\\%_]/g, (m) => '\\' + m) + '%';
 
 @Injectable()
 export class BooksService {
@@ -102,17 +102,17 @@ export class BooksService {
 
       if (opts.query) {
         const pattern = like_pattern(opts.query);
-        q = q.where(eb => eb.or([
+        q             = q.where((eb) => eb.or([
           eb('books.title', 'ilike', pattern),
           eb('books.author', 'ilike', pattern)
         ]));
       }
-      
+
       return q;
     };
 
     const rows = await matching()
-      .select(eb => [
+      .select((eb) => [
         'books.id',
         'books.title',
         'books.author',
@@ -131,18 +131,18 @@ export class BooksService {
       .execute();
 
     const total = await matching()
-      .select(eb => eb.fn.countAll<string>().as('count'))
+      .select((eb) => eb.fn.countAll<string>().as('count'))
       .executeTakeFirstOrThrow();
 
     return {
-      items: rows.map(r => ({
-        id: r.id,
-        title: r.title,
-        author: r.author,
-        url: r.url ?? null,
+      items: rows.map((r) => ({
+        id:             r.id,
+        title:          r.title,
+        author:         r.author,
+        url:            r.url ?? null,
         coverPhotoPath: r.cover_photo_path ?? null,
-        pageCount: Number(r.page_count ?? 0),
-        citedByCount: Number(r.cited_by_count ?? 0),
+        pageCount:      Number(r.page_count ?? 0),
+        citedByCount:   Number(r.cited_by_count ?? 0),
       })),
       count: Number(total.count),
     };
@@ -153,13 +153,13 @@ export class BooksService {
   ): Promise<(BookSummary & { pageOrder: PageOrderEntry[] }) | null> {
     const book = await this.db
       .selectFrom('books')
-      .select(eb => [
+      .select((eb) => [
         'books.id', 'books.title', 'books.author', 'books.url', 'books.cover_photo_path',
         cited_by_count(eb),
       ])
       .where('books.id', '=', bookId)
       .executeTakeFirst();
-    
+
     if (!book) {
       return null;
     }
@@ -176,29 +176,29 @@ export class BooksService {
       const citedPages = await this.db
         .selectFrom('citations')
         .innerJoin('citation_locations', 'citation_locations.citation_id', 'citations.id')
-        .innerJoin('pages', join => join
+        .innerJoin('pages', (join) => join
           .onRef('pages.book_id', '=', 'citations.reference_book_id')
           .on(sql<boolean>`case when pages.printed_page_number ~ '^[0-9]+$' then pages.printed_page_number::numeric end = citation_locations.value`))
-        .select(eb => ['pages.page_number', eb.fn.count<string>('citations.id').distinct().as('n')])
+        .select((eb) => ['pages.page_number', eb.fn.count<string>('citations.id').distinct().as('n')])
         .where('citations.reference_book_id', '=', bookId)
         .where('citations.source_book_id', '<>', bookId)
         .where('citation_locations.type', '=', 'page')
         .groupBy('pages.page_number')
         .execute();
-      const citedBy = new Map(citedPages.map(r => [r.page_number, Number(r.n)]));
+      const citedBy    = new Map(citedPages.map((r) => [r.page_number, Number(r.n)]));
 
       return {
-        id: book.id,
-        title: book.title,
-        author: book.author,
+        id:           book.id,
+        title:        book.title,
+        author:       book.author,
         ...(book.url ? { url: book.url } : {}),
         ...(book.cover_photo_path ? { coverPhotoPath: book.cover_photo_path } : {}),
-        pageCount: pages.length,
+        pageCount:    pages.length,
         citedByCount: Number(book.cited_by_count ?? 0),
-        pageOrder: pages.map(p => ({
-          pageId: p.page_number,
+        pageOrder:    pages.map((p) => ({
+          pageId:            p.page_number,
           printedPageNumber: p.printed_page_number,
-          citedByCount: citedBy.get(p.page_number) ?? 0,
+          citedByCount:      citedBy.get(p.page_number) ?? 0,
         })),
       };
     }
@@ -228,8 +228,8 @@ export class BooksService {
 
       const blockCitations = blocks.length === 0 ? [] : await this.db
         .selectFrom('citations')
-        .select(eb => [...citation_columns(eb), 'citations.page_block_id'])
-        .where('citations.page_block_id', 'in', blocks.map(b => b.id))
+        .select((eb) => [...citation_columns(eb), 'citations.page_block_id'])
+        .where('citations.page_block_id', 'in', blocks.map((b) => b.id))
         .orderBy('citations.id')
         .execute();
 
@@ -241,10 +241,10 @@ export class BooksService {
 
       const foreignCitations = printedNumber === null ? [] : await this.db
         .selectFrom('citations')
-        .select(eb => [...citation_columns(eb), 'citations.page_block_id'])
+        .select((eb) => [...citation_columns(eb), 'citations.page_block_id'])
         .where('citations.reference_book_id', '=', bookId)
         .where('citations.source_book_id', '<>', bookId)
-        .where(eb => eb.exists(
+        .where((eb) => eb.exists(
           eb.selectFrom('citation_locations')
             .whereRef('citation_locations.citation_id', '=', 'citations.id')
             .where('citation_locations.type', '=', 'page')
@@ -256,14 +256,14 @@ export class BooksService {
         .execute();
 
       // The HTML of every page a citation's footnote is on: this one, and the citing pages in other books
-      const sourcePages = [...new Map(
+      const sourcePages  = [...new Map(
         [...blockCitations, ...foreignCitations]
-          .map(c => [page_key(c.source_book_id, c.source_footnote_page), c] as const)
+          .map((c) => [page_key(c.source_book_id, c.source_footnote_page), c] as const)
       ).values()];
       const sourceBlocks = sourcePages.length === 0 ? [] : await this.db
         .selectFrom('page_blocks')
         .select(['page_blocks.id', 'page_blocks.book_id', 'page_blocks.page_number', 'page_blocks.label', 'page_blocks.html'])
-        .where(eb => eb.or(sourcePages.map(c => eb.and([
+        .where((eb) => eb.or(sourcePages.map((c) => eb.and([
           eb('page_blocks.book_id', '=', c.source_book_id),
           eb('page_blocks.page_number', '=', c.source_footnote_page),
         ]))))
@@ -292,13 +292,13 @@ export class BooksService {
 
       return {
         bookId,
-        pageNumber: page.page_number,
+        pageNumber:        page.page_number,
         printedPageNumber: page.printed_page_number,
-        blocks: blocks.map(b => ({
-          label: b.label,
-          html: b.html,
+        blocks:            blocks.map((b) => ({
+          label:     b.label,
+          html:      b.html,
           citations: blockCitations
-            .filter(c => c.page_block_id === b.id)
+            .filter((c) => c.page_block_id === b.id)
             .map(with_source_text),
         })),
         foreignCitations: foreignCitations.map(with_source_text),

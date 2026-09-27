@@ -39,14 +39,14 @@ export const to_citation_dto = (r: {
   title: string,
   locations_cited: CitationDto['locationsCited'],
 }): CitationDto => ({
-  id: r.id,
+  id:     r.id,
   source: {
-    bookId: r.source_book_id,
+    bookId:             r.source_book_id,
     footnoteIdentifier: r.source_footnote_identifier,
-    footnotePage: String(r.source_footnote_page),
+    footnotePage:       String(r.source_footnote_page),
   },
-  author: r.author,
-  title: r.title,
+  author:         r.author,
+  title:          r.title,
   locationsCited: r.locations_cited,
 });
 
@@ -61,7 +61,7 @@ export class CitationsService {
     opts: { offset: number, length: number },
   ): Promise<{ items: CitationDto[], count: number } | null> {
     const book = await this.db.selectFrom('books').select('id').where('id', '=', bookId).executeTakeFirst();
-    if (!book) return null;
+    if (!book) {return null;}
 
     const matching = () => this.db
       .selectFrom('citations')
@@ -77,7 +77,7 @@ export class CitationsService {
       .offset(opts.offset)
       .execute();
 
-    const total = await matching().select(eb => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
+    const total = await matching().select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
 
     return {
       items: rows.map(to_citation_dto),

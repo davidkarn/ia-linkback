@@ -2,7 +2,7 @@ export type Book = {
   id: string,
   title: string,
   author: string,
-  url?: string, // url to internet archive 
+  url?: string, // url to internet archive
   pages: Page[]
 }
 
@@ -32,7 +32,7 @@ export type Citation = {
   raw: string,
   /**
    * LocationsCited is a list of all locations.
-   * 
+   *
    * For example, "Bk II Vol IV ch 1-3, also Bk III Vol 1 ch 5, 8-9" would
    * parse to the locationsCited:
    *
@@ -58,7 +58,7 @@ export type CitationLocation = {
       'page' | 'chapter' | 'book' | 'volume' | 'question' | 'article' | 'lecture'
      | 'position' | 'verse' | 'part' | 'bekker number' | 'line' | 'stephanus number'
      | 'objection' | 'sed contra' | 'respondeo' | 'ad' | 'distinction'
-  ), 
+  ),
   values: number[]
 };
 

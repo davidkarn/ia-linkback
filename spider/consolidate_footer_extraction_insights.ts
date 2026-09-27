@@ -1,13 +1,11 @@
-import util from 'util';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 import type { Database } from '../api/database.ts';
 import { makeOpenRouterRequest, parseJsonResponse, type ORResponseFormat } from '../lib/open_router.js';
 
-dotenv.config()
+dotenv.config();
 
-const log = (...items: any[]) => console.log(util.inspect(items, { depth: null }));
 
 const db = new Kysely<Database>({
   dialect: new PostgresDialect({
@@ -33,23 +31,23 @@ const getAllInsights = (): Promise<Insight[]> => (
 );
 
 const CONSOLIDATED_FORMAT: ORResponseFormat = {
-  type: 'json_schema',
+  type:        'json_schema',
   json_schema: {
-    name: 'consolidated_insights',
+    name:   'consolidated_insights',
     strict: true,
     schema: {
-      type: 'object',
+      type:                 'object',
       additionalProperties: false,
-      required: ['insights'],
-      properties: {
+      required:             ['insights'],
+      properties:           {
         insights: {
-          type: 'array',
+          type:  'array',
           items: {
-            type: 'object',
+            type:                 'object',
             additionalProperties: false,
-            required: ['insight', 'sourceIds'],
-            properties: {
-              insight: { type: 'string' },
+            required:             ['insight', 'sourceIds'],
+            properties:           {
+              insight:   { type: 'string' },
               sourceIds: { type: 'array', items: { type: 'string' } },
             },
           },
@@ -75,14 +73,14 @@ detail from each of them (abbreviations, numbering schemes, examples, exceptions
 
 Return the consolidated insights, each with the ids of the input insights it was made from.`;
 
-const consolidateInsights = async (insights: Insight[]): Promise<{
+const consolidateInsights = async(insights: Insight[]): Promise<{
   consolidated: ConsolidatedInsight[],
   missingIds: string[],
 }> => {
   if (insights.length < 5) {
     return {
-      consolidated: insights.map(i => ({ insight: i.insight, sourceIds: [i.id] })),
-      missingIds: [],
+      consolidated: insights.map((i) => ({ insight: i.insight, sourceIds: [i.id] })),
+      missingIds:   [],
     };
   }
   else {
@@ -93,16 +91,16 @@ const consolidateInsights = async (insights: Insight[]): Promise<{
 
     const { insights: consolidated } = parseJsonResponse<{ insights: ConsolidatedInsight[] }>(response);
 
-    const inputIds   = new Set(insights.map(i => i.id));
-    const claimed    = new Set(consolidated.flatMap(c => c.sourceIds));
+    const inputIds = new Set(insights.map((i) => i.id));
+    const claimed  = new Set(consolidated.flatMap((c) => c.sourceIds));
     // originals no consolidated insight says it was made from: their information may have been dropped
-    const missingIds = [...inputIds].filter(id => !claimed.has(id));
+    const missingIds = [...inputIds].filter((id) => !claimed.has(id));
 
     return {
       consolidated: consolidated.map(
-        c => ({
+        (c) => ({
           ...c,
-          sourceIds: c.sourceIds.filter(id => inputIds.has(id))
+          sourceIds: c.sourceIds.filter((id) => inputIds.has(id))
         })
       ),
       missingIds,
@@ -112,53 +110,53 @@ const consolidateInsights = async (insights: Insight[]): Promise<{
 
 // Replace the insights that were consolidated with the consolidated ones, in one transaction. Only the rows
 // that were read are deleted, so an insight process_ocred_books.ts saves in the meantime is kept.
-const replaceInsights = async (original: Insight[], consolidated: ConsolidatedInsight[]) => {
-  await db.transaction().execute(async trx => {
+const replaceInsights = async(original: Insight[], consolidated: ConsolidatedInsight[]) => {
+  await db.transaction().execute(async(trx) => {
     await trx.deleteFrom('footnote_extraction_insights')
-      .where('id', 'in', original.map(i => i.id))
+      .where('id', 'in', original.map((i) => i.id))
       .execute();
 
     await trx.insertInto('footnote_extraction_insights')
-      .values(consolidated.map(c => ({ insight: c.insight })))
+      .values(consolidated.map((c) => ({ insight: c.insight })))
       .execute();
   });
 };
 
 // What consolidating changed: each merged or reworded insight with the originals it replaces
 const logChanges = (original: Insight[], consolidated: ConsolidatedInsight[]) => {
-  const byId = new Map(original.map(i => [i.id, i.insight]));
+  const byId    = new Map(original.map((i) => [i.id, i.insight]));
   let unchanged = 0;
 
   for (const c of consolidated) {
-    const sources = c.sourceIds.map(id => byId.get(id)!);
+    const sources = c.sourceIds.map((id) => byId.get(id)!);
     if (sources.length === 1 && sources[0] === c.insight) {
       unchanged++;
       continue;
     }
 
-    console.log(sources.length > 1 ? `\nmerged ${sources.length} insights:` : '\nreworded:');
-    c.sourceIds.forEach(id => console.log(`  - [${id}] ${byId.get(id)}`));
-    console.log(`  => ${c.insight}`);
+    console.log(sources.length > 1 ? `\nmerged ${ sources.length } insights:` : '\nreworded:');
+    c.sourceIds.forEach((id) => console.log(`  - [${ id }] ${ byId.get(id) }`));
+    console.log(`  => ${ c.insight }`);
   }
 
-  console.log(`\n${original.length} insights -> ${consolidated.length} (${unchanged} unchanged)`);
+  console.log(`\n${ original.length } insights -> ${ consolidated.length } (${ unchanged } unchanged)`);
 };
 
-const main = async () => {
+const main = async() => {
   try {
     const insights                     = await getAllInsights();
     const { consolidated, missingIds } = await consolidateInsights(insights);
 
     logChanges(insights, consolidated);
 
-    const byId = new Map(insights.map(i => [i.id, i.insight]));
+    const byId    = new Map(insights.map((i) => [i.id, i.insight]));
     const changed = consolidated.length !== insights.length
-      || consolidated.some(c => c.sourceIds.length !== 1 || byId.get(c.sourceIds[0]!) !== c.insight);
+      || consolidated.some((c) => c.sourceIds.length !== 1 || byId.get(c.sourceIds[0]!) !== c.insight);
 
     if (missingIds.length) {
       // replacing would lose these: leave the table as it is
       console.log('\nnot replacing: no consolidated insight includes these originals:');
-      missingIds.forEach(id => console.log(`  - [${id}] ${byId.get(id)}`));
+      missingIds.forEach((id) => console.log(`  - [${ id }] ${ byId.get(id) }`));
     }
     else if (!changed) {
       console.log('nothing to replace');
@@ -167,7 +165,8 @@ const main = async () => {
       await replaceInsights(insights, consolidated);
       console.log('replaced the insights in the database');
     }
-  } finally {
+  }
+  finally {
     await db.destroy();
   }
 };

@@ -12,11 +12,11 @@ export class CitationsController {
     @Query('offset') offset?: unknown,
     @Query('length') length?: unknown,
   ) {
-    const page   = paging_params(offset, length); 
+    const page   = paging_params(offset, length);
     const result = await this.citations.citationsTo(bookId, page);
-    
+
     if (!result) {
-      throw new NotFoundException(`No book with id ${bookId}`);
+      throw new NotFoundException(`No book with id ${ bookId }`);
     }
     else {
       return { meta: { count: result.count }, items: result.items };

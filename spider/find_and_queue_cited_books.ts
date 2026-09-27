@@ -4,6 +4,7 @@ import { createWriteStream } from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import type { ReadableStream } from 'node:stream/web';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 import { Pool } from 'pg';
 import type { Selectable } from 'kysely';
@@ -14,9 +15,9 @@ import dotenv from 'dotenv';
 import type { Book } from '../types.js';
 import { arrayToMapOfRecords } from '../lib/lib.js';
 
-dotenv.config()
+dotenv.config();
 
-const log = (...items: any[]) => console.log(util.inspect(items, { depth: null }));
+const log = (...items: unknown[]) => console.log(util.inspect(items, { depth: null }));
 
 const SCHOLSHELF = process.env.SCHOLSHELF_DIR ?? '../scholshelf';
 
@@ -54,15 +55,6 @@ const getQueuedBookNames = () => (
 
 type QueuedBook = Selectable<QueuedBookImportsTable>;
 
-type FootnoteCitation = {
-  citationId: string,
-  footnotePage: number,
-  footnoteIdentifier: string,
-  author: string,
-  title: string,
-  location: string,
-  raw: string,
-};
 
 const citationsForBook = (bookId: string) => (
   db.selectFrom('citations')
@@ -92,7 +84,6 @@ const findCitedBooks = (
   referencing: {citationId: number, bookId: string}[],
   notReferencing: Selectable<CitationsTable>[]
 } => {
-  const bookId  = book.imported_book_id;
   const matches = new Map<string, typeof books>();
 
   const booksMatching = (author: string, title: string) => {
@@ -101,27 +92,27 @@ const findCitedBooks = (
 
     if (!found) {
       found = books.filter(
-        b => sameAuthor(author, b.author)
+        (b) => sameAuthor(author, b.author)
           && sameTitle(
             citedTitle(title) || title,
             b.title
           )
       );
-      
+
       matches.set(key, found);
     }
-    
+
     return found;
   };
 
   const queuedMatches = new Map<string, boolean>();
-  const isQueued = (author: string, title: string) => {
-    const key = author + '\u0000' + title;
+  const isQueued      = (author: string, title: string) => {
+    const key  = author + '\u0000' + title;
     let queued = queuedMatches.get(key);
 
     if (queued === undefined) {
       queued = queuedBookNames.some(
-        q => sameAuthor(author, q.author)
+        (q) => sameAuthor(author, q.author)
           && sameTitle(
             citedTitle(title) || title,
             q.title
@@ -134,12 +125,12 @@ const findCitedBooks = (
     return queued;
   };
 
-  const referencing: {citationId: number, bookId: number}[] = []
+  const referencing: {citationId: number, bookId: number}[] = [];
   const notReferencing: Selectable<CitationsTable>[]        = [];
 
   for (const c of citations) {
     if (c.reference_book_id) {
-      // skip 
+      // skip
     }
     else if (skipCitation(c.author, c.title)) {
       notReferencing.push(c);
@@ -147,9 +138,9 @@ const findCitedBooks = (
     else {
       let found    = booksMatching(c.author, c.title);
       const volume = volumeOf(c.title) ?? volumeOf(c.location);
-      
-      if (volume !== null && found.some(b => volumeOf(b.title) !== null)) {
-        found = found.filter(b => volumeOf(b.title) === volume);
+
+      if (volume !== null && found.some((b) => volumeOf(b.title) !== null)) {
+        found = found.filter((b) => volumeOf(b.title) === volume);
       }
 
       if (found.length) {
@@ -166,7 +157,7 @@ const findCitedBooks = (
 
 
 const MAX_CONSECUTIVE_ARCHIVE_ERRORS = 5;
-const findArchiveCopies = async (citations: Selectable<CitationsTable>[]): Promise<{
+const findArchiveCopies              = async(citations: Selectable<CitationsTable>[]): Promise<{
   found: ArchiveCopy[],
   failed: { citation: Selectable<CitationsTable>, error: string }[],
 }> => {
@@ -175,12 +166,12 @@ const findArchiveCopies = async (citations: Selectable<CitationsTable>[]): Promi
     archiveUrl: string,
     pdfUrl: string
   }[] = [];
-  
+
   const failed: {
     citation: Selectable<CitationsTable>,
     error: string
   }[] = [];
-  
+
   let consecutiveErrors = 0;
 
   for (const citation of citations) {
@@ -193,7 +184,7 @@ const findArchiveCopies = async (citations: Selectable<CitationsTable>[]): Promi
     }
     else {
       try {
-        const hit = await searchArchive(
+        const hit         = await searchArchive(
           citation.author,
           citedTitle(citation.title) || citation.title
         );
@@ -203,12 +194,13 @@ const findArchiveCopies = async (citations: Selectable<CitationsTable>[]): Promi
           found.push({
             citation,
             archiveUrl: 'https://archive.org/details/' + hit.identifier,
-            pdfUrl: hit.pdf,
-            title: hit.title || citation.title,
-            author: hit.creator || citation.author
+            pdfUrl:     hit.pdf,
+            title:      hit.title || citation.title,
+            author:     hit.creator || citation.author
           });
         }
-      } catch (e) {
+      }
+      catch (e) {
         consecutiveErrors++;
         failed.push({ citation, error: (e as Error).message ?? String(e) });
       }
@@ -218,7 +210,7 @@ const findArchiveCopies = async (citations: Selectable<CitationsTable>[]): Promi
   return { found, failed };
 };
 
-const linkReferences = async (
+const linkReferences = async(
   referencing: { citationId: number, bookId: string }[]
 ): Promise<number> => {
   if (referencing.length === 0) {
@@ -228,8 +220,8 @@ const linkReferences = async (
     const result = await sql`
       UPDATE citations SET reference_book_id = r.book_id
       FROM unnest(
-        ${referencing.map(r => String(r.citationId))}::bigint[],
-        ${referencing.map(r => r.bookId)}::text[]
+        ${ referencing.map((r) => String(r.citationId)) }::bigint[],
+        ${ referencing.map((r) => r.bookId) }::text[]
       ) AS r(citation_id, book_id)
       WHERE citations.id = r.citation_id`.execute(db);
 
@@ -242,36 +234,37 @@ const pdfFileName = (pdfUrl: string) => (
   new URL(pdfUrl).pathname.split('/').pop() ?? ''
 );
 
-const downloadPdf = async (url: string, dest: string) => {
+const downloadPdf = async(url: string, dest: string) => {
   const res = await fetch(url, { headers: { 'User-Agent': 'references-citation-linker/1.0' } });
 
   if (!res.ok || !res.body) {
-    throw new Error(`download failed: ${res.status} ${url}`);
+    throw new Error(`download failed: ${ res.status } ${ url }`);
   }
   else {
     const part = dest + '.part';
     try {
-      await pipeline(Readable.fromWeb(res.body as any), createWriteStream(part));
-      
+      await pipeline(Readable.fromWeb(res.body as ReadableStream<Uint8Array>), createWriteStream(part));
+
       const file  = await fs.open(part);
       const magic = Buffer.alloc(5);
       await file.read(magic, 0, 5, 0);
       await file.close();
-    
+
       if (magic.toString('latin1') !== '%PDF-') {
-        throw new Error(`not a PDF: ${url}`);
+        throw new Error(`not a PDF: ${ url }`);
       }
       else {
         await fs.rename(part, dest);
       }
-    } catch (e) {
+    }
+    catch (e) {
       await fs.rm(part, { force: true });
       throw e;
     }
   }
 };
 
-const queueBooksFromArchive = async (foundArchiveCopies: ArchiveCopy[]): Promise<{
+const queueBooksFromArchive = async(foundArchiveCopies: ArchiveCopy[]): Promise<{
   queued: {
     id: string,
     archiveUrl: string,
@@ -301,21 +294,21 @@ const queueBooksFromArchive = async (foundArchiveCopies: ArchiveCopy[]): Promise
 
   const queuedAt = new Set(
     queuedArchiveUrls
-      .flatMap(q => [q.archive_url, q.pdf_url])
+      .flatMap((q) => [q.archive_url, q.pdf_url])
       .filter((u): u is string => !!u)
   );
 
-  const bookIds  = new Set((
+  const bookIds = new Set((
     await db.selectFrom('books')
       .select('id')
       .execute()
-  ).map(b => b.id));
+  ).map((b) => b.id));
 
   await fs.mkdir(SCHOLSHELF, { recursive: true });
 
   for (const [archiveUrl, copies] of byItem) {
-    const { citation, pdfUrl, title, author } = copies[0]!;
-    
+    const { pdfUrl, title, author } = copies[0]!;
+
     const identifier = decodeURIComponent(archiveUrl.split('/details/')[1] ?? '');
     const fileName   = pdfFileName(pdfUrl);
 
@@ -326,33 +319,34 @@ const queueBooksFromArchive = async (foundArchiveCopies: ArchiveCopy[]): Promise
       skipped.push({ archiveUrl, reason: 'already a book' });
     }
     else if (!fileName.toLowerCase().endsWith('.pdf')) {
-      failed.push({ archiveUrl, error: `pdf url has no .pdf file name: ${pdfUrl}` });
+      failed.push({ archiveUrl, error: `pdf url has no .pdf file name: ${ pdfUrl }` });
     }
     else {
       try {
         const dest = path.join(SCHOLSHELF, fileName);
-        const size = await fs.stat(dest).then(st => st.size, () => 0);
-        
+        const size = await fs.stat(dest).then((st) => st.size, () => 0);
+
         if (!size) {
           await downloadPdf(pdfUrl, dest);
         }
-        
+
         const row = await db.insertInto('queued_book_imports')
           .values({
             title,
             author,
             archive_url: archiveUrl,
-            pdf_url: pdfUrl,
-            status: 'queued',
-        })
+            pdf_url:     pdfUrl,
+            status:      'queued',
+          })
           .returning('id')
           .executeTakeFirstOrThrow();
 
         queuedAt.add(archiveUrl);
         queuedAt.add(pdfUrl);
-        
+
         queued.push({ id: row.id, archiveUrl, pdfUrl, file: dest, citations: copies.length });
-      } catch (e) {
+      }
+      catch (e) {
         failed.push({ archiveUrl, error: (e as Error).message ?? String(e) });
       }
     }
@@ -361,12 +355,12 @@ const queueBooksFromArchive = async (foundArchiveCopies: ArchiveCopy[]): Promise
   return { queued, skipped, failed };
 };
 
-const processImportedCitations = async (book: QueuedBook) => {
+const processImportedCitations = async(book: QueuedBook) => {
   const citations          = await citationsForBook(book.imported_book_id);
   const referenceableBooks = await referencableBookDetails(book.imported_book_id);
   const queuedBookNames    = await getQueuedBookNames();
 
-  const {referencing, notReferencing} = findCitedBooks(
+  const { referencing, notReferencing } = findCitedBooks(
     book, citations, referenceableBooks, queuedBookNames
   );
 
@@ -379,16 +373,16 @@ const processImportedCitations = async (book: QueuedBook) => {
     .where('id', '=', book.id)
     .execute();
 
-  log({numRefsSaved, queuedResults, archiveSearchFailures: archiveCopies.failed.length});
+  log({ numRefsSaved, queuedResults, archiveSearchFailures: archiveCopies.failed.length });
 };
 
-const main = async () => {
+const main = async() => {
   while (true) {
     const nextBook = await getNextBook();
 
     await processImportedCitations(nextBook);
     return;
   }
-}
+};
 
 main();

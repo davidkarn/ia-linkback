@@ -6,8 +6,8 @@ import { CitationsService } from './citations.service';
 import { DatabaseModule } from './database.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports:     [DatabaseModule],
   controllers: [BooksController, CitationsController],
-  providers: [BooksService, CitationsService],
+  providers:   [BooksService, CitationsService],
 })
 export class AppModule {}
