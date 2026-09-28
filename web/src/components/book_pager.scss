@@ -2,20 +2,38 @@
 .book-pager-wrapper {
    overflow-y: auto;
    height: min(calc(var(--page-count) * 4px), 75vh);
-   max-height: 90vh;
+   position: sticky;
+   top: 0;
+   height: calc(100vh - 5rem);
     
    &::-webkit-scrollbar {
        display: none;
    }
 
+   // lines scrolled out of view above or below: the edge fades out
+   --fade: 2.5rem;
+   &.fade-top {
+       -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade));
+       mask-image: linear-gradient(to bottom, transparent, #000 var(--fade));
+   }
+   &.fade-bottom {
+       -webkit-mask-image: linear-gradient(to top, transparent, #000 var(--fade));
+       mask-image: linear-gradient(to top, transparent, #000 var(--fade));
+   }
+   &.fade-top.fade-bottom {
+       -webkit-mask-image: linear-gradient(
+           to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+       mask-image: linear-gradient(
+           to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+   }
 }
+
 .book-pager {
     --label-height: 1.25rem;
     position: relative;
     width: 2.5rem;
     margin-top: 2.5rem;
     margin-bottom: 2.5rem;
-    height: calc(var(--page-count) * 4px);
     cursor: default;
     touch-action: none;
     user-select: none;
@@ -24,14 +42,14 @@
     .lines {
         display: flex;
         flex-direction: column;
-        height: 100%;
+        height: calc(var(--page-count) * 4px);
     }
 
     .line {
         display: flex;
         align-items: center;
         cursor: pointer;
-        flex-grow: 1;
+        flex-grow: 1;        
 
         &::after {
             width: 1rem;

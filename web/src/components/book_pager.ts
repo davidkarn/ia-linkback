@@ -33,13 +33,47 @@ export default function BookPager({pages, hrefForPage}: {
     },
   }));
 
+  // fade the top and bottom edges while there are lines scrolled out of view past them
+  const wrapper             = useRef<HTMLDivElement>(null);
+  const [fades, setFades]   = useState({ top: false, bottom: false });
+  const updateFades         = () => {
+    const el = wrapper.current;
+    if (el) {
+      const top    = el.scrollTop > 0;
+      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      setFades((f) => (f.top === top && f.bottom === bottom ? f : { top, bottom }));
+    }
+  };
+
+  // the scroll range changes with the window's size and the book's number of pages
+  useEffect(() => {
+    const el = wrapper.current;
+    if (!el) {
+      return undefined;
+    }
+    else {
+      const observer = new ResizeObserver(updateFades);
+      observer.observe(el);
+      if (el.firstElementChild) {
+        observer.observe(el.firstElementChild);
+      }
+      return () => observer.disconnect();
+    }
+  }, []);
+
   const hovered = state.matches('hovering') ? state.context.hoveredIndex : null;
   const near = (i: number) => hoveredLine !== null && Math.abs(i - hoveredLine) <= NEIGHBORS;
 
   const hoveredLine = state.context.hoveredIndex;
   
   return (
-    __('div', {className: 'book-pager-wrapper'},
+    __('div', {
+        className: 'book-pager-wrapper'
+          + (fades.top ? ' fade-top' : '')
+          + (fades.bottom ? ' fade-bottom' : ''),
+        ref:      wrapper,
+        onScroll: updateFades,
+      },
       __('div', {
         className: 'book-pager',
         onMouseOut: () => send({type: 'pointer.leave'}),
