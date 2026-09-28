@@ -81,48 +81,64 @@ export const citationsOfPage = (
     .orderBy('citations.id')
 );
 
-// How many citations in other books cite each of a book's pages, by the rules of citationsOfPage:
-// its printed page number, or the parts of one of its book_pages_to_citations rows. A citation
-// counts once per page, and a range (pp. 42-51) on each of its pages.
-//
-// By parts, a row matches a place (citation_groups row) holding every one of its parts. To give
-// Postgres a key to join on (comparing every place with every row is slow: 4 million pairs for the
-// Summa), each place's and each row's parts become arrays of "type:value" keys; a row is joined to
-// the places holding its last (most specific) key, then checked for the rest by containment (@>).
 export const citedCountsByPage = async(
   db: Kysely<Database>, bookId: string
 ): Promise<Map<number, number>> => {
   const rows = await sql<{ page_number: number, n: string }>`
-    with group_keys as (
-      select c.id as citation_id, ${ partKeys((n, kind) => `grp.part${ n }_${ kind }`) } as keys
-      from citations c
-      join citation_groups grp on grp.citation_id = c.id
-      where c.reference_book_id = ${ bookId } and c.source_book_id <> ${ bookId }
-    ), group_key as (
-      select g.citation_id, g.keys, key
-      from group_keys g cross join lateral unnest(g.keys) key
-    ), row_keys as (
-      select bpc.page_number, k.keys, k.keys[cardinality(k.keys)] as last_key
-      from book_pages_to_citations bpc
-      cross join lateral (select ${ partKeys((n, kind) => `bpc.citation_part_${ n }_${ kind }`) } as keys) k
-      where bpc.book_id = ${ bookId }
-    )
-    select page_number, count(distinct citation_id) as n from (
-      select p.page_number, c.id as citation_id
-      from citations c
-      join citation_groups grp on grp.citation_id = c.id
-      cross join lateral ${ groupPartRows('grp') } part(n, type, value)
-      join pages p on p.book_id = c.reference_book_id
-        and case when p.printed_page_number ~ '^[0-9]+$'
-                 then p.printed_page_number::numeric end = part.value
-      where c.reference_book_id = ${ bookId } and c.source_book_id <> ${ bookId }
-        and part.type = 'page'
-      union all
-      select r.page_number, g.citation_id
-      from row_keys r
-      join group_key g on g.key = r.last_key and g.keys @> r.keys
-    ) cited
-    group by page_number`.execute(db);
+SELECT
+	bpc.page_number,
+	count(DISTINCT (c.id)) as n
+FROM
+	book_pages_to_citations bpc
+	JOIN citations c ON c.reference_book_id = bpc.book_id
+	JOIN citation_groups grp ON grp.citation_id = c.id
+WHERE
+	bpc.book_id = ${ bookId }
+	AND (bpc.citation_part_1_type IS NULL
+		OR bpc.citation_part_1_type = grp.part1_type)
+	AND (bpc.citation_part_1_value IS NULL
+		OR bpc.citation_part_1_value = grp.part1_value)
+	AND (bpc.citation_part_2_type IS NULL
+		OR bpc.citation_part_2_type = grp.part2_type)
+	AND (bpc.citation_part_2_value IS NULL
+		OR bpc.citation_part_2_value = grp.part2_value)
+	AND (bpc.citation_part_3_type IS NULL
+		OR bpc.citation_part_3_type = grp.part3_type)
+	AND (bpc.citation_part_3_value IS NULL
+		OR bpc.citation_part_3_value = grp.part3_value)
+	AND (bpc.citation_part_4_type IS NULL
+		OR bpc.citation_part_4_type = grp.part4_type)
+	AND (bpc.citation_part_4_value IS NULL
+		OR bpc.citation_part_4_value = grp.part4_value)
+	AND (bpc.citation_part_5_type IS NULL
+		OR bpc.citation_part_5_type = grp.part5_type)
+	AND (bpc.citation_part_5_value IS NULL
+		OR bpc.citation_part_5_value = grp.part5_value)
+	AND (bpc.citation_part_1_type IS NULL
+		OR bpc.citation_part_1_type = grp.part1_type)
+	AND (bpc.citation_part_6_value IS NULL
+		OR bpc.citation_part_6_value = grp.part6_value)
+	AND (bpc.citation_part_7_type IS NULL
+		OR bpc.citation_part_7_type = grp.part7_type)
+	AND (bpc.citation_part_7_value IS NULL
+		OR bpc.citation_part_7_value = grp.part7_value)
+	AND (bpc.citation_part_8_type IS NULL
+		OR bpc.citation_part_8_type = grp.part8_type)
+	AND (bpc.citation_part_8_value IS NULL
+		OR bpc.citation_part_8_value = grp.part8_value)
+GROUP BY
+	bpc.page_number
+UNION ALL
+SELECT
+	citation_groups.part1_value as page_number,
+	count(DISTINCT (citations.id)) as n
+FROM
+  citations
+LEFT JOIN citation_groups ON citation_groups.citation_id = citations.id
+  WHERE
+  citations.reference_book_id = ${ bookId } and citation_groups.part1_type = 'page'
+GROUP BY citation_groups.part1_value
+`.execute(db);
 
   return new Map(rows.rows.map((r) => [r.page_number, Number(r.n)]));
 };
