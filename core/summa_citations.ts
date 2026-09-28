@@ -181,10 +181,10 @@ export const parseSummaCitation = (raw: string, previous?: SummaPlace): Citation
     }
     else {
       return [[
-        { type: 'book', value: String(p.book) },
-        { type: 'question', value: String(loc.question) },
-        ...(loc.article === undefined ? [] : [{ type: 'article', value: String(loc.article) }]),
-        ...(loc.ad === undefined ? [] : [{ type: 'ad', value: String(loc.ad) }]),
+        { type: 'book', value: p.book },
+        { type: 'question', value: loc.question },
+        ...(loc.article === undefined ? [] : [{ type: 'article', value: loc.article }]),
+        ...(loc.ad === undefined ? [] : [{ type: 'ad', value: loc.ad }]),
       ]];
     }
   });
@@ -198,5 +198,5 @@ export const lastPlace = (groups: CitationPart[][]): SummaPlace | undefined => {
   const last = groups[groups.length - 1];
   const book = last?.find((p) => p.type === 'book');
   const q    = last?.find((p) => p.type === 'question');
-  return book && q ? { book: Number(book.value), question: Number(q.value) } : undefined;
+  return book && q ? { book: book.value, question: q.value } : undefined;
 };

@@ -4,7 +4,7 @@ import { contentsOf, type ContentsEntry } from './contents.ts';
 // pages numbered from 1 in the order given
 const pages = (...paths: [string, string][][]) => paths.map((pairs, i) => ({
   pageId: i + 1,
-  parts:  pairs.map(([type, value]) => ({ type, value })),
+  parts:  pairs.map(([type, value]) => ({ type, value: Number(value) })),
 }));
 const parts = (...pairs: [string, string][]) => pairs;
 const show  = (entries: ContentsEntry[]): unknown[] => entries.map((e) => {

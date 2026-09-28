@@ -62,10 +62,10 @@ export const findContents = async(db: Kysely<Database>, bookId: string): Promise
   return contentsOf(rows.map((row) => {
     const parts: CitationPart[] = [];
     for (let n = 1; n <= MAX_PARTS; n++) {
-      const r     = row as unknown as Record<string, string | null>;
+      const r     = row as unknown as Record<string, string | number | null>;
       const type  = r[`citation_part_${ n }_type`];
       const value = r[`citation_part_${ n }_value`];
-      if (type && value !== null && value !== undefined) {
+      if (typeof type === 'string' && typeof value === 'number') {
         parts.push({ type, value });
       }
     }

@@ -5,7 +5,7 @@
   "scripts": {
     "test": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js",
     "start": "tsx api/main.ts",
-    "dev": "tsx watch --clear-screen=false --include .env api/main.ts",
+    "dev": "LOG_QUERIES=1 tsx watch --clear-screen=false --include .env api/main.ts",
     "migrate": "tsx migrate.ts",
       "lint": "eslint .",
     "format": "eslint --fix ."

@@ -82,9 +82,9 @@ describe('volumeWorks', () => {
 
   it('joins the books of a work, with the text before a book\'s chapters on a page of its own', () => {
     expect(work('anf01-against-heresies').pages.map((p) => [p.printedPageNumber, p.citationParts])).toEqual([
-      ['Book I, Chapter I', [{ type: 'book', value: '1' }, { type: 'chapter', value: '1' }]],
-      ['Book II', [{ type: 'book', value: '2' }]],
-      ['Book II, Chapter I', [{ type: 'book', value: '2' }, { type: 'chapter', value: '1' }]],
+      ['Book I, Chapter I', [{ type: 'book', value: 1 }, { type: 'chapter', value: 1 }]],
+      ['Book II', [{ type: 'book', value: 2 }]],
+      ['Book II, Chapter I', [{ type: 'book', value: 2 }, { type: 'chapter', value: 1 }]],
     ]);
   });
 

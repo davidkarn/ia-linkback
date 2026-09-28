@@ -1,5 +1,6 @@
 // Start the API (from src/):  DATABASE_URL=postgres://... [PORT=3000] npx tsx api/main.ts
-// In development, `npm run dev` restarts it whenever a file it imports (or .env) changes.
+// In development, `npm run dev` restarts it whenever a file it imports (or .env) changes, and logs
+// every query (LOG_QUERIES=1; failed queries are always logged).
 // DATABASE_URL and OPENROUTER_KEY (for page insights) can also come from .env.
 import 'dotenv/config';
 import 'reflect-metadata';

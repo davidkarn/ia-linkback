@@ -95,7 +95,7 @@ export type Division = { label: string, type: string | null, value: number };
 // The martyrdom of Peter and Paul" -> chapter 5, "Book I" -> book 1, "II" ->
 // 2 of no type yet (its siblings' type). null for a div that isn't numbered.
 export const divisionOf = (div: Pick<Div, 'title' | 'shortTitle'>): Division | null => {
-  const found = [div.shortTitle, div.title].map((t) => decode(t)).flatMap((t) => {
+  const found = [div.shortTitle, div.title].map((t) => decode(t)).flatMap((t): Division[] => {
     const labelled = t.match(DIVISION);
     const bare     = t.match(BARE_NUMBER);
     const value    = numberOf(labelled?.[2] ?? bare?.[1] ?? '');
@@ -454,7 +454,7 @@ const workPlans = (
     const label               = path.length > 0 ? path.map((d) => d.label).join(', ') : title;
     return {
       printedPageNumber: label.slice(0, MAX_LABEL),
-      citationParts:     path.map((d) => ({ type: d.type, value: String(d.value) })),
+      citationParts:     path.map((d) => ({ type: d.type, value: d.value })),
       blocks:            [
         ...[workTitle, ...headings].map((h) => block('PageHeader', `<p>${ escapeHtml(h) }</p>`)),
         block('SectionHeader', `<h3>${ escapeHtml(tidyTitle(title)) }</h3>`),

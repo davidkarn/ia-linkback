@@ -25,19 +25,19 @@ export const PARTS: Record<string, { name: string, short: string }> = {
   AP2: { name: 'Supplementum Tertiae Partis, Appendix 2', short: 'Suppl. App. 2' },
 };
 
-// One part of a citation of a page: { type: 'question', value: '2' }
-export type CitationPart = { type: string, value: string };
+// One part of a citation of a page: { type: 'question', value: 2 }
+export type CitationPart = { type: string, value: number };
 
 // The parts of the Summa as cited, by their short form in page labels: the book, numbered I = 1,
 // I-II = 2, II-II = 3, III = 4, Supplement = 5, and for the appendices to the Supplement, which one
 const CITED_PARTS: Record<string, CitationPart[]> = {
-  'I':             [{ type: 'book', value: '1' }],
-  'I-II':          [{ type: 'book', value: '2' }],
-  'II-II':         [{ type: 'book', value: '3' }],
-  'III':           [{ type: 'book', value: '4' }],
-  'Suppl.':        [{ type: 'book', value: '5' }],
-  'Suppl. App. 1': [{ type: 'book', value: '5' }, { type: 'appendix', value: '1' }],
-  'Suppl. App. 2': [{ type: 'book', value: '5' }, { type: 'appendix', value: '2' }],
+  'I':             [{ type: 'book', value: 1 }],
+  'I-II':          [{ type: 'book', value: 2 }],
+  'II-II':         [{ type: 'book', value: 3 }],
+  'III':           [{ type: 'book', value: 4 }],
+  'Suppl.':        [{ type: 'book', value: 5 }],
+  'Suppl. App. 1': [{ type: 'book', value: 5 }, { type: 'appendix', value: 1 }],
+  'Suppl. App. 2': [{ type: 'book', value: 5 }, { type: 'appendix', value: 2 }],
 };
 
 // How a Summa page is cited, from its label (its printed page number): "I-II q. 3 a. 2" -> book 2,
@@ -53,8 +53,8 @@ export const summaCitationParts = (printedPageNumber: string): CitationPart[] | 
   else {
     return [
       ...part,
-      ...(m[2] ? [{ type: 'question', value: m[2] }] : []),
-      ...(m[3] ? [{ type: 'article', value: m[3] }] : []),
+      ...(m[2] ? [{ type: 'question', value: Number(m[2]) }] : []),
+      ...(m[3] ? [{ type: 'article', value: Number(m[3]) }] : []),
     ];
   }
 };

@@ -23,7 +23,7 @@ export const contentsOf = (pages: { pageId: number, parts: CitationPart[] }[]): 
   for (const page of pages) {
     page.parts.reduce((entries, part, i) => {
       const last  = i === page.parts.length - 1;
-      const found = entries.find((e) => e.partType === part.type && e.partValue === part.value);
+      const found = entries.find((e) => e.partType === part.type && e.partValue === String(part.value));
 
       if (found) {
         if (last && !exact.has(found)) {
@@ -35,7 +35,7 @@ export const contentsOf = (pages: { pageId: number, parts: CitationPart[] }[]): 
       else {
         const entry: ContentsEntry = {
           partType:     part.type as CitationLocation['type'],
-          partValue:    part.value,
+          partValue:    String(part.value),
           pageId:       page.pageId,
           childEntries: [],
         };

@@ -51,8 +51,8 @@ export const relinkCitations = (
         citation_id:       g.citationId,
         citation_group_id: groupIds[i]!.id,
         type:              part.type as Database['citation_locations']['type'],
-        raw:               part.value,
-        value:             Number(part.value),
+        raw:               String(part.value),
+        value:             part.value,
       })));
 
       for (const valueChunk of chunks(values)) {

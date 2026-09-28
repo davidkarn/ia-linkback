@@ -24,7 +24,7 @@ const groupHasRowParts = (row: string, grp: string) => sql.join(
     return sql`(${ type } is null or exists (
       select 1 from citation_locations part
       where part.citation_group_id = ${ sql.ref(`${ grp }.id`) }
-        and part.type = ${ type } and part.value::text = ${ value }))`;
+        and part.type = ${ type } and part.value = ${ value }))`;
   }),
   sql` and `,
 );
@@ -61,13 +61,43 @@ export const citationsOfPage = (
     .orderBy('citations.id')
 );
 
+// SQL: the non-null parts of the book_pages_to_citations row `row` as "type:value" keys, in order
+// ('{book:1,question:2,article:3}')
+const rowPartKeys = (row: string) => sql`array_remove(array[${ sql.join(
+  Array.from({ length: CITATION_PARTS }, (_, i) => (
+    sql`${ sql.ref(`${ row }.citation_part_${ i + 1 }_type`) } || ':' || ${
+      sql.ref(`${ row }.citation_part_${ i + 1 }_value`) }`
+  )),
+) }], null)`;
+
 // How many citations in other books cite each of a book's pages, by the rules of citationsOfPage:
 // its printed page number, or the parts of one of its book_pages_to_citations rows. A citation
 // counts once per page, and a range (pp. 42-51) on each of its pages.
+//
+// By parts, a row matches a location group holding every one of its parts. To give Postgres a key
+// to join on (comparing every group with every row is slow: 4 million pairs for the Summa), each
+// group's locations and each row's parts become arrays of "type:value" keys; a row is joined to
+// the groups holding its last (most specific) key, then checked for the rest by containment (@>).
 export const citedCountsByPage = async(
   db: Kysely<Database>, bookId: string
 ): Promise<Map<number, number>> => {
   const rows = await sql<{ page_number: number, n: string }>`
+    with group_keys as (
+      select c.id as citation_id, array_agg(l.type || ':' || l.value) as keys
+      from citations c
+      join citation_groups grp on grp.citation_id = c.id
+      join citation_locations l on l.citation_group_id = grp.id
+      where c.reference_book_id = ${ bookId } and c.source_book_id <> ${ bookId }
+      group by grp.id, c.id
+    ), group_key as (
+      select g.citation_id, g.keys, key
+      from group_keys g cross join lateral unnest(g.keys) key
+    ), row_keys as (
+      select bpc.page_number, k.keys, k.keys[cardinality(k.keys)] as last_key
+      from book_pages_to_citations bpc
+      cross join lateral (select ${ rowPartKeys('bpc') } as keys) k
+      where bpc.book_id = ${ bookId }
+    )
     select page_number, count(distinct citation_id) as n from (
       select p.page_number, c.id as citation_id
       from citations c
@@ -77,11 +107,9 @@ export const citedCountsByPage = async(
                  then p.printed_page_number::numeric end = l.value
       where c.reference_book_id = ${ bookId } and c.source_book_id <> ${ bookId }
       union all
-      select bpc.page_number, c.id
-      from book_pages_to_citations bpc
-      join citations c on c.reference_book_id = bpc.book_id and c.source_book_id <> bpc.book_id
-      join citation_groups grp on grp.citation_id = c.id
-      where bpc.book_id = ${ bookId } and ${ groupHasRowParts('bpc', 'grp') }
+      select r.page_number, g.citation_id
+      from row_keys r
+      join group_key g on g.key = r.last_key and g.keys @> r.keys
     ) cited
     group by page_number`.execute(db);
 
