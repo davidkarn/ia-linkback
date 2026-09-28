@@ -15,28 +15,53 @@ export const findPage = (db: Kysely<Database>, bookId: string, pageNumber: numbe
 
 const CITATION_PARTS = 8;
 
-// SQL: every part of the book_pages_to_citations row `row` has a citation_locations row with its
-// type and value in the citation_groups row `grp`. A part that is null asks for nothing.
+const range = Array.from({ length: CITATION_PARTS }, (_, i) => i + 1);
+
+// SQL: the citation_groups row `grp`'s parts as (type, value) pairs, for `(type, value) in (...)`
+const groupPartPairs = (grp: string) => sql.join(range.map((n) => (
+  sql`(${ sql.ref(`${ grp }.part${ n }_type`) }, ${ sql.ref(`${ grp }.part${ n }_value`) })`
+)));
+
+// SQL: the citation_groups row `grp`'s parts as a table (n, type, value), to join laterally; a
+// part that is null is left out by the caller (where type is not null)
+const groupPartRows = (grp: string) => sql`(values ${ sql.join(range.map((n) => (
+  sql`(${ n }, ${ sql.ref(`${ grp }.part${ n }_type`) }, ${ sql.ref(`${ grp }.part${ n }_value`) })`
+))) })`;
+
+// SQL: the non-null parts of a row as "type:value" keys, in order ('{book:1,question:2,article:3}');
+// `column(n, kind)` names part n's type or value column
+const partKeys = (column: (n: number, kind: 'type' | 'value') => string) => (
+  sql`array_remove(array[${ sql.join(range.map((n) => (
+    sql`${ sql.ref(column(n, 'type')) } || ':' || ${ sql.ref(column(n, 'value')) }`
+  ))) }], null)`
+);
+
+// SQL: every part of the book_pages_to_citations row `row` is one of the parts of the
+// citation_groups row `grp`. A part that is null asks for nothing.
 const groupHasRowParts = (row: string, grp: string) => sql.join(
-  Array.from({ length: CITATION_PARTS }, (_, i) => {
-    const type  = sql.ref(`${ row }.citation_part_${ i + 1 }_type`);
-    const value = sql.ref(`${ row }.citation_part_${ i + 1 }_value`);
-    return sql`(${ type } is null or exists (
-      select 1 from citation_locations part
-      where part.citation_group_id = ${ sql.ref(`${ grp }.id`) }
-        and part.type = ${ type } and part.value = ${ value }))`;
+  range.map((n) => {
+    const type  = sql.ref(`${ row }.citation_part_${ n }_type`);
+    const value = sql.ref(`${ row }.citation_part_${ n }_value`);
+    return sql`(${ type } is null or (${ type }, ${ value }) in (${ groupPartPairs(grp) }))`;
   }),
   sql` and `,
 );
 
 // SQL: the citation `cit` cites the book's page by one of its book_pages_to_citations rows (for books
 // cited by part rather than page number, such as the Summa: book 1, question 2, article 1): some
-// location group of the citation has every part of the row
+// place it cites (a citation_groups row) has every part of the row
 const citesPageByParts = (bookId: string, pageNumber: number, cit = 'citations') => sql<boolean>`exists (
   select 1 from book_pages_to_citations bpc
   join citation_groups grp on grp.citation_id = ${ sql.ref(`${ cit }.id`) }
   where bpc.book_id = ${ bookId } and bpc.page_number = ${ pageNumber }
     and ${ groupHasRowParts('bpc', 'grp') })`;
+
+// SQL: the citation `cit` cites page number `printed` (some place it cites has a "page" part
+// equal to it)
+const citesPrintedPage = (printed: number, cit = 'citations') => sql<boolean>`exists (
+  select 1 from citation_groups grp
+  where grp.citation_id = ${ sql.ref(`${ cit }.id`) }
+    and ('page', ${ printed }::integer) in (${ groupPartPairs('grp') }))`;
 
 // Citations in other books of a book's page: those with a "page" location equal to its printed page
 // number (when that is a number), or that cite it by the parts of one of its book_pages_to_citations
@@ -48,12 +73,7 @@ export const citationsOfPage = (
     .where('citations.reference_book_id', '=', bookId)
     .where('citations.source_book_id', '<>', bookId)
     .where((eb) => eb.or([
-      ...(page.printedNumber === null ? [] : [eb.exists(
-        eb.selectFrom('citation_locations')
-          .whereRef('citation_locations.citation_id', '=', 'citations.id')
-          .where('citation_locations.type', '=', 'page')
-          .where('citation_locations.value', '=', page.printedNumber),
-      )]),
+      ...(page.printedNumber === null ? [] : [citesPrintedPage(page.printedNumber)]),
       citesPageByParts(bookId, page.pageNumber),
     ]))
     .orderBy('citations.source_book_id')
@@ -61,51 +81,42 @@ export const citationsOfPage = (
     .orderBy('citations.id')
 );
 
-// SQL: the non-null parts of the book_pages_to_citations row `row` as "type:value" keys, in order
-// ('{book:1,question:2,article:3}')
-const rowPartKeys = (row: string) => sql`array_remove(array[${ sql.join(
-  Array.from({ length: CITATION_PARTS }, (_, i) => (
-    sql`${ sql.ref(`${ row }.citation_part_${ i + 1 }_type`) } || ':' || ${
-      sql.ref(`${ row }.citation_part_${ i + 1 }_value`) }`
-  )),
-) }], null)`;
-
 // How many citations in other books cite each of a book's pages, by the rules of citationsOfPage:
 // its printed page number, or the parts of one of its book_pages_to_citations rows. A citation
 // counts once per page, and a range (pp. 42-51) on each of its pages.
 //
-// By parts, a row matches a location group holding every one of its parts. To give Postgres a key
-// to join on (comparing every group with every row is slow: 4 million pairs for the Summa), each
-// group's locations and each row's parts become arrays of "type:value" keys; a row is joined to
-// the groups holding its last (most specific) key, then checked for the rest by containment (@>).
+// By parts, a row matches a place (citation_groups row) holding every one of its parts. To give
+// Postgres a key to join on (comparing every place with every row is slow: 4 million pairs for the
+// Summa), each place's and each row's parts become arrays of "type:value" keys; a row is joined to
+// the places holding its last (most specific) key, then checked for the rest by containment (@>).
 export const citedCountsByPage = async(
   db: Kysely<Database>, bookId: string
 ): Promise<Map<number, number>> => {
   const rows = await sql<{ page_number: number, n: string }>`
     with group_keys as (
-      select c.id as citation_id, array_agg(l.type || ':' || l.value) as keys
+      select c.id as citation_id, ${ partKeys((n, kind) => `grp.part${ n }_${ kind }`) } as keys
       from citations c
       join citation_groups grp on grp.citation_id = c.id
-      join citation_locations l on l.citation_group_id = grp.id
       where c.reference_book_id = ${ bookId } and c.source_book_id <> ${ bookId }
-      group by grp.id, c.id
     ), group_key as (
       select g.citation_id, g.keys, key
       from group_keys g cross join lateral unnest(g.keys) key
     ), row_keys as (
       select bpc.page_number, k.keys, k.keys[cardinality(k.keys)] as last_key
       from book_pages_to_citations bpc
-      cross join lateral (select ${ rowPartKeys('bpc') } as keys) k
+      cross join lateral (select ${ partKeys((n, kind) => `bpc.citation_part_${ n }_${ kind }`) } as keys) k
       where bpc.book_id = ${ bookId }
     )
     select page_number, count(distinct citation_id) as n from (
       select p.page_number, c.id as citation_id
       from citations c
-      join citation_locations l on l.citation_id = c.id and l.type = 'page'
+      join citation_groups grp on grp.citation_id = c.id
+      cross join lateral ${ groupPartRows('grp') } part(n, type, value)
       join pages p on p.book_id = c.reference_book_id
         and case when p.printed_page_number ~ '^[0-9]+$'
-                 then p.printed_page_number::numeric end = l.value
+                 then p.printed_page_number::numeric end = part.value
       where c.reference_book_id = ${ bookId } and c.source_book_id <> ${ bookId }
+        and part.type = 'page'
       union all
       select r.page_number, g.citation_id
       from row_keys r
@@ -233,11 +244,13 @@ export const invalidateInsightsCitedBy = async(
     const result = await sql`
       DELETE FROM page_insights_cache cache
       USING citations c
-      JOIN citation_locations l ON l.citation_id = c.id AND l.type = 'page'
+      JOIN citation_groups grp ON grp.citation_id = c.id
+      CROSS JOIN LATERAL ${ groupPartRows('grp') } part(n, type, value)
       JOIN pages p ON p.book_id = c.reference_book_id
         AND CASE WHEN p.printed_page_number ~ '^[0-9]+$'
-                 THEN p.printed_page_number::numeric END = l.value
+                 THEN p.printed_page_number::numeric END = part.value
       WHERE c.id = ANY(${ citationIds }::bigint[])
+        AND part.type = 'page'
         AND cache.book_id = p.book_id
         AND cache.page_number = p.page_number`.execute(db);
 

@@ -2,15 +2,16 @@
 import type { ExpressionBuilder, Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import type { Page } from '../types.ts';
+import { placesOf } from '../core/citation_groups.ts';
+import { groupRow } from './citation_groups.ts';
 import type { DbExprBuilder, DbSelectQuery } from './model_utils.js';
 
 const CHUNK = 500;
-const INT_MIN = -2147483648, INT_MAX = 2147483647;
 
 const chunks = <T>(rows: T[]): T[][] => (
   Array.from({
     length: Math.ceil(rows.length / CHUNK) },
-    (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK)
+             (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK)
   )
 );
 
@@ -21,7 +22,7 @@ const sortedForDisplay = <O>() => (query: DbSelectQuery<'books', O>) => (
 const scopedToQuery = <O>(searchQuery: string) => (query: DbSelectQuery<'books', O>) => {
   if (searchQuery) {
     const pattern = like_pattern(searchQuery);
-    
+
     return query.where((eb) => eb.or([
       eb('books.title', 'ilike', pattern),
       eb('books.author', 'ilike', pattern)
@@ -32,7 +33,7 @@ const scopedToQuery = <O>(searchQuery: string) => (query: DbSelectQuery<'books',
   }
 };
 
-export const BookScopes = {sortedForDisplay, scopedToQuery};
+export const BookScopes = { sortedForDisplay, scopedToQuery };
 
 const citedByCount = (eb: DbExprBuilder<'books'>, name: string = 'cited_by_count') => (
   eb.selectFrom('citations')
@@ -49,14 +50,14 @@ const pageCount = (eb: DbExprBuilder<'books'>, name: string = 'page_count') => (
     .as(name)
 );
 
-export const BookSelectors = {citedByCount, pageCount};
+export const BookSelectors = { citedByCount, pageCount };
 
 
 // Save a book, replacing any earlier copy, in one transaction. The books row is upserted, so other
 // books' citations of it keep their reference_book_id; its pages are deleted and inserted again,
 // which also deletes their blocks, the citations in them and their cached insights. The blocks'
-// citations are saved with them: a citation_groups row per locationsCited group, and a
-// citation_locations row per value.
+// citations are saved with them: a citation_groups row per place each locationsCited group cites
+// (a range is a row per place; see core/citation_groups.ts).
 export const saveBook = (
   db: Kysely<Database>,
   book: { id: string, title: string, author: string, url: string | null },
@@ -109,7 +110,7 @@ export const saveBook = (
     blockId:  blockIds.get(p.pageNumber + ':' + position)!,
     citation: c,
   }))));
-  let groups      = 0, locations = 0;
+  let groups      = 0;
 
   for (const chunk of chunks(citations)) {
     // RETURNING gives the ids in the order the rows were given
@@ -128,33 +129,18 @@ export const saveBook = (
       .returning('id')
       .execute();
 
+    // a row per place each location group cites (see core/citation_groups.ts)
     const groupRows = chunk.flatMap(({ citation: c }, i) => c.locationsCited
-      .map((group) => group.flatMap((loc) => loc.values
-        .filter((v) => Number.isInteger(v) && v >= INT_MIN && v <= INT_MAX)
-        .map((value) => ({ type: loc.type, raw: loc.rawLabel, value }))))
-      .filter((values) => values.length)
-      .map((values) => ({ citationId: ids[i]!.id, values })));
+      .flatMap((group) => placesOf(group).places)
+      .map((place) => groupRow(ids[i]!.id, place)));
 
     for (const groupChunk of chunks(groupRows)) {
-      const groupIds = await trx.insertInto('citation_groups')
-        .values(groupChunk.map((g) => ({ citation_id: g.citationId })))
-        .returning('id')
-        .execute();
-      const values   = groupChunk.flatMap((g, i) => g.values.map((v) => ({
-        ...v, citation_id: g.citationId, citation_group_id: groupIds[i]!.id,
-      })));
-
-      for (const valueChunk of chunks(values)) {
-        await trx.insertInto('citation_locations').values(valueChunk).execute();
-      }
-      groups    += groupChunk.length;
-      locations += values.length;
+      await trx.insertInto('citation_groups').values(groupChunk).execute();
+      groups += groupChunk.length;
     }
   }
 
-  return {
-    pages: pages.length, blocks: blocks.length, citations: citations.length, groups, locations,
-  };
+  return { pages: pages.length, blocks: blocks.length, citations: citations.length, groups };
 });
 
 

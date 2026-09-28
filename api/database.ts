@@ -66,20 +66,29 @@ export interface CitationsTable {
   raw: string,
 }
 
-// One group of a citation's locationsCited
+// One place a citation cites (see core/citation_groups.ts): up to 8 parts, in the order the citation
+// gives them (chapter 1, verse 2), and the raw label of the locations it came from ("ch. 1, vv.
+// 2-4", shared by the rows of a range)
 export interface CitationGroupsTable {
   id: Generated<string>,
   citation_id: string,
-}
-
-// One value of a CitationLocation: raw is its rawLabel
-export interface CitationLocationsTable {
-  id: Generated<string>,
-  citation_id: string,
-  citation_group_id: string,
-  type: CitationLocation['type'],
   raw: string,
-  value: number,
+  part1_type: CitationLocation['type'],
+  part1_value: number,
+  part2_type: CitationLocation['type']|null,
+  part2_value: number|null,
+  part3_type: CitationLocation['type']|null,
+  part3_value: number|null,
+  part4_type: CitationLocation['type']|null,
+  part4_value: number|null,
+  part5_type: CitationLocation['type']|null,
+  part5_value: number|null,
+  part6_type: CitationLocation['type']|null,
+  part6_value: number|null,
+  part7_type: CitationLocation['type']|null,
+  part7_value: number|null,
+  part8_type: CitationLocation['type']|null,
+  part8_value: number|null,
 }
 
 export interface QueuedBookImportsTable {
@@ -113,7 +122,6 @@ export interface Database {
   page_blocks: PageBlocksTable,
   citations: CitationsTable,
   citation_groups: CitationGroupsTable,
-  citation_locations: CitationLocationsTable,
   queued_book_imports: QueuedBookImportsTable,
   footnote_extraction_insights: FootnoteExtractionInsightsTable,
   page_insights_cache: PageInsightsCacheTable,

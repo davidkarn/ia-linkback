@@ -15,7 +15,8 @@ import 'dotenv/config';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import type { Database } from '../api/database.ts';
-import { SUMMA_BOOK_ID, type CitationPart } from '../core/summa_thml.ts';
+import { SUMMA_BOOK_ID } from '../core/summa_thml.ts';
+import type { PlaceGroup } from '../core/citation_groups.ts';
 import {
   isIbid, isSummaCitation, lastPlace, parseSummaCitation, type SummaPlace,
 } from '../core/summa_citations.ts';
@@ -25,8 +26,8 @@ import { log } from '../lib/lib.ts';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
-const showGroups = (groups: CitationPart[][]) => (
-  groups.map((g) => g.map((p) => `${ p.type } ${ p.value }`).join(', ')).join(' | ')
+const showGroups = (groups: PlaceGroup[]) => (
+  groups.map((g) => g.parts.map((p) => `${ p.type } ${ p.value }`).join(', ')).join(' | ')
 );
 
 const main = async() => {
@@ -49,8 +50,8 @@ const main = async() => {
 
     const all = await findCitationsFromOtherBooks(db, SUMMA_BOOK_ID);
 
-    const parsed: { id: string, raw: string, groups: CitationPart[][] }[] = [];
-    const unparsed: { id: string, raw: string }[]                         = [];
+    const parsed: { id: string, raw: string, groups: PlaceGroup[] }[] = [];
+    const unparsed: { id: string, raw: string }[]                     = [];
     // the last place cited in each book, for "Ibid." to refer back to
     let previous: { bookId: string, place: SummaPlace | undefined } | undefined;
 
@@ -58,8 +59,10 @@ const main = async() => {
       const before = previous?.bookId === c.source_book_id ? previous.place : undefined;
       const groups = parseSummaCitation(c.raw, isIbid(c.raw) ? before : undefined);
 
-      if (groups.length) {
-        parsed.push({ id: c.id, raw: c.raw, groups });
+      if (groups.length > 0) {
+        // each place's raw label is the citation's location as extracted, or else its raw text
+        const raw = c.location || c.raw;
+        parsed.push({ id: c.id, raw: c.raw, groups: groups.map((parts) => ({ raw, parts })) });
         previous = { bookId: c.source_book_id, place: lastPlace(groups) };
       }
       else {
@@ -85,8 +88,8 @@ const main = async() => {
     else {
       const saved = await relinkCitations(db, SUMMA_BOOK_ID, parsed);
       const pages = await citedCountsByPage(db, SUMMA_BOOK_ID);
-      console.log(`saved ${ saved.citations } citations (${ saved.groups } groups, `
-        + `${ saved.locations } locations); ${ pages.size } Summa pages are now cited`);
+      console.log(`saved ${ saved.citations } citations (${ saved.groups } places); `
+        + `${ pages.size } Summa pages are now cited`);
     }
   }
   finally {

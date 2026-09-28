@@ -1,6 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { ExpressionBuilder, Kysely } from 'kysely';
-import { jsonArrayFrom } from 'kysely/helpers/postgres';
+import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import type { CitationLocation } from '../types';
 import { DB } from './database.module';
 import type { Database } from './database';
@@ -14,6 +13,8 @@ export type CitationDto = {
   locationsCited: { type: CitationLocation['type'], value: number }[],
 };
 
+const PART_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8];
+
 // Select these from `citations` and pass each row to to_citation_dto.
 export const citation_columns = (eb: ExpressionBuilder<Database, 'citations'>) => [
   'citations.id',
@@ -22,13 +23,29 @@ export const citation_columns = (eb: ExpressionBuilder<Database, 'citations'>) =
   'citations.source_footnote_page',
   'citations.author',
   'citations.title',
-  jsonArrayFrom(
-    eb.selectFrom('citation_locations')
-      .select(['citation_locations.type', 'citation_locations.value'])
-      .whereRef('citation_locations.citation_id', '=', 'citations.id')
-      .orderBy('citation_locations.id'),
-  ).as('locations_cited'),
+  // every part of every place the citation cites, in the order they were given: the places of one
+  // location group (sharing its raw label) part by part, so a range reads "§ 63, 80, pp. 302, 303"
+  // rather than place by place (to_citation_dto drops repeats)
+  sql<CitationDto['locationsCited']>`(
+    select coalesce(json_agg(json_build_object('type', part.type, 'value', part.value)
+                             order by grp.first_id, part.n, grp.id), '[]')
+    from (
+      select g.*, min(g.id) over (partition by g.raw) as first_id
+      from citation_groups g
+      where g.citation_id = ${ eb.ref('citations.id') }
+    ) grp
+    cross join lateral (values ${ sql.join(PART_NUMBERS.map((n) => (
+    sql`(${ n }, ${ sql.ref(`grp.part${ n }_type`) }, ${ sql.ref(`grp.part${ n }_value`) })`
+  ))) }) part(n, type, value)
+    where part.type is not null
+  )`.as('locations_cited'),
 ] as const;
+
+// A citation's locations without repeats: the places of a range (ch. 1, vv. 2-4) share their
+// other parts (chapter 1 once, then verses 2, 3 and 4)
+const distinctLocations = (locations: CitationDto['locationsCited']) => locations.filter(
+  (l, i) => locations.findIndex((m) => m.type === l.type && m.value === l.value) === i,
+);
 
 export const to_citation_dto = (r: {
   id: string,
@@ -47,7 +64,7 @@ export const to_citation_dto = (r: {
   },
   author:         r.author,
   title:          r.title,
-  locationsCited: r.locations_cited,
+  locationsCited: distinctLocations(r.locations_cited),
 });
 
 @Injectable()

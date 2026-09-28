@@ -13,6 +13,8 @@ import path from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import type { JSONSchema7 } from "json-schema";
 import { arrayToMapOfRecords } from '../lib/lib.js';
+import { placesOf } from '../core/citation_groups.ts';
+import { groupRow } from '../model/citation_groups.ts';
 
 dotenv.config();
 
@@ -330,8 +332,6 @@ const extractFootnoteCitations = async(
   return { citations: allNotes, failedPages, insights };
 };
 
-const INT_MIN = -2147483648, INT_MAX = 2147483647;
-
 // Insert rows in batches, keeping each statement well under Postgres's 65535 parameters
 const inChunks = <T>(rows: T[], size = 500): T[][] => (
   Array.from(
@@ -434,7 +434,7 @@ const saveCitationsToDatabase = async(
 
   const blocksByPage = arrayToMapOfRecords(footnoteBlocks, 'page_number');
 
-  const counts = { citations: 0, groups: 0, locations: 0, skippedValues: 0, newInsights: 0 };
+  const counts = { citations: 0, groups: 0, skippedValues: 0, newInsights: 0 };
   // citations whose page has no Footnote block in the database (so nothing to attach them to)
   const unplaced: Citation[] = [];
 
@@ -469,43 +469,16 @@ const saveCitationsToDatabase = async(
 
         counts.citations++;
 
+        // a row per place each location group cites (see core/citation_groups.ts)
         for (const group of c.locationsCited) {
-          const values = group.flatMap(
-            (loc) => loc.values.filter((v) => {
-              const ok = Number.isInteger(v) && v >= INT_MIN && v <= INT_MAX;
+          const { places, skipped } = placesOf(group);
+          counts.skippedValues     += skipped;
 
-              if (!ok) {
-                counts.skippedValues++;
-              }
-
-              return ok;
-            }).map((value) => ({
-              type: loc.type,
-              raw:  loc.rawLabel,
-              value
-            }))
-          );
-
-
-          if (!values.length) {
-            continue;
-          }
-          else {
-            const { id: groupId } = await trx.insertInto('citation_groups')
-              .values({ citation_id: citationId })
-              .returning('id')
-              .executeTakeFirstOrThrow();
-
-            await trx.insertInto('citation_locations')
-              .values(values.map((v) => ({
-                ...v,
-                citation_id:       citationId,
-                citation_group_id: groupId
-              })))
+          if (places.length > 0) {
+            await trx.insertInto('citation_groups')
+              .values(places.map((place) => groupRow(citationId, place)))
               .execute();
-
-            counts.groups++;
-            counts.locations += values.length;
+            counts.groups += places.length;
           }
         }
       }
