@@ -11,6 +11,29 @@ export interface BooksTable {
   cover_photo_path: string | null,
 }
 
+// How a book's pages are cited (migrations/0007_create_book_pages_to_citations.ts)
+export interface BookPagesToCitationsTable {
+  id: Generated<number>,
+  book_id: string,
+  page_number: number,
+  citation_part_1_type: string,
+  citation_part_1_value: string,
+  citation_part_2_type: string|null,
+  citation_part_2_value: string|null,
+  citation_part_3_type: string|null,
+  citation_part_3_value: string|null,
+  citation_part_4_type: string|null,
+  citation_part_4_value: string|null,
+  citation_part_5_type: string|null,
+  citation_part_5_value: string|null,
+  citation_part_6_type: string|null,
+  citation_part_6_value: string|null,
+  citation_part_7_type: string|null,
+  citation_part_7_value: string|null,
+  citation_part_8_type: string|null,
+  citation_part_8_value: string|null,
+}
+
 export interface PagesTable {
   book_id: string,
   page_number: number,
@@ -94,4 +117,5 @@ export interface Database {
   queued_book_imports: QueuedBookImportsTable,
   footnote_extraction_insights: FootnoteExtractionInsightsTable,
   page_insights_cache: PageInsightsCacheTable,
+  book_pages_to_citations: BookPagesToCitationsTable,
 }

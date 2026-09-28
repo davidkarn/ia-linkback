@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { cleanHtml, paragraphs, summaPages, tidyTitle } from './summa_thml.ts';
+import { cleanHtml, paragraphs, summaCitationParts, summaPages, tidyTitle } from './summa_thml.ts';
 
 // A small ThML document shaped like ../thml/summa.xml
 const THML = `<ThML><ThML.head><title>not text</title></ThML.head><ThML.body>
@@ -163,3 +163,35 @@ describe('cleanHtml and paragraphs', () => {
     expect(paragraphs('<p id="a" /><p> One </p><p id="b"></p><p>Two</p>')).toEqual(['One', 'Two']);
   });
 });
+
+describe('summaCitationParts', () => {
+  const parts = (label: string) => summaCitationParts(label)?.map((p) => `${ p.type } ${ p.value }`);
+
+  it("cites an article's page by book, question and article", () => {
+    expect(parts('I q. 2 a. 1')).toEqual(['book 1', 'question 2', 'article 1']);
+    expect(parts('I-II q. 3 a. 2')).toEqual(['book 2', 'question 3', 'article 2']);
+    expect(parts('II-II q. 189 a. 10')).toEqual(['book 3', 'question 189', 'article 10']);
+    expect(parts('III q. 1 a. 1')).toEqual(['book 4', 'question 1', 'article 1']);
+    expect(parts('Suppl. q. 99 a. 5')).toEqual(['book 5', 'question 99', 'article 5']);
+  });
+
+  it("cites a question's contents page by book and question, and a prologue by its book", () => {
+    expect(parts('I q. 71')).toEqual(['book 1', 'question 71']);
+    expect(parts('III prol.')).toEqual(['book 4']);
+  });
+
+  it('puts the appendix after book 5 for the appendices to the Supplement', () => {
+    expect(parts('Suppl. App. 1 q. 2 a. 6')).toEqual(['book 5', 'appendix 1', 'question 2', 'article 6']);
+    expect(parts('Suppl. App. 1 prol.')).toEqual(['book 5', 'appendix 1']);
+  });
+
+  it('is null for a label that is not a Summa page', () => {
+    expect(summaCitationParts('227')).toBeNull();
+    expect(summaCitationParts('IV q. 1')).toBeNull();
+  });
+
+  it('reads every label summaPages makes', () => {
+    expect(pages.every((p) => summaCitationParts(p.printedPageNumber) !== null)).toBe(true);
+  });
+});
+
