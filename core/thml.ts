@@ -112,9 +112,13 @@ const plainText = (html: string) => (
 // A footnote made for a citation in the text: its number (the <sup> inserted after the citation),
 // whether it cites scripture or other works, the citation as printed, and its Citations: one, or
 // several for a parenthesis citing several works ("Metaph. xii; De Anima iii")
+//
+// A <note> in the text is a footnote of kind 'note': raw is its plain text, and its citations are
+// what it cites (scripture and works within it, or the whole note when it is a citation itself,
+// "Ecc. Hist. v. 19. p. 146.")
 export type ThmlFootnote = {
   identifier: string,
-  kind: 'scripture' | 'work',
+  kind: 'scripture' | 'work' | 'note',
   raw: string,
   citations: Citation[],
 };
@@ -192,8 +196,10 @@ const parseWorkReference = (plain: string, named: RegExpMatchArray | null): Work
     isTitleWord(w) || (!/\d/.test(w) && title.some((t) => /[a-z]\.$/i.test(t)))
   ));
 
-  // a year alone ("Rome, 1742", "Verona, 1745") is a place of publication, not a location
-  const yearOnly = location.length === 1 && /^\d{4}[.,]?$/.test(location[0]!);
+  // a place and a year ("Rome, 1742", "Verona, 1745") is where a book was published, not a
+  // location in it; after a title like "Relig. Hist." the number is a page
+  const yearOnly = location.length === 1 && /^\d{4}[.,]?$/.test(location[0]!)
+    && title.length === 1 && !/\.$/.test(title[0]!.replace(/,$/, ''));
 
   if (plain.length > 120 || /\[/.test(plain) || plain === plain.toUpperCase() || location.length > 16
     || yearOnly) {
@@ -268,12 +274,15 @@ const authorBefore = (html: string, at: number): string => {
 type Found = {
   at: number,
   insertAt: number,
+  replaces?: number,     // characters at insertAt the <sup> replaces (a note's placeholder)
   kind: ThmlFootnote['kind'],
   raw: string,
   make: (identifier: string) => Citation[],
 };
 
-// Mark the citations in a piece of ThML with footnote numbers, and return the footnotes:
+// Mark the citations in a piece of ThML with footnote numbers, and return the footnotes. First
+// each <note> is replaced by its number and becomes a footnote of its own; then, in the text around
+// the notes, the citations:
 // scripture (<scripRef> elements, and untagged ones like "(Ps. 118)") and other works
 // ("(Coel. Hier. xii)", "(Apol. XVI.)"). A <sup>n</sup> goes after each citation, or after its
 // closing parenthesis when the citation fills it. Numbers run from firstIdentifier in the order
@@ -283,6 +292,11 @@ type Found = {
 // A work's Citation has the author named in or just before the parentheses, if any ("Dionysius",
 // "Philosopher" for "the Philosopher"; a guess from the text), and no parsed locations. A scripRef that isn't scripture
 // (CCEL also tags letters: "Ep. 137") gets no footnote.
+// Placeholders for <note>s while the text is searched: NOTE_MARK + index + NOTE_MARK, with a
+// private-use character, which doesn't occur in ThML text
+const NOTE_MARK  = '\ue000';
+const NOTE_MARKS = /\ue000(\d+)\ue000/g;
+
 export const scripRefCitations = (
   thml: string,
   source: { bookId: string, footnotePage: number },
@@ -307,22 +321,60 @@ export const scripRefCitations = (
     locationsCited: passageLocations(passages),
   })];
 
+  // the text with each <note> swapped for a placeholder, so that what a note contains isn't taken
+  // for citations in the text; the placeholder is where the note's <sup> goes
+  const notes: string[] = [];
+  const text            = thml.replace(/<note\b[^>]*>([\s\S]*?)<\/note>/g, (_, content: string) => {
+    notes.push(content);
+    return NOTE_MARK + (notes.length - 1) + NOTE_MARK;
+  });
+  const withoutNotes    = (html: string) => html.replace(NOTE_MARKS, '');
+
+  // what a note cites, all under the note's number: the scripture and works in it, or, when it has
+  // none, the whole note if it is a citation ("Ep. LXXXI.", "cf. Ecc. Hist. p. 146.")
+  const noteCitations = (content: string, identifier: string): Citation[] => {
+    const within = scripRefCitations(content, source).footnotes.flatMap((f) => f.citations);
+    const whole  = within.length ? [] : workReferences(plainText(content)).map((w) => citation('', {
+      author:         w.author,
+      title:          w.title,
+      location:       w.location,
+      raw:            plainText(content),
+      locationsCited: [],
+    }));
+
+    return [...within, ...whole].map((c) => ({
+      ...c, source: { ...c.source, footnoteIdentifier: identifier },
+    }));
+  };
+
   const found: Found[] = [];
 
-  for (const m of thml.matchAll(/<scripRef\b([^>]*)>([\s\S]*?)<\/scripRef>/g)) {
+  for (const m of text.matchAll(NOTE_MARKS)) {
+    const content = notes[Number(m[1])]!;
+    found.push({
+      at:       m.index,
+      insertAt: m.index,
+      replaces: m[0].length,
+      kind:     'note',
+      raw:      plainText(content),
+      make:     (identifier) => noteCitations(content, identifier),
+    });
+  }
+
+  for (const m of text.matchAll(/<scripRef\b([^>]*)>([\s\S]*?)<\/scripRef>/g)) {
     const parsed   = attribute(m[1]!, 'parsed');
     const passage  = attribute(m[1]!, 'passage') ?? plainText(m[2]!);
     const passages = parsed ? parsedPassages(parsed) : printedPassages(passage);
     const end      = m.index + m[0].length;
     // "(Jn. 14:6)": the number goes after the parenthesis
-    const filled = /\(\s*$/.test(thml.slice(Math.max(0, m.index - 20), m.index))
-      && /^\s*\)/.test(thml.slice(end, end + 20));
+    const filled = /\(\s*$/.test(text.slice(Math.max(0, m.index - 20), m.index))
+      && /^\s*\)/.test(text.slice(end, end + 20));
     const raw    = plainText(m[2]!) || passage.trim();
 
     if (passages.length) {
       found.push({
         at:       m.index,
-        insertAt: filled ? thml.indexOf(')', end) + 1 : end,
+        insertAt: filled ? text.indexOf(')', end) + 1 : end,
         kind:     'scripture',
         raw,
         make:     bible(raw, passages),
@@ -330,8 +382,8 @@ export const scripRefCitations = (
     }
   }
 
-  for (const m of thml.matchAll(/\(([^()]{1,200})\)/g)) {
-    const inner    = m[1]!;
+  for (const m of text.matchAll(/\(([^()]{1,200})\)/g)) {
+    const inner    = withoutNotes(m[1]!);
     const raw      = plainText(inner);
     const works    = /<scripRef\b|<\/?(?:p|div\d?)\b/.test(inner) ? [] : workReferences(raw);
     const passages = works.length === 1 && !works[0]!.title.includes(' ') ? printedPassages(raw) : [];
@@ -341,7 +393,9 @@ export const scripRefCitations = (
       found.push({ at: m.index, insertAt, kind: 'scripture', raw, make: bible(raw, passages) });
     }
     else if (works.length) {
-      const before = authorBefore(thml, m.index);
+      // the text just before, without notes (authorBefore reads the last 200 characters)
+      const preceding = withoutNotes(text.slice(Math.max(0, m.index - 400), m.index));
+      const before    = authorBefore(preceding, preceding.length);
       found.push({
         at:   m.index,
         insertAt,
@@ -364,17 +418,19 @@ export const scripRefCitations = (
     return { identifier, kind: f.kind, raw: f.raw, citations: f.make(identifier) };
   });
 
-  // the text with each <sup> at its place, in one pass
+  // the text with each <sup> at its place (in place of a note's placeholder), in one pass
   const inserts          = found
-    .map((f, i) => ({ at: f.insertAt, sup: `<sup>${ footnotes[i]!.identifier }</sup>` }))
+    .map((f, i) => ({
+      at: f.insertAt, replaces: f.replaces ?? 0, sup: `<sup>${ footnotes[i]!.identifier }</sup>`,
+    }))
     .sort((a, b) => a.at - b.at);
   const pieces: string[] = [];
   let from               = 0;
-  for (const { at, sup } of inserts) {
-    pieces.push(thml.slice(from, at), sup);
-    from = at;
+  for (const { at, replaces, sup } of inserts) {
+    pieces.push(text.slice(from, at), sup);
+    from = at + replaces;
   }
-  pieces.push(thml.slice(from));
+  pieces.push(text.slice(from));
 
   return { html: pieces.join(''), footnotes };
 };

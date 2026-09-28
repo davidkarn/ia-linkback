@@ -126,6 +126,53 @@ describe('scripRefCitations: other works', () => {
   });
 });
 
+describe('scripRefCitations: notes', () => {
+  const note = (n: string, text: string) => (
+    `<note place="end" n="${ n }" id="x${ n }"><p class="endnote" id="y${ n }">${ text }</p></note>`
+  );
+
+  it('replaces each note with its number and makes it a footnote with its plain text', () => {
+    const { html, footnotes } = scripRefCitations(
+      `<p>his high career,${ note('6', ' Ep. LXXXI.') } and of the latter${ note('7', ' Relig. Hist. 1214.') }.</p>`,
+      source,
+    );
+
+    expect(html).toBe('<p>his high career,<sup>1</sup> and of the latter<sup>2</sup>.</p>');
+    expect(footnotes.map((f) => [f.identifier, f.kind, f.raw])).toEqual([
+      ['1', 'note', 'Ep. LXXXI.'],
+      ['2', 'note', 'Relig. Hist. 1214.'],
+    ]);
+  });
+
+  it("gives a note the citations in it, under the note's number", () => {
+    const { footnotes } = scripRefCitations(
+      'text' + note('3', ` See ${ ref('Rom. 1:20', 'vul|Rom|1|20|0|0') } and (De Trin. i, 1).`)
+        + ' more' + note('4', ' cf. Ecc. Hist. v. 19. p. 146.') + note('5', ' The best account.'),
+      source,
+    );
+
+    expect(footnotes.map((f) => [f.identifier, f.citations.map((c) => (
+      [c.author, c.title, c.location, c.source.footnoteIdentifier]
+    ))])).toEqual([
+      ['1', [['Bible', 'Romans', '1:20', '1'], ['', 'De Trin.', 'i, 1', '1']]],
+      ['2', [['', 'Ecc. Hist.', 'v. 19. p. 146', '2']]],
+      ['3', []],
+    ]);
+  });
+
+  it("numbers notes with the text's citations in reading order, and doesn't mark what is inside a note", () => {
+    const { html, footnotes } = scripRefCitations(
+      `Augustine (De Trin. i, 1)${ note('9', ` ${ ref('Ps. 118', 'vul|Ps|118|0|0|0') }`) } and `
+        + `(${ ref('Jn. 14:6', 'vul|John|14|6|0|0') }).`,
+      source,
+    );
+
+    expect(footnotes.map((f) => [f.identifier, f.kind])).toEqual([['1', 'work'], ['2', 'note'], ['3', 'scripture']]);
+    expect(html.replace(/<scripRef[^>]*>|<\/scripRef>/g, ''))
+      .toBe('Augustine (De Trin. i, 1)<sup>1</sup><sup>2</sup> and (Jn. 14:6)<sup>3</sup>.');
+  });
+});
+
 describe('workReference(s)', () => {
   it('splits a citation into title and location', () => {
     expect(work('De Fide Orth. i, 1,3')).toEqual([['', 'De Fide Orth.', 'i, 1,3']]);
@@ -134,6 +181,7 @@ describe('workReference(s)', () => {
     expect(work('1 Poster. iii')).toEqual([['', '1 Poster.', 'iii']]);
     expect(work('Hil. de Syn. p. 133')).toEqual([['', 'Hil. de Syn.', 'p. 133']]);
     expect(work('C. Ar. ii. 22')).toEqual([['', 'C. Ar.', 'ii. 22']]);
+    expect(work('Relig. Hist. 1214.')).toEqual([['', 'Relig. Hist.', '1214']]);
   });
 
   it('reads an author named in the parenthesis', () => {
