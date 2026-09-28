@@ -69,6 +69,6 @@ export const findContents = async(db: Kysely<Database>, bookId: string): Promise
         parts.push({ type, value });
       }
     }
-    return parts;
+    return { pageId: row.page_number, parts };
   }));
 };

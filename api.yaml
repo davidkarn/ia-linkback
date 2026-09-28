@@ -318,6 +318,7 @@ components:
       required:
         - partType
         - partValue
+        - pageId
         - childEntries
       properties:
         partType:
@@ -325,6 +326,11 @@ components:
           type: string
         partValue:
           type: string
+        pageId:
+          description: >-
+            the page to go to for this entry (a pageId from pageOrder): the page cited by exactly
+            this entry's parts, or else the first page under it
+          type: number
         childEntries:
           type: array
           items:

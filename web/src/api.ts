@@ -16,8 +16,14 @@ export type BookList = { meta: { count: number }, items: BookSummary[] };
 // this page (its foreignCitations).
 export type PageOrderEntry = { pageId: number, printedPageNumber: string, citedByCount: number };
 // A table of contents entry: a part the book's pages are cited by ("question 2"), and the parts
-// under it. Empty for books cited by printed page number.
-export type ContentsEntry = { partType: string, partValue: string, childEntries: ContentsEntry[] };
+// under it. pageId is the page to go to (a pageOrder pageId): the page cited by exactly its parts,
+// or else the first page under it. Empty for books cited by printed page number.
+export type ContentsEntry = {
+  partType: string,
+  partValue: string,
+  pageId: number,
+  childEntries: ContentsEntry[],
+};
 export type Book = BookSummary & { pageOrder: PageOrderEntry[], contents: ContentsEntry[] };
 
 export type CitationLocation = { type: string, value: number };
