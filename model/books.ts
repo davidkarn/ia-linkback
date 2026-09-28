@@ -1,17 +1,56 @@
 // Saving a whole book: its books row, pages and page blocks.
-import type { Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import type { Page } from '../types.ts';
+import type { DbExprBuilder, DbSelectQuery } from './model_utils.js';
 
-// Rows per insert, well under Postgres's 65535 parameters
 const CHUNK = 500;
-
-// citation_locations.value is a 32-bit integer
 const INT_MIN = -2147483648, INT_MAX = 2147483647;
 
 const chunks = <T>(rows: T[]): T[][] => (
-  Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK))
+  Array.from({
+    length: Math.ceil(rows.length / CHUNK) },
+    (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK)
+  )
 );
+
+const sortedForDisplay = <O>() => (query: DbSelectQuery<'books', O>) => (
+  query.orderBy('books.title').orderBy('books.id')
+);
+
+const scopedToQuery = <O>(searchQuery: string) => (query: DbSelectQuery<'books', O>) => {
+  if (searchQuery) {
+    const pattern = like_pattern(searchQuery);
+    
+    return query.where((eb) => eb.or([
+      eb('books.title', 'ilike', pattern),
+      eb('books.author', 'ilike', pattern)
+    ]));
+  }
+  else {
+    return query;
+  }
+};
+
+export const BookScopes = {sortedForDisplay, scopedToQuery};
+
+const citedByCount = (eb: DbExprBuilder<'books'>, name: string = 'cited_by_count') => (
+  eb.selectFrom('citations')
+    .select(eb.fn.countAll<string>().as('n'))
+    .whereRef('citations.reference_book_id', '=', 'books.id')
+    .whereRef('citations.source_book_id', '<>', 'books.id')
+    .as(name)
+);
+
+const pageCount = (eb: DbExprBuilder<'books'>, name: string = 'page_count') => (
+  eb.selectFrom('pages')
+    .select(eb.fn.countAll<string>().as('n'))
+    .whereRef('pages.book_id', '=', 'books.id')
+    .as(name)
+);
+
+export const BookSelectors = {citedByCount, pageCount};
+
 
 // Save a book, replacing any earlier copy, in one transaction. The books row is upserted, so other
 // books' citations of it keep their reference_book_id; its pages are deleted and inserted again,
@@ -117,3 +156,6 @@ export const saveBook = (
     pages: pages.length, blocks: blocks.length, citations: citations.length, groups, locations,
   };
 });
+
+
+

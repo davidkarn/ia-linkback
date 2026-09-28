@@ -7,22 +7,22 @@ import { citablePageNumber } from '../core/page_insights';
 import { citationsOfPage, citedCountsByPage } from '../model/page_insights';
 import { findContents } from '../model/book_pages_to_citations';
 import type { ContentsEntry } from '../core/contents';
+import { BookScopes, BookSelectors } from '../model/books.js';
+import { DbScopes, withScopes } from '../model/model_utils.js';
 
 export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number, citedByCount: number };
 // citedByCount: citations in other books that cite this page (the foreignCitations of GET /books/{id}/pages/{id})
 export type PageOrderEntry = { pageId: number, printedPageNumber: string, citedByCount: number };
 
-// The BookPage schema in api.yaml
-export type BookPage = {
+export type PageCitationDto = CitationDto & { sourcePageText: string };
+
+export type BookPageForApi = {
   bookId: string,
   pageNumber: number,
   printedPageNumber: string,
   blocks: { label: string, html: string, citations: PageCitationDto[] }[],
   foreignCitations: PageCitationDto[],
 };
-
-// A citation with the HTML of the page its footnote is on (see citation_page_html)
-export type PageCitationDto = CitationDto & { sourcePageText: string };
 
 type SourceBlock = { id: string, label: string, html: string };
 
@@ -31,6 +31,7 @@ type SourceBlock = { id: string, label: string, html: string };
 const paragraph_marker = (p: string): string | null => {
   const m      = p.match(/^\s*<p>\s*(?:<sup>\s*([^<]+?)\s*<\/sup>|(\d{1,3}\)?|[*†‡])\s)/i);
   const marker = m?.[1] ?? m?.[2];
+  
   return marker === undefined ? null : marker.trim().replace(/[).]+$/, '');
 };
 
@@ -79,62 +80,36 @@ const citation_page_html = (blocks: SourceBlock[], blockId: string, identifier: 
 
 const page_key = (bookId: string, pageNumber: number) => bookId + '\u0000' + pageNumber;
 
-// How many citations in other books point at the book (as /books/{id}/citationsTo counts them).
-const cited_by_count = (eb: ExpressionBuilder<Database, 'books'>) =>
-  eb.selectFrom('citations')
-    .select(eb.fn.countAll<string>().as('n'))
-    .whereRef('citations.reference_book_id', '=', 'books.id')
-    .whereRef('citations.source_book_id', '<>', 'books.id')
-    .as('cited_by_count');
-
-// Escape LIKE wildcards so a user's "50%" or "a_b" is searched literally.
-const like_pattern = (q: string) => '%' + q.replace(/[\\%_]/g, (m) => '\\' + m) + '%';
-
 @Injectable()
 export class BooksService {
   constructor(@Inject(DB) private readonly db: Kysely<Database>) {}
 
-  // One page of matching books, plus how many books match in total (ignoring offset/length).
   async search(opts: {
     offset: number,
     length: number,
     query?: string | undefined }
   ): Promise<{ items: BookSummary[], count: number }> {
-
-    const matching = () => {
-      let q = this.db.selectFrom('books');
-
-      if (opts.query) {
-        const pattern = like_pattern(opts.query);
-        q             = q.where((eb) => eb.or([
-          eb('books.title', 'ilike', pattern),
-          eb('books.author', 'ilike', pattern)
-        ]));
-      }
-
-      return q;
-    };
-
-    const rows = await matching()
-      .select((eb) => [
-        'books.id',
-        'books.title',
-        'books.author',
-        'books.url',
-        'books.cover_photo_path',
-        eb.selectFrom('pages')
-          .select(eb.fn.countAll<string>().as('n'))
-          .whereRef('pages.book_id', '=', 'books.id')
-          .as('page_count'),
-        cited_by_count(eb),
-      ])
-      .orderBy('books.title')
-      .orderBy('books.id')
-      .limit(opts.length)
-      .offset(opts.offset)
+      const rows = await withScopes(
+        this.db.selectFrom('books'), [
+          BookScopes.scopedToQuery(opts.query),
+          DbScopes.offsetAndLimitScope(opts.offset, opts.length),
+          BookScopes.sortedForDisplay()
+        ])
+        .select((eb) => [
+          'books.id',
+          'books.title',
+          'books.author',
+          'books.url',
+          'books.cover_photo_path',
+          BookSelectors.pageCount,
+          BookSelectors.citedByCount(eb),
+        ])
       .execute();
 
-    const total = await matching()
+    const total = await withScopes(
+        this.db.selectFrom('books'), [
+          BookScopes.scopedToQuery(opts.query)
+        ])
       .select((eb) => eb.fn.countAll<string>().as('count'))
       .executeTakeFirstOrThrow();
 
@@ -159,7 +134,7 @@ export class BooksService {
       .selectFrom('books')
       .select((eb) => [
         'books.id', 'books.title', 'books.author', 'books.url', 'books.cover_photo_path',
-        cited_by_count(eb),
+        BookSelectors.citedByCount(eb),
       ])
       .where('books.id', '=', bookId)
       .executeTakeFirst();
@@ -201,7 +176,7 @@ export class BooksService {
 
   // One page of a book: its blocks with the citations in their footnotes, and the citations in other
   // books that point at this page by its printed page number. null when there is no such page.
-  async getPage(bookId: string, pageNumber: number): Promise<BookPage | null> {
+  async getPage(bookId: string, pageNumber: number): Promise<BookPageForApi | null> {
     const page = await this.db
       .selectFrom('pages')
       .select(['pages.page_number', 'pages.printed_page_number'])
