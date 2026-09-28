@@ -62,10 +62,11 @@ export const summaCitationParts = (printedPageNumber: string): CitationPart[] | 
 // div1s that are not part of the text
 const SKIPPED_DIV1 = new Set(['i', 'viii']);   // the title page, the indexes
 
-type Div = {
+export type Div = {
   level: number,
   id: string,
   title: string,
+  shortTitle: string,   // the label CCEL gives it in contents ("Chapter V", "Book I")
   own: string,          // this div's HTML without its child divs
   children: Div[],
 };
@@ -76,7 +77,7 @@ const attr = (attrs: string, name: string) => (
 
 // The div tree of the ThML body
 export const parseDivs = (xml: string): Div[] => {
-  const root: Div = { level: 0, id: '', title: '', own: '', children: [] };
+  const root: Div = { level: 0, id: '', title: '', shortTitle: '', own: '', children: [] };
   const stack     = [root];
   const tag       = /<(\/?)div(\d)\b([^>]*)>/g;
   let last        = 0;
@@ -90,11 +91,12 @@ export const parseDivs = (xml: string): Div[] => {
     }
     else {
       const div: Div = {
-        level:    Number(m[2]),
-        id:       attr(m[3]!, 'id'),
-        title:    attr(m[3]!, 'title'),
-        own:      '',
-        children: [],
+        level:      Number(m[2]),
+        id:         attr(m[3]!, 'id'),
+        title:      attr(m[3]!, 'title'),
+        shortTitle: attr(m[3]!, 'shorttitle'),
+        own:        '',
+        children:   [],
       };
       stack[stack.length - 1]!.children.push(div);
       if (!m[3]!.trim().endsWith('/')) {
@@ -127,7 +129,7 @@ const rawParagraphs = (html: string): string[] => (
 // The non-empty paragraphs of some HTML, cleaned
 export const paragraphs = (html: string): string[] => rawParagraphs(html).map(cleanHtml);
 
-const heading = (html: string, tagName: string): string => {
+export const heading = (html: string, tagName: string): string => {
   const m = html.match(new RegExp(`<${ tagName }\\b[^>]*>([\\s\\S]*?)</${ tagName }>`));
   return m ? cleanHtml(m[1]!).replace(/<[^>]+>/g, '') : '';
 };
@@ -151,13 +153,13 @@ export const tidyTitle = (title: string): string => {
   }
 };
 
-const block = (label: PageBlock['label'], html: string): PageBlock => ({
+export const block = (label: PageBlock['label'], html: string): PageBlock => ({
   bbox: [0, 0, 0, 0], label, html, citations: [],
 });
 
 const headers = (items: string[]) => items.map((item) => block('PageHeader', `<p>${ item }</p>`));
 
-const escapeHtml = (text: string) => (
+export const escapeHtml = (text: string) => (
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 );
 
