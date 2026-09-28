@@ -5,8 +5,8 @@ import { match } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
 import { Link } from 'react-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatLocations, useBookTitles } from '../core/page_rendering';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatLocations, useBookSummaries } from '../core/page_rendering';
 import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
 import { PageInsightsSummary } from './page_insights';
 
@@ -104,7 +104,12 @@ export const BookPageView = ({
                 'No other books in the collection cite this page.'
               )
               : __('ul', {}, page.foreignCitations.map(
-                c => __(CitedBy, {key: c.id, citation: c, hrefForCitingBook})
+                c => __(CitedBy, {
+                  key: c.id,
+                  citation: c,
+                  hrefForCitingBook,
+                  startCollapsed: page.foreignCitations.length > COLLAPSE_OVER,
+                })
               ))
           )
         )
@@ -129,24 +134,49 @@ function Block({block}: {block: PageBlock}) {
 }
 
 
-// Its title opens the citing book, at the citing page, to the right of this column
-function CitedBy({citation, hrefForCitingBook}: {
+// Pages cited by more citations than this start with them collapsed to their titles and authors
+const COLLAPSE_OVER = 3;
+
+// Its title opens the citing book, at the citing page, to the right of this column. Collapsed, it
+// shows only the citing book's title and author; clicking it (other than on the title) expands it.
+function CitedBy({citation, hrefForCitingBook, startCollapsed}: {
   citation: PageCitation,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
+  startCollapsed: boolean,
 }) {
-  const titles = useBookTitles();
-  const source = citation.source;
+  const books                     = useBookSummaries();
+  const source                    = citation.source;
+  const citing                    = books.get(source.bookId);
+  const [collapsed, setCollapsed] = useState(startCollapsed);
+  const toggle                    = () => setCollapsed(!collapsed);
 
   return (
-    __('li', {},
-      __(Link, {to: hrefForCitingBook(source.bookId, Number(source.footnotePage))},
-        __('cite', {}, titles.get(source.bookId) ?? source.bookId)
+    __('li', {className: 'cited-by-item' + (collapsed ? ' collapsed' : '')},
+      __('div', {
+        className: 'cited-by-heading',
+        role: 'button',
+        tabIndex: 0,
+        'aria-expanded': !collapsed,
+        onClick: toggle,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle();
+          }
+        },
+      },
+        __('div', {className: 'cited-by-names'},
+          __(Link, {
+            to: hrefForCitingBook(source.bookId, Number(source.footnotePage)),
+            onClick: (e: React.MouseEvent) => e.stopPropagation(),
+          },
+            __('cite', {}, citing?.title ?? source.bookId)
+          ),
+          citing?.author && __('div', {className: 'muted'}, citing.author),
+        ),
+        __(ChevronDown, {className: 'cited-by-toggle'}),
       ),
-      __('div', {className: 'muted'},
-        'footnote ' + source.footnoteIdentifier,
-        citation.locationsCited.length > 0 && ' · cites ' + formatLocations(citation.locationsCited)
-      ),
-      citation.sourcePageText && __(SourcePage, {citation})
+      !collapsed && citation.sourcePageText && __(SourcePage, {citation})
     )
   );
 }

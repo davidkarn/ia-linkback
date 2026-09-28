@@ -102,9 +102,32 @@
             font-size: 0.75rem;
         }
 
+        .cited-by-heading {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 0.5rem;
+            cursor: pointer;
+
+            .cited-by-names {
+                flex-grow: 1;
+            }
+
+            .cited-by-toggle {
+                flex-shrink: 0;
+                width: 1rem;
+                height: 1rem;
+                opacity: 0.5;
+                transition: transform 0.15s;
+            }
+        }
+
+        .cited-by-item.collapsed .cited-by-toggle {
+            transform: rotate(-90deg);
+        }
+
         .source-page {
             position: relative;   
-            max-height: 14rem;
             margin-top: 0.5rem;
             border-radius: 4px;
             font-size: 0.75rem;
