@@ -13,27 +13,85 @@ export const findPage = (db: Kysely<Database>, bookId: string, pageNumber: numbe
     .executeTakeFirst()
 );
 
-// Citations in other books of a book's page, by its printed page number: a "page" location equal to
-// it. Callers choose the columns.
-export const citationsOfPage = (db: Kysely<Database>, bookId: string, printedNumber: number) => (
+const CITATION_PARTS = 8;
+
+// SQL: every part of the book_pages_to_citations row `row` has a citation_locations row with its
+// type and value in the citation_groups row `grp`. A part that is null asks for nothing.
+const groupHasRowParts = (row: string, grp: string) => sql.join(
+  Array.from({ length: CITATION_PARTS }, (_, i) => {
+    const type  = sql.ref(`${ row }.citation_part_${ i + 1 }_type`);
+    const value = sql.ref(`${ row }.citation_part_${ i + 1 }_value`);
+    return sql`(${ type } is null or exists (
+      select 1 from citation_locations part
+      where part.citation_group_id = ${ sql.ref(`${ grp }.id`) }
+        and part.type = ${ type } and part.value::text = ${ value }))`;
+  }),
+  sql` and `,
+);
+
+// SQL: the citation `cit` cites the book's page by one of its book_pages_to_citations rows (for books
+// cited by part rather than page number, such as the Summa: book 1, question 2, article 1): some
+// location group of the citation has every part of the row
+const citesPageByParts = (bookId: string, pageNumber: number, cit = 'citations') => sql<boolean>`exists (
+  select 1 from book_pages_to_citations bpc
+  join citation_groups grp on grp.citation_id = ${ sql.ref(`${ cit }.id`) }
+  where bpc.book_id = ${ bookId } and bpc.page_number = ${ pageNumber }
+    and ${ groupHasRowParts('bpc', 'grp') })`;
+
+// Citations in other books of a book's page: those with a "page" location equal to its printed page
+// number (when that is a number), or that cite it by the parts of one of its book_pages_to_citations
+// rows (see citesPageByParts). Callers choose the columns.
+export const citationsOfPage = (
+  db: Kysely<Database>, bookId: string, page: { pageNumber: number, printedNumber: number | null }
+) => (
   db.selectFrom('citations')
     .where('citations.reference_book_id', '=', bookId)
     .where('citations.source_book_id', '<>', bookId)
-    .where((eb) => eb.exists(
-      eb.selectFrom('citation_locations')
-        .whereRef('citation_locations.citation_id', '=', 'citations.id')
-        .where('citation_locations.type', '=', 'page')
-        .where('citation_locations.value', '=', printedNumber),
-    ))
+    .where((eb) => eb.or([
+      ...(page.printedNumber === null ? [] : [eb.exists(
+        eb.selectFrom('citation_locations')
+          .whereRef('citation_locations.citation_id', '=', 'citations.id')
+          .where('citation_locations.type', '=', 'page')
+          .where('citation_locations.value', '=', page.printedNumber),
+      )]),
+      citesPageByParts(bookId, page.pageNumber),
+    ]))
     .orderBy('citations.source_book_id')
     .orderBy('citations.source_footnote_page')
     .orderBy('citations.id')
 );
 
+// How many citations in other books cite each of a book's pages, by the rules of citationsOfPage:
+// its printed page number, or the parts of one of its book_pages_to_citations rows. A citation
+// counts once per page, and a range (pp. 42-51) on each of its pages.
+export const citedCountsByPage = async(
+  db: Kysely<Database>, bookId: string
+): Promise<Map<number, number>> => {
+  const rows = await sql<{ page_number: number, n: string }>`
+    select page_number, count(distinct citation_id) as n from (
+      select p.page_number, c.id as citation_id
+      from citations c
+      join citation_locations l on l.citation_id = c.id and l.type = 'page'
+      join pages p on p.book_id = c.reference_book_id
+        and case when p.printed_page_number ~ '^[0-9]+$'
+                 then p.printed_page_number::numeric end = l.value
+      where c.reference_book_id = ${ bookId } and c.source_book_id <> ${ bookId }
+      union all
+      select bpc.page_number, c.id
+      from book_pages_to_citations bpc
+      join citations c on c.reference_book_id = bpc.book_id and c.source_book_id <> bpc.book_id
+      join citation_groups grp on grp.citation_id = c.id
+      where bpc.book_id = ${ bookId } and ${ groupHasRowParts('bpc', 'grp') }
+    ) cited
+    group by page_number`.execute(db);
+
+  return new Map(rows.rows.map((r) => [r.page_number, Number(r.n)]));
+};
+
 export const findCitingCitations = async(
-  db: Kysely<Database>, bookId: string, printedNumber: number
+  db: Kysely<Database>, bookId: string, page: { pageNumber: number, printedNumber: number | null }
 ): Promise<CitingCitation[]> => {
-  const rows = await citationsOfPage(db, bookId, printedNumber)
+  const rows = await citationsOfPage(db, bookId, page)
     .select([
       'citations.source_book_id',
       'citations.source_footnote_page',

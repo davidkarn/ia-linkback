@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely } from 'kysely';
 import { DB } from './database.module';
 import type { Database } from './database';
 import { citation_columns, to_citation_dto, type CitationDto } from './citations.service';
 import { citablePageNumber } from '../core/page_insights';
-import { citationsOfPage } from '../model/page_insights';
+import { citationsOfPage, citedCountsByPage } from '../model/page_insights';
 
 export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number, citedByCount: number };
 // citedByCount: citations in other books that cite this page (the foreignCitations of GET /books/{id}/pages/{id})
@@ -173,21 +173,9 @@ export class BooksService {
         .orderBy('pages.page_number')
         .execute();
 
-      // Citations match a page the way getPage matches them: a "page" location equal to the page's printed
-      // number, when that is an integer. A range (pp. 42-51) counts on each of its pages.
-      const citedPages = await this.db
-        .selectFrom('citations')
-        .innerJoin('citation_locations', 'citation_locations.citation_id', 'citations.id')
-        .innerJoin('pages', (join) => join
-          .onRef('pages.book_id', '=', 'citations.reference_book_id')
-          .on(sql<boolean>`case when pages.printed_page_number ~ '^[0-9]+$' then pages.printed_page_number::numeric end = citation_locations.value`))
-        .select((eb) => ['pages.page_number', eb.fn.count<string>('citations.id').distinct().as('n')])
-        .where('citations.reference_book_id', '=', bookId)
-        .where('citations.source_book_id', '<>', bookId)
-        .where('citation_locations.type', '=', 'page')
-        .groupBy('pages.page_number')
-        .execute();
-      const citedBy    = new Map(citedPages.map((r) => [r.page_number, Number(r.n)]));
+      // citations of each page, as getPage finds them: by printed page number, or by the parts of
+      // one of the page's book_pages_to_citations rows
+      const citedBy = await citedCountsByPage(this.db, bookId);
 
       return {
         id:           book.id,
@@ -238,8 +226,9 @@ export class BooksService {
       // pages printed with roman numerals (or unnumbered) can't be cited by number
       const printedNumber = citablePageNumber(page.printed_page_number);
 
-      const foreignCitations = printedNumber === null ? [] : await citationsOfPage(
-        this.db, bookId, printedNumber
+      // by printed page number, or by the parts of one of the page's book_pages_to_citations rows
+      const foreignCitations = await citationsOfPage(
+        this.db, bookId, { pageNumber: page.page_number, printedNumber }
       )
         .select((eb) => [...citation_columns(eb), 'citations.page_block_id'])
         .execute();

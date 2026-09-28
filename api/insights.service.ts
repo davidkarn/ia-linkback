@@ -53,12 +53,10 @@ export class InsightsService {
     if (!page) {
       return 'no page';
     }
-    else if (printedNumber === null) {
-      return 'no citations';
-    }
     else {
+      // a page without a printed number can still be cited by parts (book, question, article)
       const citingPages = groupCitingPages(
-        await findCitingCitations(this.db, bookId, printedNumber)
+        await findCitingCitations(this.db, bookId, { pageNumber, printedNumber })
       );
 
       if (!citingPages.length) {
