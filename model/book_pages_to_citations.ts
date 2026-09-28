@@ -3,6 +3,7 @@
 import type { Insertable, Kysely } from 'kysely';
 import type { BookPagesToCitationsTable, Database } from '../api/database.ts';
 import type { CitationPart } from '../core/summa_thml.ts';
+import { contentsOf, type ContentsEntry } from '../core/contents.ts';
 
 const MAX_PARTS = 8;
 
@@ -47,3 +48,27 @@ export const replacePageCitations = (
 
   return rows.length;
 });
+
+// A book's table of contents from its pages' citation parts, in page order (see core/contents.ts);
+// empty when the book has no book_pages_to_citations rows
+export const findContents = async(db: Kysely<Database>, bookId: string): Promise<ContentsEntry[]> => {
+  const rows = await db.selectFrom('book_pages_to_citations')
+    .selectAll()
+    .where('book_id', '=', bookId)
+    .orderBy('page_number')
+    .orderBy('id')
+    .execute();
+
+  return contentsOf(rows.map((row) => {
+    const parts: CitationPart[] = [];
+    for (let n = 1; n <= MAX_PARTS; n++) {
+      const r     = row as unknown as Record<string, string | null>;
+      const type  = r[`citation_part_${ n }_type`];
+      const value = r[`citation_part_${ n }_value`];
+      if (type && value !== null && value !== undefined) {
+        parts.push({ type, value });
+      }
+    }
+    return parts;
+  }));
+};

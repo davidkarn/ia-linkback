@@ -15,7 +15,10 @@ export type BookList = { meta: { count: number }, items: BookSummary[] };
 // is the number printed on the page, '' when it has none. citedByCount: citations in other books that cite
 // this page (its foreignCitations).
 export type PageOrderEntry = { pageId: number, printedPageNumber: string, citedByCount: number };
-export type Book = BookSummary & { pageOrder: PageOrderEntry[] };
+// A table of contents entry: a part the book's pages are cited by ("question 2"), and the parts
+// under it. Empty for books cited by printed page number.
+export type ContentsEntry = { partType: string, partValue: string, childEntries: ContentsEntry[] };
+export type Book = BookSummary & { pageOrder: PageOrderEntry[], contents: ContentsEntry[] };
 
 export type CitationLocation = { type: string, value: number };
 

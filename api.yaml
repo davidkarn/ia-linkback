@@ -63,7 +63,9 @@ paths:
           required: true
           schema:
             type: string
-      summary: Get a book's summary, with its pages in order under pageOrder.
+      summary: >-
+        Get a book's summary, with its pages in order under pageOrder and its table of contents
+        under contents.
       responses:
         '200':
           description: book summary
@@ -304,6 +306,29 @@ components:
               citedByCount:
                 description: number of citations in other books that reference this page
                 type: number
+        contents:
+          description: >-
+            the book's table of contents, from the parts its pages are cited by in
+            book_pages_to_citations (e.g. book > question > article); empty when it has none
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentsEntry'
+    ContentsEntry:
+      type: object
+      required:
+        - partType
+        - partValue
+        - childEntries
+      properties:
+        partType:
+          description: a citation location type (book, chapter, question, article, ...)
+          type: string
+        partValue:
+          type: string
+        childEntries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentsEntry'
     Citation:
       type: object
       required:

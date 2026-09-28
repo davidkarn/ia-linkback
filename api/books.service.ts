@@ -5,6 +5,8 @@ import type { Database } from './database';
 import { citation_columns, to_citation_dto, type CitationDto } from './citations.service';
 import { citablePageNumber } from '../core/page_insights';
 import { citationsOfPage, citedCountsByPage } from '../model/page_insights';
+import { findContents } from '../model/book_pages_to_citations';
+import type { ContentsEntry } from '../core/contents';
 
 export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number, citedByCount: number };
 // citedByCount: citations in other books that cite this page (the foreignCitations of GET /books/{id}/pages/{id})
@@ -152,7 +154,7 @@ export class BooksService {
 
   async get(
     bookId: string
-  ): Promise<(BookSummary & { pageOrder: PageOrderEntry[] }) | null> {
+  ): Promise<(BookSummary & { pageOrder: PageOrderEntry[], contents: ContentsEntry[] }) | null> {
     const book = await this.db
       .selectFrom('books')
       .select((eb) => [
@@ -176,6 +178,8 @@ export class BooksService {
       // citations of each page, as getPage finds them: by printed page number, or by the parts of
       // one of the page's book_pages_to_citations rows
       const citedBy = await citedCountsByPage(this.db, bookId);
+      // parts by which the book's pages are cited, as a tree ([] for books cited by page number)
+      const contents = await findContents(this.db, bookId);
 
       return {
         id:           book.id,
@@ -190,6 +194,7 @@ export class BooksService {
           printedPageNumber: p.printed_page_number,
           citedByCount:      citedBy.get(p.page_number) ?? 0,
         })),
+        contents,
       };
     }
   }
