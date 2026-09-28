@@ -103,7 +103,7 @@ describe('summaPages', () => {
   it('keeps prologues, whether a section of their own or text before a treatise\'s questions', () => {
     expect(html('I-II prol.', 'Text')).toEqual(["<p>Since man is made in God's image...</p>"]);
     expect(html('III prol.', 'SectionHeader')).toEqual(['<h3>Treatise on the Incarnation</h3>']);
-    expect(html('III prol.', 'PageHeader')).toEqual(['<p>Tertia Partis</p>', '<p>Prologue</p>']);
+    expect(html('III prol.', 'PageHeader')).toEqual(['<p>Tertia Pars</p>', '<p>Prologue</p>']);
   });
 
   it('leaves out the title page and indexes', () => {

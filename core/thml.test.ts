@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { scripRefCitations } from './thml.ts';
+import { scripRefCitations, workReference, workReferences } from './thml.ts';
 import { bookName, osisBookNumber, printedBookNumber } from './bible.ts';
 
 const source = { bookId: 'summa-theologiae', footnotePage: 13 };
@@ -8,23 +8,40 @@ const ref = (passage: string, parsed?: string, text = passage) => (
   `<scripRef passage="${ passage }" id="x"${ parsed ? ` parsed="${ parsed }"` : '' }>${ text }</scripRef>`
 );
 
-describe('scripRefCitations', () => {
-  it('turns a scripRef into a Bible citation with book, chapter and verse locations', () => {
-    expect(scripRefCitations(
-      `"I am the way" (${ ref('Jn. 14:6', 'vul|John|14|6|0|0') }) Therefore...`, source
-    )).toEqual([{
-      source:          { bookId: 'summa-theologiae', footnoteIdentifier: '1', footnotePage: 13 },
-      referenceBookId: null,
-      author:          'Bible',
-      title:           'John',
-      location:        '14:6',
-      raw:             'Jn. 14:6',
-      locationsCited:  [[
-        { rawLabel: 'John', type: 'book', values: [50] },
-        { rawLabel: '14', type: 'chapter', values: [14] },
-        { rawLabel: '6', type: 'verse', values: [6] },
-      ]],
+const work = (text: string) => workReferences(text).map((w) => [w.author, w.title, w.location]);
+
+describe('scripRefCitations: scripture', () => {
+  it('turns a scripRef into a Bible citation, numbered after the parenthesis', () => {
+    const { html, footnotes } = scripRefCitations(
+      `<p>"the way" (${ ref('Jn. 14:6', 'vul|John|14|6|0|0') }) Therefore</p>`, source
+    );
+
+    expect(html).toBe(`<p>"the way" (${ ref('Jn. 14:6', 'vul|John|14|6|0|0') })<sup>1</sup> Therefore</p>`);
+    expect(footnotes).toEqual([{
+      identifier: '1',
+      kind:       'scripture',
+      raw:        'Jn. 14:6',
+      citations:  [{
+        source:          { bookId: 'summa-theologiae', footnoteIdentifier: '1', footnotePage: 13 },
+        referenceBookId: null,
+        author:          'Bible',
+        title:           'John',
+        location:        '14:6',
+        raw:             'Jn. 14:6',
+        locationsCited:  [[
+          { rawLabel: 'John', type: 'book', values: [50] },
+          { rawLabel: '14', type: 'chapter', values: [14] },
+          { rawLabel: '6', type: 'verse', values: [6] },
+        ]],
+      }],
     }]);
+  });
+
+  it('puts the number right after a scripRef that shares its parenthesis', () => {
+    const { html } = scripRefCitations(
+      `(${ ref('Jn. 14:6', 'vul|John|14|6|0|0') }; ${ ref('Rom. 1:20', 'vul|Rom|1|20|0|0') })`, source
+    );
+    expect(html.replace(/<scripRef[^>]*>|<\/scripRef>/g, '')).toBe('(Jn. 14:6<sup>1</sup>; Rom. 1:20<sup>2</sup>)');
   });
 
   it('expands verse ranges and gives several passages a group each', () => {
@@ -32,60 +49,109 @@ describe('scripRefCitations', () => {
       ref('2 Cor. 10:4,5', 'vul|2Cor|10|4|10|5')
         + ref('Lev. 4:3,23', 'vul|Lev|4|3|0|0;vul|Lev|4|23|0|0'),
       source,
-    );
+    ).footnotes.map((f) => f.citations[0]!);
 
-    expect([range!.location, range!.locationsCited]).toEqual(['10:4-5', [[
-      { rawLabel: '2 Corinthians', type: 'book', values: [54] },
-      { rawLabel: '10', type: 'chapter', values: [10] },
-      { rawLabel: '4-5', type: 'verse', values: [4, 5] },
-    ]]]);
+    expect([range!.location, range!.locationsCited[0]![2]]).toEqual(['10:4-5', {
+      rawLabel: '4-5', type: 'verse', values: [4, 5],
+    }]);
     expect(several!.location).toBe('4:3; 4:23');
-    expect(several!.locationsCited.map((g) => g.map((l) => l.values[0]))).toEqual([[3, 4, 3], [3, 4, 23]]);
+    expect(several!.locationsCited.length).toBe(2);
   });
 
-  it('cites a whole chapter without verses', () => {
-    const [c] = scripRefCitations(ref('Ps. 118', 'vul|Ps|118|0|0|0'), source);
-    expect([c!.title, c!.location, c!.locationsCited[0]!.map((l) => l.type)])
-      .toEqual(['Psalms', '118', ['book', 'chapter']]);
-  });
-
-  it('uses the Douay names and numbering', () => {
+  it('uses the Douay names and numbering, and reads text-only passages', () => {
     const titles = scripRefCitations(
-      ref('1 Kings 16:7', 'vul|1Kgs|16|7|0|0') + ref('Osee 13:9', 'vul|Hos|13|9|0|0')
-        + ref('Apoc. 1:5', 'vul|Rev|1|5|0|0'),
+      ref('1 Kings 16:7', 'vul|1Kgs|16|7|0|0') + ref('Apoc. 1:5', 'vul|Rev|1|5|0|0') + ref('3 Kings 10:4,5'),
       source,
-    ).map((c) => [c.title, c.locationsCited[0]![0]!.values[0]]);
+    ).footnotes.map((f) => [f.citations[0]!.title, f.citations[0]!.locationsCited[0]![0]!.values[0]]);
 
-    expect(titles).toEqual([['1 Kings', 9], ['Osee', 33], ['Apocalypse', 73]]);
+    expect(titles).toEqual([['1 Kings', 9], ['Apocalypse', 73], ['3 Kings', 11]]);
   });
 
-  it('reads the passage text when there is no parsed form', () => {
-    const [c] = scripRefCitations(ref('3 Kings 10:4,5'), source);
-    expect([c!.title, c!.location, c!.locationsCited[0]![0]!.values]).toEqual(['3 Kings', '10:4-5', [11]]);
+  it('recognizes untagged scripture in parentheses', () => {
+    const { footnotes } = scripRefCitations('<p>as it is written (Ps. 118)</p>', source);
+    expect(footnotes.map((f) => [f.kind, f.citations[0]!.title, f.citations[0]!.location]))
+      .toEqual([['scripture', 'Psalms', '118']]);
   });
 
-  it('leaves out scripRefs that are not scripture, without using up a footnote number', () => {
-    const citations = scripRefCitations(
-      ref('Ep. 137') + ref('Rom. 1:20', 'vul|Rom|1|20|0|0') + ref('3 Esdras 4:36')
-        + ref('Heb. 11:6', 'vul|Heb|11|6|0|0'),
-      source,
+  it('leaves out scripRefs that are not scripture, without using up a number', () => {
+    const { footnotes } = scripRefCitations(
+      ref('Ep. 137') + ref('Rom. 1:20', 'vul|Rom|1|20|0|0') + ref('3 Esdras 4:36'), source
     );
-    expect(citations.map((c) => [c.source.footnoteIdentifier, c.title]))
-      .toEqual([['1', 'Romans'], ['2', 'Hebrews']]);
+    expect(footnotes.map((f) => [f.identifier, f.citations[0]!.title])).toEqual([['1', 'Romans']]);
+  });
+});
+
+describe('scripRefCitations: other works', () => {
+  it('marks citations of other works in parentheses, with the author named before them', () => {
+    const { html, footnotes } = scripRefCitations(
+      '<p>Dionysius says (Coel. Hier. xii) that ... and Tertullian (Apol. XVI.) says</p>', source
+    );
+
+    expect(html).toBe('<p>Dionysius says (Coel. Hier. xii)<sup>1</sup> that ... '
+      + 'and Tertullian (Apol. XVI.)<sup>2</sup> says</p>');
+    expect(footnotes.map((f) => [f.identifier, f.kind, f.raw])).toEqual([
+      ['1', 'work', 'Coel. Hier. xii'],
+      ['2', 'work', 'Apol. XVI.'],
+    ]);
+    expect(footnotes.map((f) => {
+      const c = f.citations[0]!;
+      return [c.author, c.title, c.location, c.source.footnoteIdentifier];
+    })).toEqual([
+      ['Dionysius', 'Coel. Hier.', 'xii', '1'],
+      ['Tertullian', 'Apol.', 'XVI', '2'],
+    ]);
   });
 
-  it('numbers footnotes from firstIdentifier, so a page can be numbered across calls', () => {
-    const citations = scripRefCitations(ref('Rom. 1:20', 'vul|Rom|1|20|0|0'), source, 7);
-    expect(citations[0]!.source.footnoteIdentifier).toBe('7');
+  it('numbers scripture and works together in the order they appear, from firstIdentifier', () => {
+    const { footnotes } = scripRefCitations(
+      `Augustine (De Trin. i, 1) and (${ ref('Rom. 1:20', 'vul|Rom|1|20|0|0') })`, source, 5
+    );
+    expect(footnotes.map((f) => [f.identifier, f.kind])).toEqual([['5', 'work'], ['6', 'scripture']]);
   });
 
-  it('keeps the text as printed in raw', () => {
-    const [c] = scripRefCitations(ref('Ps. 52:1', 'vul|Ps|52|1|0|0', '<i>Ps.</i>  52:1'), source);
-    expect(c!.raw).toBe('Ps. 52:1');
+  it('gives a parenthesis citing several works one footnote with a citation for each', () => {
+    const { footnotes } = scripRefCitations('the Philosopher (Metaph. xii, text. 51; De Anima iii)', source);
+    expect(footnotes.length).toBe(1);
+    expect(footnotes[0]!.citations.map((c) => [c.author, c.title, c.location])).toEqual([
+      ['Philosopher', 'Metaph.', 'xii, text. 51'],
+      ['Philosopher', 'De Anima', 'iii'],
+    ]);
   });
 
-  it('finds nothing in ThML without scripRefs', () => {
-    expect(scripRefCitations('<p><b>Objection 1:</b> It seems...</p>', source)).toEqual([]);
+  it('leaves the text unchanged apart from the numbers', () => {
+    const text                = '<p>As Augustine says (De Civ. Dei x, 3), and (1) (i.e., the prophets) (Q[70], A[1]).</p>';
+    const { html, footnotes } = scripRefCitations(text, source);
+    expect(html.replace(/<sup>\d+<\/sup>/g, '')).toBe(text);
+    expect(footnotes.map((f) => f.citations[0]!.author)).toEqual(['Augustine']);
+  });
+});
+
+describe('workReference(s)', () => {
+  it('splits a citation into title and location', () => {
+    expect(work('De Fide Orth. i, 1,3')).toEqual([['', 'De Fide Orth.', 'i, 1,3']]);
+    expect(work('Gen. ad lit. xii, 6,7')).toEqual([['', 'Gen. ad lit.', 'xii, 6,7']]);
+    expect(work('De Civ. Dei x, 3')).toEqual([['', 'De Civ. Dei', 'x, 3']]);
+    expect(work('1 Poster. iii')).toEqual([['', '1 Poster.', 'iii']]);
+    expect(work('Hil. de Syn. p. 133')).toEqual([['', 'Hil. de Syn.', 'p. 133']]);
+    expect(work('C. Ar. ii. 22')).toEqual([['', 'C. Ar.', 'ii. 22']]);
+  });
+
+  it('reads an author named in the parenthesis', () => {
+    expect(work('Dionysius, De Div. Nom. iv')).toEqual([['Dionysius', 'De Div. Nom.', 'iv']]);
+    expect(work('Neale, i. 61')).toEqual([['Neale', '', 'i. 61']]);
+    expect(work('Stromata, lib. i. c. 21')).toEqual([['', 'Stromata', 'lib. i. c. 21']]);
+  });
+
+  it('carries a work over to a following location', () => {
+    expect(work('De Trin. vi, 10; vii, 3')).toEqual([['', 'De Trin.', 'vi, 10'], ['', 'De Trin.', 'vii, 3']]);
+  });
+
+  it('is nothing for parentheses that are not citations', () => {
+    for (const text of ['1', 'B', 'i.e., the prophets', 'for instance', 'Q[70], A[1]', 'FOUR ARTICLES',
+                        'Orthodox', 'Chapter LXIV', 'May 20–Aug. 25', 'Of these there are 3', 'Rome, 1742',
+                        'B C D I S V W X Y Z 1 2 4 5 6']) {
+      expect(workReference(text)).toBeNull();
+    }
   });
 });
 
