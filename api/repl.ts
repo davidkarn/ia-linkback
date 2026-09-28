@@ -14,7 +14,7 @@ const db = new Kysely<Database>({
 });
 
 const main = async() => {
-  const bookId = 'summa-theologiae';
+  const bookId = 'summa-theologiae or true';
   console.log(await citedCountsByPage(db, bookId));
 };
 
