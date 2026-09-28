@@ -77,13 +77,44 @@ describe('summaPages', () => {
     expect(html('I-II q. 1 a. 1', 'PageHeader')[0]).toBe('<p>Prima Secundae Partis</p>');
   });
 
-  it("gives an article's page its title and paragraphs, cleaned", () => {
+  it("gives an article's page its title and paragraphs, cleaned, with its citations numbered", () => {
     expect(html('I q. 2 a. 1', 'SectionHeader'))
       .toEqual(['<h4>Article 1. Whether the existence of God is self-evident?</h4>']);
     expect(html('I q. 2 a. 1', 'Text')).toEqual([
-      '<p><b>Objection 1:</b> It seems so (Jn. 14:6).</p>',
+      '<p><b>Objection 1:</b> It seems so (Jn. 14:6)<sup>1</sup>.</p>',
       '<p><b>I answer that,</b> As said above (Q[1], A[7]), it is not.</p>',
     ]);
+  });
+
+  it('adds a footnote block for each citation, after the text, carrying its citations', () => {
+    const blocks = page('I q. 2 a. 1').blocks;
+    const notes  = blocks.filter((b) => b.label === 'Footnote');
+
+    expect(blocks.at(-1)!.label).toBe('Footnote');
+    expect(notes.map((b) => b.html)).toEqual(['<p><sup>1</sup> Jn. 14:6</p>']);
+    expect(notes[0]!.citations.map((c) => [c.author, c.title, c.location, c.source])).toEqual([[
+      'Bible', 'John', '14:6', { bookId: 'summa-theologiae', footnoteIdentifier: '1', footnotePage: 2 },
+    ]]);
+  });
+
+  it('numbers footnotes from 1 on each page, across its paragraphs', () => {
+    const pages = summaPages(THML.replace(
+      '<p><b>Objection 1:</b> It seems not.</p>',
+      '<p>Augustine says (De Trin. i, 1).</p><p>Dionysius says (Coel. Hier. xii).</p>'
+    ));
+    const notes = pages.find((p) => p.printedPageNumber === 'I q. 2 a. 2')!.blocks
+      .filter((b) => b.label === 'Footnote');
+
+    expect(notes.map((b) => [b.html, b.citations[0]!.author, b.citations[0]!.source.footnotePage])).toEqual([
+      ['<p><sup>1</sup> De Trin. i, 1</p>', 'Augustine', 3],
+      ['<p><sup>2</sup> Coel. Hier. xii</p>', 'Dionysius', 3],
+    ]);
+  });
+
+  it('can save the citations under another book id', () => {
+    const cited = summaPages(THML, 'test-summa').flatMap((p) => p.blocks).flatMap((b) => b.citations);
+    expect(cited.length).toBeGreaterThan(0);
+    expect(cited.every((c) => c.source.bookId === 'test-summa')).toBe(true);
   });
 
   it("gives a question's contents page its title, prologue and list of articles", () => {

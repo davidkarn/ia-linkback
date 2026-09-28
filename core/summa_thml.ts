@@ -8,6 +8,10 @@
 // rather than an HTML parser: empty paragraphs are written <p id="..." />, which HTML parsers read
 // as an open <p> swallowing what follows.
 import type { Page, PageBlock } from '../types.ts';
+import { scripRefCitations } from './thml.ts';
+
+// The book's id in the database
+export const SUMMA_BOOK_ID = 'summa-theologiae';
 
 // The parts, by the id prefix of their questions: the name for page headers, and a short form for
 // page labels
@@ -79,12 +83,15 @@ export const cleanHtml = (html: string): string => (
     .trim()
 );
 
-// The non-empty paragraphs of some HTML, cleaned
-export const paragraphs = (html: string): string[] => (
+// The non-empty paragraphs of some HTML, as ThML (scripRefs and notes kept, for scripRefCitations)
+const rawParagraphs = (html: string): string[] => (
   [...html.matchAll(/<p\b[^>]*?(?:\/>|>([\s\S]*?)<\/p>)/g)]
-    .map((m) => cleanHtml(m[1] ?? ''))
-    .filter(Boolean)
+    .map((m) => m[1] ?? '')
+    .filter((p) => cleanHtml(p))
 );
+
+// The non-empty paragraphs of some HTML, cleaned
+export const paragraphs = (html: string): string[] => rawParagraphs(html).map(cleanHtml);
 
 const heading = (html: string, tagName: string): string => {
   const m = html.match(new RegExp(`<${ tagName }\\b[^>]*>([\\s\\S]*?)</${ tagName }>`));
@@ -116,18 +123,46 @@ const block = (label: PageBlock['label'], html: string): PageBlock => ({
 
 const headers = (items: string[]) => items.map((item) => block('PageHeader', `<p>${ item }</p>`));
 
+const escapeHtml = (text: string) => (
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+);
+
+// A page's paragraphs as Text blocks, with a <sup> number after each citation in them (numbered from
+// 1 across the page), and a Footnote block for each, carrying its citations: "<sup>3</sup> Jn. 14:6".
+// The citations' footnotePage is set once pages are numbered (see summaPages).
+const textWithFootnotes = (raw: string[], bookId: string) => {
+  const text: PageBlock[]      = [];
+  const footnotes: PageBlock[] = [];
+
+  for (const paragraph of raw) {
+    const marked = scripRefCitations(paragraph, { bookId, footnotePage: 0 }, footnotes.length + 1);
+    text.push(block('Text', `<p>${ cleanHtml(marked.html) }</p>`));
+    footnotes.push(...marked.footnotes.map((f) => ({
+      ...block('Footnote', `<p><sup>${ f.identifier }</sup> ${ escapeHtml(f.raw) }</p>`),
+      citations: f.citations,
+    })));
+  }
+
+  return { text, footnotes };
+};
+
 type PagePlan = Omit<Page, 'pageNumber'>;
 
-const prologuePage = (partId: string, title: string, text: string[]): PagePlan => ({
-  printedPageNumber: PARTS[partId]!.short + ' prol.',
-  blocks:            [
-    ...headers([PARTS[partId]!.name, 'Prologue']),
-    block('SectionHeader', `<h3>${ tidyTitle(title) }</h3>`),
-    ...text.map((p) => block('Text', `<p>${ p }</p>`)),
-  ],
-});
+const prologuePage = (partId: string, title: string, raw: string[], bookId: string): PagePlan => {
+  const { text, footnotes } = textWithFootnotes(raw, bookId);
 
-const questionPages = (partId: string, question: Div): PagePlan[] => {
+  return {
+    printedPageNumber: PARTS[partId]!.short + ' prol.',
+    blocks:            [
+      ...headers([PARTS[partId]!.name, 'Prologue']),
+      block('SectionHeader', `<h3>${ tidyTitle(title) }</h3>`),
+      ...text,
+      ...footnotes,
+    ],
+  };
+};
+
+const questionPages = (partId: string, question: Div, bookId: string): PagePlan[] => {
   const part     = PARTS[partId]!;
   const number   = Number(question.id.match(/_Q(\d+)$/)![1]);
   const title    = tidyTitle(heading(question.own, 'h3') || question.title);
@@ -136,20 +171,22 @@ const questionPages = (partId: string, question: Div): PagePlan[] => {
     .map((d) => ({
       number: Number(d.id.match(/_A(\d+)$/)![1]),
       title:  heading(d.own, 'h4'),
-      text:   paragraphs(d.own),
+      body:   textWithFootnotes(rawParagraphs(d.own), bookId),
     }));
+  const prologue = textWithFootnotes(rawParagraphs(question.own), bookId);
 
   const contents: PagePlan = {
     printedPageNumber: `${ part.short } q. ${ number }`,
     blocks:            [
       ...headers([part.name, `Question ${ number }`]),
       block('SectionHeader', `<h3>Question ${ number }: ${ title }</h3>`),
-      ...paragraphs(question.own).map((p) => block('Text', `<p>${ p }</p>`)),
+      ...prologue.text,
       ...(articles.length
         ? [block('Text', '<ul>' + articles.map((a) => (
             `<li><b>Article ${ a.number }.</b> ${ a.title }</li>`
           )).join('') + '</ul>')]
         : []),
+      ...prologue.footnotes,
     ],
   };
 
@@ -160,7 +197,8 @@ const questionPages = (partId: string, question: Div): PagePlan[] => {
       blocks:            [
         ...headers([part.name, `Question ${ number }`, `Article ${ a.number }`]),
         block('SectionHeader', `<h4>Article ${ a.number }. ${ a.title }</h4>`),
-        ...a.text.map((p) => block('Text', `<p>${ p }</p>`)),
+        ...a.body.text,
+        ...a.body.footnotes,
       ],
     })),
   ];
@@ -173,20 +211,20 @@ const partOf = (id: string, div1Id: string): string | undefined => {
   return prefix && PARTS[prefix] ? prefix : PARTS[div1Id] ? div1Id : undefined;
 };
 
-// The pages of the Summa, in reading order, numbered from 1
-export const summaPages = (xml: string): Page[] => {
+// The pages of the Summa, in reading order, numbered from 1, their citations footnoted
+export const summaPages = (xml: string, bookId = SUMMA_BOOK_ID): Page[] => {
   const body              = xml.slice(xml.indexOf('<ThML.body'));
   const plans: PagePlan[] = [];
 
   for (const div1 of parseDivs(body).filter((d) => d.level === 1 && !SKIPPED_DIV1.has(d.id))) {
     for (const div2 of div1.children) {
       const questions = div2.children.filter((d) => /_Q\d+$/.test(d.id));
-      const intro     = paragraphs(div2.own);
+      const intro     = rawParagraphs(div2.own);
       // the appendix's note has no part of its own: it goes with the first appendix
       const introPart = partOf(questions[0]?.id ?? '', div1.id);
 
       if (intro.length && introPart) {
-        plans.push(prologuePage(introPart, heading(div2.own, 'h2') || div2.title, intro));
+        plans.push(prologuePage(introPart, heading(div2.own, 'h2') || div2.title, intro, bookId));
       }
 
       for (const div3 of div2.children) {
@@ -196,15 +234,25 @@ export const summaPages = (xml: string): Page[] => {
           continue;
         }
         else if (/_Q\d+$/.test(div3.id)) {
-          plans.push(...questionPages(part, div3));
+          plans.push(...questionPages(part, div3, bookId));
         }
         else {
           // a prologue written as its own section (the Prologue to the First Part of the Second Part)
-          plans.push(prologuePage(part, heading(div3.own, 'h3') || div3.title, paragraphs(div3.own)));
+          plans.push(prologuePage(
+            part, heading(div3.own, 'h3') || div3.title, rawParagraphs(div3.own), bookId
+          ));
         }
       }
     }
   }
 
-  return plans.map((p, i) => ({ pageNumber: i + 1, ...p }));
+  // now that pages are numbered, the footnotes' citations can say which page they are on
+  return plans.map((p, i) => ({
+    pageNumber: i + 1,
+    ...p,
+    blocks:     p.blocks.map((b) => ({
+      ...b,
+      citations: b.citations.map((c) => ({ ...c, source: { ...c.source, footnotePage: i + 1 } })),
+    })),
+  }));
 };

@@ -13,6 +13,7 @@ import { Pool } from 'pg';
 import type { Database } from '../api/database.ts';
 import { summaPages } from '../core/summa_thml.ts';
 import { saveBook } from '../model/books.ts';
+import { log } from '../lib/lib.ts';
 
 const BOOK = {
   id:     'summa-theologiae',
@@ -39,6 +40,7 @@ const main = async() => {
     + `${ count(/ a\. \d+$/) } articles, ${ count(/prol\.$/) } prologues)`);
 
   if (DRY_RUN) {
+    log(pages);
     console.log('dry run: nothing saved');
   }
   else if (!process.env.DATABASE_URL) {
