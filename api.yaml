@@ -162,7 +162,9 @@ paths:
           required: true
           schema:
             type: number
-      summary: Get other books that cite this one.
+      summary: >-
+        Get other books that cite this one: citations pointing at it or at one of its alternate ids
+        (the alternate_ids table).
       responses:
         200:
           content:
@@ -292,7 +294,9 @@ components:
         pageCount:
           type: number
         citedByCount:
-          description: number of citations in other books that reference this book
+          description: >-
+            number of citations in other books that reference this book, directly or through one of
+            its alternate ids (the alternate_ids table)
           type: number
         pageOrder:
           type: array
@@ -304,7 +308,9 @@ components:
               printedPageNumber:
                 type: string
               citedByCount:
-                description: number of citations in other books that reference this page
+                description: >-
+                  number of citations in other books that reference this page (including those pointing
+                  at one of the book's alternate ids)
                 type: number
         contents:
           description: >-

@@ -3,6 +3,7 @@ import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import type { CitationLocation } from '../types';
 import { DB } from './database.module';
 import type { Database } from './database';
+import { citesBook } from '../model/alternate_ids';
 
 // The Citation schema in api.yaml
 export type CitationDto = {
@@ -71,8 +72,8 @@ export const to_citation_dto = (r: {
 export class CitationsService {
   constructor(@Inject(DB) private readonly db: Kysely<Database>) {}
 
-  // One page of the citations in other books that point at `bookId`, plus how many there are in
-  // total (ignoring offset/length); null when there is no such book.
+  // One page of the citations in other books that point at `bookId` (or one of its alternate ids),
+  // plus how many there are in total (ignoring offset/length); null when there is no such book.
   async citationsTo(
     bookId: string,
     opts: { offset: number, length: number },
@@ -82,8 +83,7 @@ export class CitationsService {
 
     const matching = () => this.db
       .selectFrom('citations')
-      .where('citations.reference_book_id', '=', bookId)
-      .where('citations.source_book_id', '<>', bookId);
+      .where(citesBook(bookId));
 
     const rows = await matching()
       .select(citation_columns)

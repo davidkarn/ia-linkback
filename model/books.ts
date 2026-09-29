@@ -4,6 +4,7 @@ import type { Database } from '../api/database.ts';
 import type { Page } from '../types.ts';
 import { placesOf } from '../core/citation_groups.ts';
 import { groupRow } from './citation_groups.ts';
+import { idsCitedAsColumn } from './alternate_ids.ts';
 import { likePattern, type DbExprBuilder, type DbSelectQuery } from './model_utils.js';
 
 const CHUNK = 500;
@@ -35,11 +36,12 @@ const scopedToQuery = <O>(searchQuery: string) => (query: DbSelectQuery<'books',
 
 export const BookScopes = { sortedForDisplay, scopedToQuery };
 
+// Citations in other books of the book, pointing at it or one of its alternate ids
 const citedByCount = (eb: DbExprBuilder<'books'>, name: string = 'cited_by_count') => (
   eb.selectFrom('citations')
     .select(eb.fn.countAll<string>().as('n'))
-    .whereRef('citations.reference_book_id', '=', 'books.id')
-    .whereRef('citations.source_book_id', '<>', 'books.id')
+    .where('citations.reference_book_id', 'in', idsCitedAsColumn('books.id'))
+    .where('citations.source_book_id', 'not in', idsCitedAsColumn('books.id'))
     .as(name)
 );
 

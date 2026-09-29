@@ -116,6 +116,12 @@ export interface PageInsightsCacheTable {
   created_at: Generated<Date>,
 }
 
+// Another id a book goes by: citations pointing at alternate_id count as citations of book_id
+export interface AlternateIdsTable {
+  book_id: string,
+  alternate_id: string,
+}
+
 export interface Database {
   books: BooksTable,
   pages: PagesTable,
@@ -126,4 +132,5 @@ export interface Database {
   footnote_extraction_insights: FootnoteExtractionInsightsTable,
   page_insights_cache: PageInsightsCacheTable,
   book_pages_to_citations: BookPagesToCitationsTable,
+  alternate_ids: AlternateIdsTable,
 }

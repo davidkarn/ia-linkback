@@ -4,6 +4,7 @@
 import { sql, type Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import type { CitingCitation, ContextPage, PageInsights } from '../core/page_insights.ts';
+import { citesBook, idsCitedAs } from './alternate_ids.ts';
 
 export const findPage = (db: Kysely<Database>, bookId: string, pageNumber: number) => (
   db.selectFrom('pages')
@@ -63,15 +64,15 @@ const citesPrintedPage = (printed: number, cit = 'citations') => sql<boolean>`ex
   where grp.citation_id = ${ sql.ref(`${ cit }.id`) }
     and ('page', ${ printed }::integer) in (${ groupPartPairs('grp') }))`;
 
-// Citations in other books of a book's page: those with a "page" location equal to its printed page
-// number (when that is a number), or that cite it by the parts of one of its book_pages_to_citations
-// rows (see citesPageByParts). Callers choose the columns.
+// Citations in other books of a book's page (pointing at the book or one of its alternate ids, see
+// model/alternate_ids.ts): those with a "page" location equal to its printed page number (when that
+// is a number), or that cite it by the parts of one of its book_pages_to_citations rows (see
+// citesPageByParts). Callers choose the columns.
 export const citationsOfPage = (
   db: Kysely<Database>, bookId: string, page: { pageNumber: number, printedNumber: number | null }
 ) => (
   db.selectFrom('citations')
-    .where('citations.reference_book_id', '=', bookId)
-    .where('citations.source_book_id', '<>', bookId)
+    .where(citesBook(bookId))
     .where((eb) => eb.or([
       ...(page.printedNumber === null ? [] : [citesPrintedPage(page.printedNumber)]),
       citesPageByParts(bookId, page.pageNumber),
@@ -90,7 +91,7 @@ SELECT
 	count(DISTINCT (c.id)) as n
 FROM
 	book_pages_to_citations bpc
-	JOIN citations c ON c.reference_book_id = bpc.book_id
+	JOIN citations c ON c.reference_book_id IN ${ idsCitedAs(bookId) }
 	JOIN citation_groups grp ON grp.citation_id = c.id
 WHERE
 	bpc.book_id = ${ bookId }
@@ -136,7 +137,7 @@ FROM
   citations
 LEFT JOIN citation_groups ON citation_groups.citation_id = citations.id
   WHERE
-  citations.reference_book_id = ${ bookId } and citation_groups.part1_type = 'page'
+  citations.reference_book_id IN ${ idsCitedAs(bookId) } and citation_groups.part1_type = 'page'
 GROUP BY citation_groups.part1_value
 `.execute(db);
 
@@ -247,9 +248,9 @@ export const saveCachedInsights = (db: Kysely<Database>, insights: PageInsights)
     .execute()
 );
 
-// Delete the cached insights of every page these citations point to: in the book each references,
-// the pages whose printed number is one of the citation's page locations (the rule
-// citationsOfPage uses). Returns how many were deleted.
+// Delete the cached insights of every page these citations point to: in the book each references
+// (and the books it is an alternate id of), the pages whose printed number is one of the
+// citation's page locations (the rule citationsOfPage uses). Returns how many were deleted.
 export const invalidateInsightsCitedBy = async(
   db: Kysely<Database>, citationIds: string[]
 ): Promise<number> => {
@@ -262,7 +263,8 @@ export const invalidateInsightsCitedBy = async(
       USING citations c
       JOIN citation_groups grp ON grp.citation_id = c.id
       CROSS JOIN LATERAL ${ groupPartRows('grp') } part(n, type, value)
-      JOIN pages p ON p.book_id = c.reference_book_id
+      JOIN pages p ON (p.book_id = c.reference_book_id OR p.book_id IN (
+          SELECT a.book_id FROM alternate_ids a WHERE a.alternate_id = c.reference_book_id))
         AND CASE WHEN p.printed_page_number ~ '^[0-9]+$'
                  THEN p.printed_page_number::numeric END = part.value
       WHERE c.id = ANY(${ citationIds }::bigint[])
