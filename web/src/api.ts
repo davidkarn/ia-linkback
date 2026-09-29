@@ -48,7 +48,6 @@ export type PageBlock = {
   citations: PageCitation[],
 };
 
-// GET /books/{bookId}/pages/{pageId}
 export type BookPage = {
   bookId: string,
   pageNumber: number,

@@ -5,47 +5,50 @@ import { booksQuery } from '../queries'
 import { match } from 'ts-pattern';
 import { Search } from 'lucide-react';
 import { assertCond } from '../lib';
-import Pager from '../Pager';
+import Pager from '../components/pager';
 import './home.scss';
 import { Header } from '../components/header';
+import { useDebouncedCallback } from 'use-debounce';
 
 const PAGE_LENGTH = 20
 const SEARCH_DELAY_MS = 250
 
 export default function App() {
-  const navigate = useNavigate();
-  // ?q=<search>&page=<1-based page>, so reloading, sharing and the back button keep your place
+  const navigate                        = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get('q') ?? '';
-  const page = Math.max(1, Number(searchParams.get('page')) || 1);
 
-  // the previous page's books stay up, dimmed, while the next page or search loads
+  const query = searchParams.get('q') ?? '';
+  const page  = Math.max(1, Number(searchParams.get('page')) || 1);
+
   const booksResult = useQuery({
-    ...booksQuery({offset: (page - 1) * PAGE_LENGTH, length: PAGE_LENGTH, query}),
+    ...booksQuery({
+      offset: (page - 1) * PAGE_LENGTH,
+      length: PAGE_LENGTH,
+      query
+    }),
     placeholderData: keepPreviousData,
   });
+  
   const books   = booksResult.data ?? null;
   const error   = booksResult.error?.message ?? null;
   const loading = booksResult.isFetching;
-  // what's typed in the search box; searched once typing pauses
+
   const [draft, setDraft] = useState(query)
 
-  // the URL's search changed (back button, a link): show it, unless it's what's typed already, give or
-  // take spaces at the ends
-  useEffect(() => { setDraft(d => d.trim() === query ? d : query) }, [query])
-
   useEffect(() => {
-    if (draft.trim() === query) return;
-    const timer = setTimeout(() => {
-      // a new search starts on page 1; replace, so each keystroke isn't a history entry
-      setSearchParams(draft.trim() ? {q: draft.trim()} : {}, {replace: true});
-    }, SEARCH_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [draft, query, setSearchParams])
+    setDraft(d => d.trim() === query ? d : query)
+  }, [query]);
+
+  const updateQuery = useDebouncedCallback((query: string) => {
+    setSearchParams(query.trim() ? {q: query.trim()} : {}, {replace: true});
+  }, SEARCH_DELAY_MS);
 
   const pageCount = books ? Math.ceil(books.meta.count / PAGE_LENGTH) : 0;
   const goToPage = (n: number) => {
-    setSearchParams(query ? {q: query, page: String(n)} : {page: String(n)});
+    setSearchParams(
+      query ? {q: query, page: String(n)} : {page: String(n)}
+    );
+    
     window.scrollTo({top: 0});
   };
 
@@ -70,9 +73,10 @@ export default function App() {
                       placeholder: 'Search titles and authors',
                       'aria-label': 'Search titles and authors',
                       value: draft,
-                      onChange: (e: React.ChangeEvent<HTMLInputElement>) => (
-                        setDraft(e.target.value)
-                      ),
+                      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                        setDraft(e.target.value);
+                        updateQuery(e.target.value);
+                      },
                     })
                   ),                
                 ),

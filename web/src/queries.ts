@@ -14,13 +14,14 @@ export const queryClient = new QueryClient({
   },
 });
 
-// A page of the library, searched by title and author
-export const booksQuery = (opts: { offset: number, length: number, query: string }) => queryOptions({
+
+export const booksQuery = (
+  opts: { offset: number, length: number, query: string }
+) => queryOptions({
   queryKey: ['books', opts],
   queryFn:  () => fetchBooks(opts),
 });
 
-// Every book (up to 100) by id, for naming the books that cite a page
 export const bookSummariesQuery = () => queryOptions({
   queryKey:  ['books', 'summaries'],
   queryFn:   async() => new Map((await fetchBooks({ length: 100 })).items.map((b) => [b.id, b])),
@@ -37,7 +38,6 @@ export const pageQuery = (bookId: string, pageId: number) => queryOptions({
   queryFn:  () => fetchPage(bookId, pageId),
 });
 
-// null when nothing in the collection cites the page
 export const pageInsightsQuery = (bookId: string, pageId: number) => queryOptions({
   queryKey: ['book', bookId, 'page', pageId, 'insights'],
   queryFn:  () => fetchPageInsights(bookId, pageId),

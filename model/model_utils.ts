@@ -11,7 +11,7 @@ export type DbExprBuilder<Tblname extends keyof DB> = ExpressionBuilder<Database
 
 export const likePattern = (q: string) => '%' + q.replace(/[\\%_]/g, (m) => '\\' + m) + '%';
 const offsetAndLimitScope = <Tbl extends keyof DB, O>(
-  query: DbSelectQuery<Tbl, O>, offset: number, limit: number
+  offset: number, limit: number
 ): DbScope<Tbl, O> => (
   (query) => query.offset(offset).limit(limit)
 );

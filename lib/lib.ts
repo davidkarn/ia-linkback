@@ -20,3 +20,5 @@ export const arrayToMapOfRecords = <T, KeyType extends keyof T>(
 };
 
 export const log = (...items: unknown[]) => console.log(util.inspect(items, { depth: null }));
+
+export const unique = <T>(arr: T[]) => [...new Set(arr)];
