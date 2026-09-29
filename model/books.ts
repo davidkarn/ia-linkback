@@ -4,7 +4,7 @@ import type { Database } from '../api/database.ts';
 import type { Page } from '../types.ts';
 import { placesOf } from '../core/citation_groups.ts';
 import { groupRow } from './citation_groups.ts';
-import type { DbExprBuilder, DbSelectQuery } from './model_utils.js';
+import { likePattern, type DbExprBuilder, type DbSelectQuery } from './model_utils.js';
 
 const CHUNK = 500;
 
@@ -21,7 +21,7 @@ const sortedForDisplay = <O>() => (query: DbSelectQuery<'books', O>) => (
 
 const scopedToQuery = <O>(searchQuery: string) => (query: DbSelectQuery<'books', O>) => {
   if (searchQuery) {
-    const pattern = like_pattern(searchQuery);
+    const pattern = likePattern(searchQuery);
 
     return query.where((eb) => eb.or([
       eb('books.title', 'ilike', pattern),
