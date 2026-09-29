@@ -7,7 +7,10 @@ import { match, P } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
 import { Link } from 'react-router';
-import { ChevronDown, ChevronLeft, ChevronRight, TableOfContents as ContentsIcon, X } from 'lucide-react';
+import {
+  ArrowLeftToLine, ArrowRightToLine, ChevronDown, ChevronLeft, ChevronRight,
+  TableOfContents as ContentsIcon, X,
+} from 'lucide-react';
 import { formatLocations } from '../core/page_rendering';
 import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
 import { PageInsightsSummary } from './page_insights';
@@ -55,6 +58,11 @@ export const BookPageView = ({
     .with({volume: P.nonNullable}, ({volume}) => hrefForPage(volume.lastPageId, volume.volume))
     .otherwise(() => undefined);
 
+  // the pager or table of contents left of the page, hidden and shown by the first button of
+  // the page header
+  const [navigationOpen, setNavigationOpen] = useState(true);
+  const navigationLabel                     = navigationOpen ? 'Hide navigation' : 'Show navigation';
+
   // the table of contents, opened by the button left of the title; a click outside the title
   // row closes it
   const [contentsOpen, setContentsOpen] = useState(false);
@@ -65,13 +73,27 @@ export const BookPageView = ({
     .with(!page, () => __('p', {className: "muted"}, 'Loading'))
     .otherwise(() => (
       assertCond(page !== null),
-        __('div', {className: 'page-with-citations'},
-          __(BookNavigation, {book, hrefForPage, pageId}),
+        __('div', {className: 'page-with-citations ' + (
+          navigationOpen ? ' with-navigation' : ' without-navigation'
+        )},
+          navigationOpen && __(BookNavigation, {book, hrefForPage, pageId}),
           __('div', {className: 'full-page-layout' + (loading ? ' loading' : '')},
             __('header', {className: 'book-header'},
               __('div', {className: 'page-header'},
-                hrefToClose && (
-                  __('div', {className: 'page-header-item'},                  
+                __('div', {className: 'page-header-item header-buttons'},
+                  __(Link, {
+                    to:           hrefForPage(pageId),
+                    className:    'navigation-toggle',
+                    title:        navigationLabel,
+                    'aria-label': navigationLabel,
+                    onClick:      (e: React.MouseEvent) => {
+                      e.preventDefault();
+                      setNavigationOpen(!navigationOpen);
+                    },
+                  },
+                    navigationOpen ? __(ArrowLeftToLine, {}) : __(ArrowRightToLine, {})
+                  ),
+                  hrefToClose && (
                     __(Link, {
                       to:           hrefToClose,
                       className:    'close-button',

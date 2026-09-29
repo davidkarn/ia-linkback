@@ -11,6 +11,12 @@
     .book-pager {
         margin-left: 1rem;
     }
+
+    &.without-navigation {
+        .full-page-layout {
+            padding-left: 1.5rem;
+        }
+    }
     
     .full-page-layout {
         padding-top: 1rem;
@@ -38,13 +44,20 @@
                 align-items: flex-start;
                 
                 .page-header-item {
+                    &.header-buttons {
+                        display: flex;
+                        flex-direction: row;
+                        gap: 0.3125rem;
+                    }
                     * {
                         margin: 0;
                         padding: 0;
                     }
                 }
                 
-                .close-button {
+                .close-button,
+                .navigation-toggle {
+                    opacity: 0.75;
                     position: relative;
                     top: 0.03125rem;
                     display: flex;
