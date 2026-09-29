@@ -16,7 +16,7 @@ import { TableOfContents } from './table_of_contents';
 const MAX_CITATIONS_BEFORE_COLLAPSING = 3;
 
 export const BookPageView = ({
-  book, index, pageId, hrefForPage, hrefForCitingBook, hrefToClose
+  book, index, pageId, hrefForPage, hrefForCitingBook, hrefToClose, showCitedBy
 }: {
   book: Book,
   index: number,
@@ -25,6 +25,8 @@ export const BookPageView = ({
   hrefForPage: (pageId: number, volume?: number) => string,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   hrefToClose?: string,
+  // the "Cited by" aside, shown only in the rightmost of several open columns
+  showCitedBy: boolean,
 }) => {
   const bookId   = book.id;
   const allPages = book.pageOrder;
@@ -116,7 +118,7 @@ export const BookPageView = ({
                 : bodyBlocks.map((block, i) => __(Block, {key: i, block}))
             )
           ),
-          __('aside', {className: 'cited-by'},
+          showCitedBy && __('aside', {className: 'cited-by'},
             page.foreignCitations.length > 0
               && __(PageInsightsSummary, {bookId, pageId}),
             
@@ -236,16 +238,18 @@ const BookNavigation = ({book, hrefForPage, pageId}: {
       )
     },
       __('div', {className: 'page-navigation-controls'},
-        __('button', {
-          type:            'button',
-          className:       'contents-button' + (currentMode === 'contents' ? ' open' : ''),
-          title:           'Table of contents',
-          'aria-label':    'Table of contents',
-          'aria-expanded': currentMode === 'contents',
-          onClick:         () => setCurrentMode(
-            currentMode === 'contents' ? 'pages' : 'contents'
-          ),
-        }, __(ContentsIcon, {}))
+        book.contents.length > 0 && (
+          __('button', {
+            type:            'button',
+            className:       'contents-button' + (currentMode === 'contents' ? ' open' : ''),
+            title:           'Table of contents',
+            'aria-label':    'Table of contents',
+            'aria-expanded': currentMode === 'contents',
+            onClick:         () => setCurrentMode(
+              currentMode === 'contents' ? 'pages' : 'contents'
+            ),
+          }, __(ContentsIcon, {}))
+        )
       ),
 
       __('div', {className: 'navigation-contents'},

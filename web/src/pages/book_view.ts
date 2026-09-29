@@ -105,6 +105,7 @@ function BookColumn({open, active, hrefForPage, hrefForCitingBook, hrefToClose}:
                   ),
                   hrefForCitingBook,
                   hrefToClose,
+                  showCitedBy: active,
                 })
               ))
           )
