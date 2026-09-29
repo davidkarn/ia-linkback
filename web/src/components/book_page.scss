@@ -222,7 +222,14 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+
+    &.open-to-pager {
+        max-height: 100vh;
+    }
+
     .page-navigation-controls {
         display: flex;
         flex-direction: column;
@@ -258,7 +265,9 @@
         }
     }
     
+    // a long table of contents scrolls within the viewport instead of overflowing it
     .navigation-contents {
-        
+        min-height: 0;
+        overflow-y: auto;
     }
 }

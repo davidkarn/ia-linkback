@@ -220,7 +220,11 @@ const BookNavigation = ({book, hrefForPage, pageId}: {
   const hasContents = book.contents.length > 0;
 
   return (
-    __('div', {className: 'page-navigation'},
+    __('div', {
+      className: 'page-navigation' + (
+        currentMode === 'contents' ? ' open-to-contents' : ' open-to-pager'
+      )
+    },
       __('div', {className: 'page-navigation-controls'},
         __('button', {
           type:            'button',
