@@ -7,21 +7,23 @@ import { match } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
 import { Link } from 'react-router';
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { formatLocations } from '../core/page_rendering';
 import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
 import { PageInsightsSummary } from './page_insights';
 
 // One book's page, in one of the side-by-side columns. hrefForPage(pageId) is the URL with this column turned
-// to that page; hrefForCitingBook(bookId, pageId) is the URL with that book opened to this column's right.
+// to that page; hrefForCitingBook(bookId, pageId) is the URL with that book opened to this column's right;
+// hrefToClose, the URL without this column (none when it's the only one open).
 export const BookPageView = ({
-  book, index, pageId, hrefForPage, hrefForCitingBook
+  book, index, pageId, hrefForPage, hrefForCitingBook, hrefToClose
 }: {
   book: Book,
   index: number,
   pageId: number,
   hrefForPage: (pageId: number) => string,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
+  hrefToClose?: string,
 }) => {
   const bookId   = book.id;
   const allPages = book.pageOrder;
@@ -51,6 +53,18 @@ export const BookPageView = ({
           __('div', {className: 'full-page-layout' + (loading ? ' loading' : '')},
             __('header', {className: 'book-header'},
               __('div', {className: 'page-header'},
+                hrefToClose && (
+                  __('div', {className: 'page-header-item'},                  
+                    __(Link, {
+                      to:           hrefToClose,
+                      className:    'close-button',
+                      title:        'Close this book',
+                      'aria-label': 'Close this book',
+                    },
+                      __(X, {})
+                    )
+                  )
+                ),                
                 headerBlocks.map((block) => (
                   __('div', {className: 'page-header-item'},
                     __('div', {dangerouslySetInnerHTML: {__html: block.html}}),
@@ -62,20 +76,20 @@ export const BookPageView = ({
                     __(Link, {to: prevPage}, 
                       __('div', {className: 'pager-button'},
                         __(ChevronLeft, {}),
-                        'Previous page',
+                        'previous',
                       )
                     )
                   ),
                   nextPage && (
                     __(Link, {to: nextPage},
                       __('div', {className: 'pager-button'},
-                        'Next page', 
+                        'next',
                         __(ChevronRight, {})
                       )
                     )
                   )
                 ),
-              ),              
+              ),
               __('h1', {className: 'book-title'}, book.title),
               __('div', {className: 'book-author'}, book.author)
             ),

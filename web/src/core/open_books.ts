@@ -43,3 +43,8 @@ export const withPage = (books: OpenBook[], column: number, pageId: number): Ope
 export const withBookOpened = (books: OpenBook[], column: number, book: OpenBook): OpenBook[] => (
   [...books.slice(0, column + 1), book].slice(-MAX_OPEN_BOOKS)
 );
+
+// The books with the one in column `column` closed
+export const withBookClosed = (books: OpenBook[], column: number): OpenBook[] => (
+  books.filter((_, i) => i !== column)
+);

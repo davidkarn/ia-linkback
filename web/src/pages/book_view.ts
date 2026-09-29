@@ -10,7 +10,7 @@ import "./book_view.scss"
 import BookPager from '../components/book_pager';
 import { Header } from '../components/header';
 import { BookPageView } from '../components/book_page';
-import { openBooksPath, parseOpenBooks, withBookOpened, withPage, type OpenBook } from '../core/open_books';
+import { openBooksPath, parseOpenBooks, withBookClosed, withBookOpened, withPage, type OpenBook } from '../core/open_books';
 
 // "p. 12" when the page has a printed number, else its position in the scan: "[scan 3]"
 const pageLabel = (entry: PageOrderEntry) =>
@@ -55,6 +55,8 @@ export default function BookView() {
               hrefForCitingBook: (bookId: string, pageId: number) => (
                 openBooksPath(withBookOpened(books, column, { bookId, pageId }))
               ),
+              // a lone column can't be closed
+              hrefToClose: books.length > 1 ? openBooksPath(withBookClosed(books, column)) : undefined,
             })
           ))
       )
@@ -63,11 +65,12 @@ export default function BookView() {
 }
 
 // One open book. active: it's the rightmost, so ← / → turn its pages.
-function BookColumn({open, active, hrefForPage, hrefForCitingBook}: {
+function BookColumn({open, active, hrefForPage, hrefForCitingBook, hrefToClose}: {
   open: OpenBook,
   active: boolean,
   hrefForPage: (pageId: number) => string,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
+  hrefToClose?: string,
 }) {
   const navigate = useNavigate();
   const bookId   = open.bookId;
@@ -113,7 +116,7 @@ function BookColumn({open, active, hrefForPage, hrefForCitingBook}: {
                 __('p', {className: 'error'}, 'This book has no page ', open.pageId, '.')
               ))
               .otherwise(() => (
-                __(BookPageView, {book, pageId: pageId!, index, hrefForPage, hrefForCitingBook})
+                __(BookPageView, {book, pageId: pageId!, index, hrefForPage, hrefForCitingBook, hrefToClose})
               ))
           )
         ))
