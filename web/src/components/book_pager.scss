@@ -69,34 +69,21 @@
             border-color: #545979;
             height: 2px;            
             width: 1.5rem;
-            margin-left: 0.25rem;
+            margin-left: 0rem;
         }
 
-
-        &.near, &.hovered {
-            line-height: 1.2;
-            padding: 0;
+        span {
+            display: none;
         }
 
-        &.near {
-            font-size: 0.625rem;
-            padding-left: 0.125rem;
-            
-            &::after {
-                padding-left: 1rem;
-            }
-        }
-
-        &.near.near-after {
-            font-size: 0.5rem;            
-        }
-        &.near.near-before {
-            font-size: 0.5rem;            
-        }
-
-        &.hovered {
+        &:hover {
             font-size: 0.75rem;
             padding-left: 0rem;
+            
+            span {
+                display: flex;
+            }
+            
             &::after {
                 display: none;
             }

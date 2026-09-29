@@ -8,7 +8,6 @@ const BookPager = ({pages, hrefForPage}: {
   hrefForPage: (pageId: number) => string,
 }) => {
   const navigate    = useNavigate();
-  const [hovered, setHovered] = useState<number|null>(null);
 
   const wrapper             = useRef<HTMLDivElement>(null);
   const [fades, setFades]   = useState({ top: false, bottom: false });
@@ -21,8 +20,6 @@ const BookPager = ({pages, hrefForPage}: {
     }
   };
 
-  const near = (i: number) => hovered !== null && Math.abs(i - hovered) <= 2;
-  
   return (
     __('div', {
         className: 'book-pager-wrapper'
@@ -37,28 +34,18 @@ const BookPager = ({pages, hrefForPage}: {
         style: {'--page-count': pages.length} as React.CSSProperties,
       },
         __('div', {className: 'lines'},
-          pages.map((page, i) => (
+          pages.map((page) => (
             __('div', {
               key: page.pageId,
-              onMouseOver: () => setHovered(i),
-              onMouseOut: () => setHovered((val) => val === i ? null : val),
-              onClick: () => navigate(hrefForPage(page.pageId)),
               className: 'line' + (
-                hovered && hovered !== i && near(i) 
-                  ? (Math.abs(i - hovered) === 1
-                  ? ' near'
-                  : (i > hovered ? ' near near-fafter' : ' near fnear-before')
-                  )
-                  : ''
-              ) + (
-                i === hovered ? ' hovered' : ''
-              ) + (
                 page.citedByCount > 0
                   ? (page.citedByCount > 4 ? ' with-many-citations' : ' with-citations')
                   : ''
               ),
             },
-              hovered === i ? page.printedPageNumber : null
+              __('span', {onClick: () => navigate(hrefForPage(page.pageId))},
+                page.printedPageNumber
+              )
             )
           ))
         ),
