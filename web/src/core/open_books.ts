@@ -1,12 +1,7 @@
-// The books open side by side, left to right, and the URL that holds them:
-//   /books/<id>[/pages/<pageId>]/books/<id>[/pages/<pageId>]...
-// A book without a page opens at its first page, so /books/<id> and /books/<id>/pages/<n> are one open book.
-
 export type OpenBook = { bookId: string, pageId?: number };
 
 export const MAX_OPEN_BOOKS = 4;
 
-// The open books in a path like the above; stops at the first part that doesn't fit the pattern
 export const parseOpenBooks = (pathname: string): OpenBook[] => {
   const parts = pathname.split('/').filter(Boolean).map(decodeURIComponent);
   const books: OpenBook[] = [];
@@ -15,11 +10,15 @@ export const parseOpenBooks = (pathname: string): OpenBook[] => {
     const book: OpenBook = { bookId: parts[i + 1]! };
     i += 2;
 
-    const pageId = parts[i] === 'pages' ? Number(parts[i + 1]) : NaN;
+    const pageId = parts[i] === 'pages'
+      ? Number(parts[i + 1])
+      : NaN;
+    
     if (Number.isInteger(pageId)) {
       book.pageId = pageId;
       i += 2;
     }
+    
     books.push(book);
   }
 
