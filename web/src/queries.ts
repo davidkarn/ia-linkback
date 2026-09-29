@@ -28,10 +28,25 @@ export const bookSummariesQuery = () => queryOptions({
   staleTime: Infinity,
 });
 
-export const bookQuery = (bookId: string) => queryOptions({
-  queryKey: ['book', bookId],
-  queryFn:  () => fetchBook(bookId),
-});
+const bookVolumeKey = (bookId: string, volume: number) => ['book', bookId, 'volume', volume];
+
+// A book opened to `volume`; without one, to the volume holding `pageId` (volume 1 when it's
+// undefined too), which is then cached as that volume as well
+export const bookQuery = (bookId: string, volume?: number, pageId?: number) => (
+  volume !== undefined || pageId === undefined
+    ? queryOptions({
+      queryKey: bookVolumeKey(bookId, volume ?? 1),
+      queryFn:  () => fetchBook(bookId, { volume: volume ?? 1 }),
+    })
+    : queryOptions({
+      queryKey: ['book', bookId, 'volumeOfPage', pageId],
+      queryFn:  async() => {
+        const book = await fetchBook(bookId, { pageId });
+        queryClient.setQueryData(bookVolumeKey(bookId, book.volume), book);
+        return book;
+      },
+    })
+);
 
 export const pageQuery = (bookId: string, pageId: number) => queryOptions({
   queryKey: ['book', bookId, 'page', pageId],

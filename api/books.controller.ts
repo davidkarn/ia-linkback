@@ -1,6 +1,6 @@
 import { Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
 import { BooksService } from './books.service';
-import { int_param, paging_params, string_param } from './params';
+import { int_param, optional_int_param, paging_params, string_param } from './params';
 
 @Controller('books')
 export class BooksController {
@@ -21,11 +21,18 @@ export class BooksController {
   }
 
   @Get(':bookId')
-  async get(@Param('bookId') bookId: string) {
-    const book = await this.books.get(bookId);
+  async get(
+    @Param('bookId') bookId: string,
+    @Query('volume') volume?: unknown,
+    @Query('pageId') pageId?: unknown,
+  ) {
+    const book = await this.books.get(bookId, {
+      volume: optional_int_param('volume', volume, 1, 100000),
+      pageId: optional_int_param('pageId', pageId, 1, 1000000),
+    });
 
     if (!book) {
-      throw new NotFoundException(`No book with id ${ bookId }`);
+      throw new NotFoundException(`No book with id ${ bookId }, or no such volume`);
     }
     else {
       return book;

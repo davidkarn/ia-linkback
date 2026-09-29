@@ -3,7 +3,6 @@
 import type { Insertable, Kysely } from 'kysely';
 import type { BookPagesToCitationsTable, Database } from '../api/database.ts';
 import type { CitationPart } from '../core/summa_thml.ts';
-import { contentsOf, type ContentsEntry } from '../core/contents.ts';
 
 const MAX_PARTS = 8;
 
@@ -49,9 +48,11 @@ export const replacePageCitations = (
   return rows.length;
 });
 
-// A book's table of contents from its pages' citation parts, in page order (see core/contents.ts);
-// empty when the book has no book_pages_to_citations rows
-export const findContents = async(db: Kysely<Database>, bookId: string): Promise<ContentsEntry[]> => {
+// A book's pages' citation parts, one entry per book_pages_to_citations row, in page order (see
+// core/contents.ts and core/volumes.ts); empty when the book has no rows
+export const findCitedPages = async(
+  db: Kysely<Database>, bookId: string
+): Promise<{ pageId: number, parts: CitationPart[] }[]> => {
   const rows = await db.selectFrom('book_pages_to_citations')
     .selectAll()
     .where('book_id', '=', bookId)
@@ -59,7 +60,7 @@ export const findContents = async(db: Kysely<Database>, bookId: string): Promise
     .orderBy('id')
     .execute();
 
-  return contentsOf(rows.map((row) => {
+  return rows.map((row) => {
     const parts: CitationPart[] = [];
     for (let n = 1; n <= MAX_PARTS; n++) {
       const r     = row as unknown as Record<string, string | number | null>;
@@ -70,5 +71,5 @@ export const findContents = async(db: Kysely<Database>, bookId: string): Promise
       }
     }
     return { pageId: row.page_number, parts };
-  }));
+  });
 };

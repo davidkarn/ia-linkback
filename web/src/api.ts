@@ -24,7 +24,24 @@ export type ContentsEntry = {
   pageId: number,
   childEntries: ContentsEntry[],
 };
-export type Book = BookSummary & { pageOrder: PageOrderEntry[], contents: ContentsEntry[] };
+// One of a book's volumes: a distinct first citation part of its pages ("book 2"), numbered from 1
+// in page order. firstPageId and lastPageId are the volume's first and last pages.
+export type VolumeSummary = {
+  volume: number,
+  partType: string,
+  partValue: string,
+  firstPageId: number,
+  lastPageId: number,
+  pageCount: number,
+};
+// GET /books/{bookId}: opened to one volume, the pageOrder and contents holding only its pages.
+// volumes is empty for a book without volumes, which is always opened to volume 1.
+export type Book = BookSummary & {
+  volume: number,
+  volumes: VolumeSummary[],
+  pageOrder: PageOrderEntry[],
+  contents: ContentsEntry[],
+};
 
 export type CitationLocation = { type: string, value: number };
 
@@ -76,8 +93,16 @@ export const fetchBooks = async (opts: { offset?: number, length?: number, query
   return getJson(`/books?${params}`);
 };
 
-export const fetchBook = (bookId: string): Promise<Book> =>
-  getJson(`/books/${encodeURIComponent(bookId)}`);
+// opened to `volume`, or else to the first volume holding `pageId`, or else to volume 1
+export const fetchBook = (
+  bookId: string, opts: { volume?: number, pageId?: number } = {}
+): Promise<Book> => {
+  const params = new URLSearchParams();
+  if (opts.volume !== undefined) params.set('volume', String(opts.volume));
+  if (opts.pageId !== undefined) params.set('pageId', String(opts.pageId));
+
+  return getJson(`/books/${encodeURIComponent(bookId)}?${params}`);
+};
 
 export const fetchPage = (bookId: string, pageId: number): Promise<BookPage> =>
   getJson(`/books/${encodeURIComponent(bookId)}/pages/${pageId}`);

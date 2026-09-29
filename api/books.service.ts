@@ -5,14 +5,30 @@ import type { Database } from './database';
 import { citation_columns, to_citation_dto, type CitationDto } from './citations.service';
 import { citablePageNumber } from '../core/page_insights';
 import { citationsOfPage, citedCountsByPage } from '../model/page_insights';
-import { findContents } from '../model/book_pages_to_citations';
-import type { ContentsEntry } from '../core/contents';
+import { findCitedPages } from '../model/book_pages_to_citations';
+import { contentsOf, type ContentsEntry } from '../core/contents';
+import { contentsOfVolume, selectVolume, volumesOf } from '../core/volumes';
 import { BookScopes, BookSelectors } from '../model/books.js';
 import { DbScopes, withScopes } from '../model/model_utils.js';
 
 export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number, citedByCount: number };
 // citedByCount: citations in other books that cite this page (the foreignCitations of GET /books/{id}/pages/{id})
 export type PageOrderEntry = { pageId: number, printedPageNumber: string, citedByCount: number };
+// One of a book's volumes (see core/volumes.ts), without its pages
+export type VolumeSummary = {
+  volume: number,
+  partType: string,
+  partValue: string,
+  firstPageId: number,
+  lastPageId: number,
+  pageCount: number,
+};
+export type BookForApi = BookSummary & {
+  volume: number,
+  volumes: VolumeSummary[],
+  pageOrder: PageOrderEntry[],
+  contents: ContentsEntry[],
+};
 
 export type PageCitationDto = CitationDto & { sourcePageText: string };
 
@@ -127,9 +143,12 @@ export class BooksService {
     };
   }
 
+  // A book opened to one of its volumes: `volume`, else the first holding `pageId`, else volume 1
+  // (see core/volumes.ts). pageOrder and contents hold only that volume's pages. null when there
+  // is no such book or volume.
   async get(
-    bookId: string
-  ): Promise<(BookSummary & { pageOrder: PageOrderEntry[], contents: ContentsEntry[] }) | null> {
+    bookId: string, opts: { volume?: number | undefined, pageId?: number | undefined } = {}
+  ): Promise<BookForApi | null> {
     const book = await this.db
       .selectFrom('books')
       .select((eb) => [
@@ -150,27 +169,49 @@ export class BooksService {
         .orderBy('pages.page_number')
         .execute();
 
-      // citations of each page, as getPage finds them: by printed page number, or by the parts of
-      // one of the page's book_pages_to_citations rows
-      const citedBy = await citedCountsByPage(this.db, bookId);
-      // parts by which the book's pages are cited, as a tree ([] for books cited by page number)
-      const contents = await findContents(this.db, bookId);
+      // the parts by which the book's pages are cited ([] for books cited by page number), which
+      // divide it into volumes and make its table of contents
+      const citedPages = await findCitedPages(this.db, bookId);
+      const volumes    = volumesOf(pages.map((p) => p.page_number), citedPages);
+      const volume     = selectVolume(volumes, opts);
 
-      return {
-        id:           book.id,
-        title:        book.title,
-        author:       book.author,
-        ...(book.url ? { url: book.url } : {}),
-        ...(book.cover_photo_path ? { coverPhotoPath: book.cover_photo_path } : {}),
-        pageCount:    pages.length,
-        citedByCount: Number(book.cited_by_count ?? 0),
-        pageOrder:    pages.map((p) => ({
-          pageId:            p.page_number,
-          printedPageNumber: p.printed_page_number,
-          citedByCount:      citedBy.get(p.page_number) ?? 0,
-        })),
-        contents,
-      };
+      if (volume === null) {
+        return null;
+      }
+      else {
+        // citations of each page, as getPage finds them: by printed page number, or by the parts
+        // of one of the page's book_pages_to_citations rows
+        const citedBy = await citedCountsByPage(this.db, bookId);
+        const opened  = volumes[volume - 1];
+        const inOpen  = opened === undefined ? null : new Set(opened.pageIds);
+
+        return {
+          id:           book.id,
+          title:        book.title,
+          author:       book.author,
+          ...(book.url ? { url: book.url } : {}),
+          ...(book.cover_photo_path ? { coverPhotoPath: book.cover_photo_path } : {}),
+          pageCount:    pages.length,
+          citedByCount: Number(book.cited_by_count ?? 0),
+          volume,
+          volumes:      volumes.map((v) => ({
+            volume:      v.number,
+            partType:    v.partType,
+            partValue:   String(v.partValue),
+            firstPageId: v.pageIds[0]!,
+            lastPageId:  v.pageIds[v.pageIds.length - 1]!,
+            pageCount:   v.pageIds.length,
+          })),
+          pageOrder:    pages
+            .filter((p) => inOpen === null || inOpen.has(p.page_number))
+            .map((p) => ({
+              pageId:            p.page_number,
+              printedPageNumber: p.printed_page_number,
+              citedByCount:      citedBy.get(p.page_number) ?? 0,
+            })),
+          contents:     contentsOfVolume(contentsOf(citedPages), opened),
+        };
+      }
     }
   }
 

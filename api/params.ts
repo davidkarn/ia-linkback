@@ -10,6 +10,13 @@ export const int_param = (name: string, raw: unknown, fallback: number, min: num
   return n;
 };
 
+// Parse an optional integer query parameter: undefined when it is not given
+export const optional_int_param = (
+  name: string, raw: unknown, min: number, max: number
+): number | undefined => (
+  raw === undefined || raw === '' ? undefined : int_param(name, raw, min, min, max)
+);
+
 export const string_param = (name: string, raw: unknown): string | undefined => {
   if (raw === undefined) {return undefined;}
   if (typeof raw !== 'string') {throw new BadRequestException(`${ name } must be a single string`);}

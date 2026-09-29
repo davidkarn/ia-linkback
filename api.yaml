@@ -63,8 +63,26 @@ paths:
           required: true
           schema:
             type: string
+        - name: volume
+          description: >-
+            the volume to open (1-based, see volumes). A book whose pages are not cited by parts
+            has only volume 1, the whole book.
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+        - name: pageId
+          description: >-
+            without volume: open the first volume holding this page (volume 1 when none does)
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
       summary: >-
-        Get a book's summary, with its pages in order under pageOrder and its table of contents
+        Get a book's summary opened to one of its volumes (volume 1 when neither volume nor pageId
+        is given), with that volume's pages in order under pageOrder and its table of contents
         under contents.
       responses:
         '200':
@@ -74,7 +92,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BookSummary'
         '404':
-          description: no book with this id
+          description: no book with this id, or no such volume
   /books/{bookId}/pages/{pageId}:
     get:
       tags:
@@ -298,7 +316,19 @@ components:
             number of citations in other books that reference this book, directly or through one of
             its alternate ids (the alternate_ids table)
           type: number
+        volume:
+          description: the volume opened (GET /books/{bookId} only)
+          type: number
+        volumes:
+          description: >-
+            the book's volumes (GET /books/{bookId} only): each distinct first citation part of
+            its pages in book_pages_to_citations, in page order. Empty when it has none, when it is
+            read as one volume 1.
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumeSummary'
         pageOrder:
+          description: the pages of the volume opened, in order (GET /books/{bookId} only)
           type: array
           items:
             type: object
@@ -314,11 +344,39 @@ components:
                 type: number
         contents:
           description: >-
-            the book's table of contents, from the parts its pages are cited by in
-            book_pages_to_citations (e.g. book > question > article); empty when it has none
+            the table of contents of the volume opened, from the parts its pages are cited by in
+            book_pages_to_citations (e.g. book > question > article): the volume's own entry, or
+            the whole table for a book without volumes; empty when it has none
           type: array
           items:
             $ref: '#/components/schemas/ContentsEntry'
+    VolumeSummary:
+      type: object
+      required:
+        - volume
+        - partType
+        - partValue
+        - firstPageId
+        - lastPageId
+        - pageCount
+      properties:
+        volume:
+          description: the volume's number, 1-based
+          type: number
+        partType:
+          description: the type of the first citation part making the volume (book, part, ...)
+          type: string
+        partValue:
+          type: string
+        firstPageId:
+          description: >-
+            the volume's first page. Pages not cited by parts belong to the volume before them (or
+            the first volume); a page cited in two volumes is in both.
+          type: number
+        lastPageId:
+          type: number
+        pageCount:
+          type: number
     ContentsEntry:
       type: object
       required:

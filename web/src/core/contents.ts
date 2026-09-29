@@ -6,7 +6,7 @@ const LABELS: Record<string, string> = {
 };
 
 // An entry as the table of contents shows it: "Question 2", "Chapter 13"
-export const entryLabel = (entry: ContentsEntry): string => (
+export const entryLabel = (entry: Pick<ContentsEntry, 'partType' | 'partValue'>): string => (
   (LABELS[entry.partType] ?? entry.partType[0]!.toUpperCase() + entry.partType.slice(1)) + ' ' + entry.partValue
 );
 

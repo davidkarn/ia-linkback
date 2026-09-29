@@ -1,11 +1,16 @@
 import { useRef, createElement as __, useState } from 'react'
-import { useNavigate } from 'react-router'
-import type { PageOrderEntry } from '../api'
+import { Link, useNavigate } from 'react-router'
+import type { PageOrderEntry, VolumeSummary } from '../api'
+import { entryLabel } from '../core/contents'
 import "./book_pager.scss"
 
-const BookPager = ({pages, hrefForPage}: {
+// A line per page of the volume open, between a dot per volume before it and a dot per volume
+// after it, which go to that volume's first page
+const BookPager = ({pages, volume, volumes, hrefForPage}: {
   pages: PageOrderEntry[],
-  hrefForPage: (pageId: number) => string,
+  volume: number,
+  volumes: VolumeSummary[],
+  hrefForPage: (pageId: number, volume?: number) => string,
 }) => {
   const navigate    = useNavigate();
 
@@ -20,6 +25,20 @@ const BookPager = ({pages, hrefForPage}: {
     }
   };
 
+  const volumeDots = (shown: VolumeSummary[]) => (
+    shown.length > 0 && __('div', {className: 'volume-dots'},
+      shown.map((v) => (
+        __(Link, {
+          key:          v.volume,
+          to:           hrefForPage(v.firstPageId, v.volume),
+          className:    'volume-dot',
+          title:        entryLabel(v),
+          'aria-label': entryLabel(v),
+        })
+      ))
+    )
+  );
+
   return (
     __('div', {
         className: 'book-pager-wrapper'
@@ -33,6 +52,7 @@ const BookPager = ({pages, hrefForPage}: {
         'data-state': status,
         style: {'--page-count': pages.length} as React.CSSProperties,
       },
+        volumeDots(volumes.filter((v) => v.volume < volume)),
         __('div', {className: 'lines'},
           pages.map((page) => (
             __('div', {
@@ -49,6 +69,7 @@ const BookPager = ({pages, hrefForPage}: {
             )
           ))
         ),
+        volumeDots(volumes.filter((v) => v.volume > volume)),
       )
     )
   );

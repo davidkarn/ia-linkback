@@ -40,7 +40,9 @@ export default function BookView() {
               key: keys[column],
               open,
               active: column === books.length - 1,
-              hrefForPage: (pageId: number) => openBooksPath(withPage(books, column, pageId)),
+              hrefForPage: (pageId: number, volume: number) => (
+                openBooksPath(withPage(books, column, pageId, volume))
+              ),
               hrefForCitingBook: (bookId: string, pageId: number) => (
                 openBooksPath(withBookOpened(books, column, { bookId, pageId }))
               ),
@@ -57,14 +59,14 @@ export default function BookView() {
 function BookColumn({open, active, hrefForPage, hrefForCitingBook, hrefToClose}: {
   open: OpenBook,
   active: boolean,
-  hrefForPage: (pageId: number) => string,
+  hrefForPage: (pageId: number, volume: number) => string,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   hrefToClose?: string,
 }) {
   const navigate = useNavigate();
   const bookId   = open.bookId;
 
-  const bookResult = useQuery(bookQuery(bookId));
+  const bookResult = useQuery(bookQuery(bookId, open.volume, open.pageId));
   const book       = bookResult.data ?? null;
   const error      = bookResult.error?.message ?? null;
 
@@ -87,11 +89,22 @@ function BookColumn({open, active, hrefForPage, hrefForCitingBook, hrefToClose}:
                 __('p', {className: 'muted'}, 'This book has no pages.')
               ))
               .with(index < 0, () => (
-                __('p', {className: 'error'}, 'This book has no page ', open.pageId, '.')
+                __('p', {className: 'error'},
+                  book.volumes.length > 0 ? `Volume ${book.volume} of this book` : 'This book',
+                  ' has no page ', open.pageId, '.'
+                )
               ))
               .otherwise(() => (
                 __(BookPageView, {
-                  book, pageId: pageId!, index, hrefForPage, hrefForCitingBook, hrefToClose
+                  book,
+                  pageId: pageId!,
+                  index,
+                  // a page of the volume open, or of another
+                  hrefForPage: (pageId: number, volume: number = book.volume) => (
+                    hrefForPage(pageId, volume)
+                  ),
+                  hrefForCitingBook,
+                  hrefToClose,
                 })
               ))
           )

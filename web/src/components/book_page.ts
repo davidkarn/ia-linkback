@@ -3,7 +3,7 @@ import './book_page.scss';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { type Book, type PageBlock, type PageCitation } from '../api';
 import { bookSummariesQuery, pageQuery } from '../queries';
-import { match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
 import { Link } from 'react-router';
@@ -21,7 +21,8 @@ export const BookPageView = ({
   book: Book,
   index: number,
   pageId: number,
-  hrefForPage: (pageId: number) => string,
+  // a page of the volume open, or of `volume`
+  hrefForPage: (pageId: number, volume?: number) => string,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   hrefToClose?: string,
 }) => {
@@ -40,8 +41,17 @@ export const BookPageView = ({
   const thisPageIndex = allPages.findIndex(p => p.pageId === pageId);
   const nextEntry     = thisPageIndex >= 0 ? allPages[thisPageIndex + 1] : undefined;
   const prevEntry     = thisPageIndex > 0 ? allPages[thisPageIndex - 1] : undefined;
-  const nextPage      = nextEntry && hrefForPage(nextEntry.pageId);
-  const prevPage      = prevEntry && hrefForPage(prevEntry.pageId);
+  // past either end of the volume: the nearest page of the next or previous volume
+  const nextVolume    = book.volumes.find((v) => v.volume === book.volume + 1);
+  const prevVolume    = book.volumes.find((v) => v.volume === book.volume - 1);
+  const nextPage      = match({entry: nextEntry, volume: nextVolume})
+    .with({entry: P.nonNullable}, ({entry}) => hrefForPage(entry.pageId))
+    .with({volume: P.nonNullable}, ({volume}) => hrefForPage(volume.firstPageId, volume.volume))
+    .otherwise(() => undefined);
+  const prevPage      = match({entry: prevEntry, volume: prevVolume})
+    .with({entry: P.nonNullable}, ({entry}) => hrefForPage(entry.pageId))
+    .with({volume: P.nonNullable}, ({volume}) => hrefForPage(volume.lastPageId, volume.volume))
+    .otherwise(() => undefined);
 
   // the table of contents, opened by the button left of the title; a click outside the title
   // row closes it
@@ -213,7 +223,7 @@ function SourcePage({citation}: {citation: PageCitation}) {
 const BookNavigation = ({book, hrefForPage, pageId}: {
   book: Book,
   pageId: number,
-  hrefForPage: (pageId: number) => string,
+  hrefForPage: (pageId: number, volume?: number) => string,
 }) => {
   const [currentMode, setCurrentMode] = useState<'pages'|'contents'>('pages');
 
@@ -241,7 +251,12 @@ const BookNavigation = ({book, hrefForPage, pageId}: {
       __('div', {className: 'navigation-contents'},
         match(currentMode)
           .with('pages', () => (
-            __(BookPager, {pages: book.pageOrder, hrefForPage})
+            __(BookPager, {
+              pages:   book.pageOrder,
+              volume:  book.volume,
+              volumes: book.volumes,
+              hrefForPage,
+            })
           ))
           .with('contents', () => (
             __(TableOfContents, {
