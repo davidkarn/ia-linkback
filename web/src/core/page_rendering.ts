@@ -1,19 +1,4 @@
-import { useEffect, useState } from "react";
-import { fetchBook, fetchBooks, type BookSummary, type Citation } from "../api";
-
-// The books in the collection by id (their titles and authors), fetched once and shared
-let bookSummaries: Promise<Map<string, BookSummary>> | null = null;
-export const useBookSummaries = () => {
-  const [books, setBooks] = useState<Map<string, BookSummary>>(new Map());
-
-  useEffect(() => {
-    bookSummaries ??= fetchBooks({ length: 100 })
-      .then(list => new Map(list.items.map(b => [b.id, b])));
-    bookSummaries.then(setBooks).catch(() => {});
-  }, []);
-
-  return books;
-};
+import { type Citation } from "../api";
 
 
 export const LOCATION_LABELS: Record<string, string> = {

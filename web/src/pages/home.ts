@@ -1,6 +1,7 @@
 import { useEffect, useState, createElement as __, Fragment } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { fetchBooks, type BookList } from '../api'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { booksQuery } from '../queries'
 import { match } from 'ts-pattern';
 import { Search } from 'lucide-react';
 import { assertCond } from '../lib';
@@ -18,9 +19,14 @@ export default function App() {
   const query = searchParams.get('q') ?? '';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
 
-  const [books, setBooks] = useState<BookList | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  // the previous page's books stay up, dimmed, while the next page or search loads
+  const booksResult = useQuery({
+    ...booksQuery({offset: (page - 1) * PAGE_LENGTH, length: PAGE_LENGTH, query}),
+    placeholderData: keepPreviousData,
+  });
+  const books   = booksResult.data ?? null;
+  const error   = booksResult.error?.message ?? null;
+  const loading = booksResult.isFetching;
   // what's typed in the search box; searched once typing pauses
   const [draft, setDraft] = useState(query)
 
@@ -36,17 +42,6 @@ export default function App() {
     }, SEARCH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [draft, query, setSearchParams])
-
-  useEffect(() => {
-    // ignore a slow response to a search or page that's since changed
-    let current = true;
-    setLoading(true);
-    fetchBooks({offset: (page - 1) * PAGE_LENGTH, length: PAGE_LENGTH, query})
-      .then(list => { if (current) { setBooks(list); setError(null); } })
-      .catch((e: Error) => { if (current) setError(e.message); })
-      .finally(() => { if (current) setLoading(false); });
-    return () => { current = false; };
-  }, [query, page])
 
   const pageCount = books ? Math.ceil(books.meta.count / PAGE_LENGTH) : 0;
   const goToPage = (n: number) => {

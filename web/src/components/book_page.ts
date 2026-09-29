@@ -1,12 +1,14 @@
-import { createElement as __, useEffect, useMemo, useRef, useState } from 'react'
+import { createElement as __, useMemo, useRef, useState } from 'react'
 import './book_page.scss';
-import { fetchPage, type Book, type BookPage, type PageBlock, type PageCitation } from '../api';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { type Book, type PageBlock, type PageCitation } from '../api';
+import { bookSummariesQuery, pageQuery } from '../queries';
 import { match } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
 import { Link } from 'react-router';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatLocations, useBookSummaries } from '../core/page_rendering';
+import { formatLocations } from '../core/page_rendering';
 import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
 import { PageInsightsSummary } from './page_insights';
 
@@ -24,21 +26,11 @@ export const BookPageView = ({
   const bookId   = book.id;
   const allPages = book.pageOrder;
   
-  const [page, setPage]   = useState<BookPage | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    // ignore a slow response for a page we've already turned past
-    let current = true;
-    setError(null);
-    fetchPage(bookId, pageId)
-      .then(p => { if (current) setPage(p); })
-      .catch((e: Error) => { if (current) setError(e.message); });
-    return () => { current = false; };
-  }, [bookId, pageId])
-
-  // keep showing the previous page, dimmed, until the next one arrives
-  const loading = !page || page.bookId !== bookId || page.pageNumber !== pageId;
+  // the previous page stays up, dimmed, until the next one arrives
+  const pageResult = useQuery({...pageQuery(bookId, pageId), placeholderData: keepPreviousData});
+  const page       = pageResult.data ?? null;
+  const error      = pageResult.error?.message ?? null;
+  const loading    = pageResult.isPlaceholderData;
 
   const headerBlocks = page?.blocks.filter((block) => block.label === 'PageHeader') ?? [];
   const bodyBlocks   = page?.blocks.filter((block) => block.label !== 'PageHeader') ?? [];
@@ -144,7 +136,7 @@ function CitedBy({citation, hrefForCitingBook, startCollapsed}: {
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   startCollapsed: boolean,
 }) {
-  const books                     = useBookSummaries();
+  const books                     = useQuery(bookSummariesQuery()).data ?? new Map<string, never>();
   const source                    = citation.source;
   const citing                    = books.get(source.bookId);
   const [collapsed, setCollapsed] = useState(startCollapsed);

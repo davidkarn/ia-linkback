@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState, createElement as __, Fragment } from 'react'
+import { useEffect, useMemo, useRef, createElement as __, Fragment } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { match } from 'ts-pattern';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
-import { fetchBook, fetchBooks, fetchPage, type Book, type BookPage, type Citation, type PageBlock, type PageCitation, type PageOrderEntry } from '../api'
+import { useQuery } from '@tanstack/react-query'
+import { type PageOrderEntry } from '../api'
+import { bookQuery } from '../queries'
 import { assertCond } from '../lib';
 import "./book_view.scss"
 import BookPager from '../components/book_pager';
@@ -70,18 +72,9 @@ function BookColumn({open, active, hrefForPage, hrefForCitingBook}: {
   const navigate = useNavigate();
   const bookId   = open.bookId;
 
-  const [book, setBook]   = useState<Book | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let current = true;
-    setBook(null);
-    setError(null);
-    fetchBook(bookId)
-      .then(b => { if (current) setBook(b); })
-      .catch((e: Error) => { if (current) setError(e.message); });
-    return () => { current = false; };
-  }, [bookId])
+  const bookResult = useQuery(bookQuery(bookId));
+  const book       = bookResult.data ?? null;
+  const error      = bookResult.error?.message ?? null;
 
   // No page in the URL: the first page
   const pageId = open.pageId ?? book?.pageOrder[0]?.pageId;

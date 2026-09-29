@@ -1,40 +1,22 @@
-import { createElement as __, useEffect, useState } from 'react'
+import { createElement as __, useState } from 'react'
 import { match, P } from 'ts-pattern';
-import { fetchPageInsights, type PageInsights } from '../api';
+import { useQuery } from '@tanstack/react-query';
+import { type PageInsights } from '../api';
+import { pageInsightsQuery } from '../queries';
 import './page_insights.scss';
 import { Sparkles } from 'lucide-react';
 
-type Loaded = {
-  key: string,
-  insights: PageInsights | null
-} | {
-  key: string,
-  error: string
-};
+type Loaded = { insights: PageInsights | null } | { error: string };
 
 export const PageInsightsSummary = ({ bookId, pageId }: { bookId: string, pageId: number }) => {
   const [isShowingSummary, setIsShowingSummary] = useState<boolean>(false);
   
-  const key               = bookId + '\u0000' + pageId;
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-
-  useEffect(() => {
-    let current = true;
-
-    fetchPageInsights(bookId, pageId).then((insights) => {
-      if (current) {
-        setLoaded({ key, insights });
-      }
-    }).catch((e: Error) => {
-      if (current) {
-        setLoaded({ key, error: e.message });
-      }
-    });
-    
-    return () => current = false;
-  }, [isShowingSummary, bookId, pageId]);
-
-  const result = loaded?.key === key ? loaded : null;
+  // asked for only once the summary is shown: each costs an OpenRouter request
+  const insights       = useQuery({ ...pageInsightsQuery(bookId, pageId), enabled: isShowingSummary });
+  const result: Loaded | null = match(insights)
+    .with({ status: 'error' }, (q) => ({ error: q.error.message }))
+    .with({ status: 'success' }, (q) => ({ insights: q.data }))
+    .otherwise(() => null);
 
   return match([isShowingSummary, result])
     .with([false, P.any], () => (
