@@ -1,4 +1,4 @@
-import { createElement as __, useMemo, useRef, useState } from 'react'
+import { createElement as __, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './book_page.scss';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { type Book, type PageBlock, type PageCitation } from '../api';
@@ -7,14 +7,14 @@ import { match } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
 import { Link } from 'react-router';
-import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, TableOfContents as ContentsIcon, X } from 'lucide-react';
 import { formatLocations } from '../core/page_rendering';
 import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
 import { PageInsightsSummary } from './page_insights';
+import { TableOfContents } from './table_of_contents';
 
-// One book's page, in one of the side-by-side columns. hrefForPage(pageId) is the URL with this column turned
-// to that page; hrefForCitingBook(bookId, pageId) is the URL with that book opened to this column's right;
-// hrefToClose, the URL without this column (none when it's the only one open).
+const MAX_CITATIONS_BEFORE_COLLAPSING = 3;
+
 export const BookPageView = ({
   book, index, pageId, hrefForPage, hrefForCitingBook, hrefToClose
 }: {
@@ -43,13 +43,18 @@ export const BookPageView = ({
   const nextPage      = nextEntry && hrefForPage(nextEntry.pageId);
   const prevPage      = prevEntry && hrefForPage(prevEntry.pageId);
 
+  // the table of contents, opened by the button left of the title; a click outside the title
+  // row closes it
+  const [contentsOpen, setContentsOpen] = useState(false);
+  const closeContents                   = useCallback(() => setContentsOpen(false), []);
+
   return match<boolean, React.ReactElement>(true)
     .with(!!error, () => __('p', {className: "error"}, "Couldn't load this page: ", error))
     .with(!page, () => __('p', {className: "muted"}, 'Loading'))
     .otherwise(() => (
       assertCond(page !== null),
         __('div', {className: 'page-with-citations'},
-          __(BookPager, {pages: book.pageOrder, hrefForPage}),
+          __(BookNavigation, {book, hrefForPage, pageId}),
           __('div', {className: 'full-page-layout' + (loading ? ' loading' : '')},
             __('header', {className: 'book-header'},
               __('div', {className: 'page-header'},
@@ -90,7 +95,9 @@ export const BookPageView = ({
                   )
                 ),
               ),
-              __('h1', {className: 'book-title'}, book.title),
+              __('div', {className: 'book-title-row'},
+                __('h1', {className: 'book-title'}, book.title),                
+              ),
               __('div', {className: 'book-author'}, book.author)
             ),
             __('article', {className: 'page'},
@@ -114,7 +121,7 @@ export const BookPageView = ({
                   key: c.id,
                   citation: c,
                   hrefForCitingBook,
-                  startCollapsed: page.foreignCitations.length > COLLAPSE_OVER,
+                  startCollapsed: page.foreignCitations.length > MAX_CITATIONS_BEFORE_COLLAPSING,
                 })
               ))
           )
@@ -140,17 +147,16 @@ function Block({block}: {block: PageBlock}) {
 }
 
 
-// Pages cited by more citations than this start with them collapsed to their titles and authors
-const COLLAPSE_OVER = 3;
 
-// Its title opens the citing book, at the citing page, to the right of this column. Collapsed, it
-// shows only the citing book's title and author; clicking it (other than on the title) expands it.
 function CitedBy({citation, hrefForCitingBook, startCollapsed}: {
   citation: PageCitation,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   startCollapsed: boolean,
 }) {
-  const books                     = useQuery(bookSummariesQuery()).data ?? new Map<string, never>();
+  const books = useQuery(
+    bookSummariesQuery()
+  ).data ?? new Map<string, never>();
+  
   const source                    = citation.source;
   const citing                    = books.get(source.bookId);
   const [collapsed, setCollapsed] = useState(startCollapsed);
@@ -187,8 +193,6 @@ function CitedBy({citation, hrefForCitingBook, startCollapsed}: {
   );
 }
 
-
-
 function SourcePage({citation}: {citation: PageCitation}) {
   const box = useRef<HTMLDivElement>(null);
   const html = useMemo(
@@ -205,3 +209,46 @@ function SourcePage({citation}: {citation: PageCitation}) {
     dangerouslySetInnerHTML: {__html: html}
   });
 }
+
+const BookNavigation = ({book, hrefForPage, pageId}: {
+  book: Book,
+  pageId: number,
+  hrefForPage: (pageId: number) => string,
+}) => {
+  const [currentMode, setCurrentMode] = useState<'pages'|'contents'>('pages');
+
+  const hasContents = book.contents.length > 0;
+
+  return (
+    __('div', {className: 'page-navigation'},
+      __('div', {className: 'page-navigation-controls'},
+        __('button', {
+          type:            'button',
+          className:       'contents-button' + (currentMode === 'contents' ? ' open' : ''),
+          title:           'Table of contents',
+          'aria-label':    'Table of contents',
+          'aria-expanded': currentMode === 'contents',
+          onClick:         () => setCurrentMode(
+            currentMode === 'contents' ? 'pages' : 'contents'
+          ),
+        }, __(ContentsIcon, {}))
+      ),
+
+      __('div', {className: 'navigation-contents'},
+        match(currentMode)
+          .with('pages', () => (
+            __(BookPager, {pages: book.pageOrder, hrefForPage})
+          ))
+          .with('contents', () => (
+            __(TableOfContents, {
+              contents:  book.contents,
+              pageOrder: book.pageOrder,
+              pageId,
+              hrefForPage,
+            })
+          ))
+          .exhaustive()
+      )
+    )
+  );
+};
