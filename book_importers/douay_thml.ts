@@ -14,8 +14,8 @@ import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import type { Database } from '../api/database.ts';
 import { DOUAY_BOOK_ID, douayPages, parseDouay, toVulgate } from '../core/douay_thml.ts';
-import { saveBook } from '../model/books.ts';
 import { replacePageCitations } from '../model/book_pages_to_citations.ts';
+import { BookActions } from '../model/books.js';
 
 const BOOK = {
   id:     DOUAY_BOOK_ID,
@@ -50,7 +50,7 @@ const main = async() => {
       dialect: new PostgresDialect({ pool: new Pool({ connectionString: process.env.DATABASE_URL }) }),
     });
     try {
-      const saved = await saveBook(db, BOOK, pages);
+      const saved = await BookActions.saveBook(db, BOOK, pages);
       const cited = await replacePageCitations(db, BOOK.id, pages.map((p) => ({
         pageNumber: p.pageNumber, parts: p.citationParts,
       })));

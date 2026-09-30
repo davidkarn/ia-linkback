@@ -4,7 +4,7 @@ import type { Database } from '../api/database.ts';
 import type { Page } from '../types.ts';
 import { placesOf } from '../core/citation_groups.ts';
 import { groupRow } from './citation_groups.ts';
-import { idsCitedAsColumn } from './alternate_ids.ts';
+import { AlternateIdsSql } from './alternate_ids.ts';
 import { likePattern, type DbExprBuilder, type DbSelectQuery } from './model_utils.ts';
 
 const CHUNK = 500;
@@ -34,14 +34,13 @@ const scopedToQuery = <O>(searchQuery: string) => (query: DbSelectQuery<'books',
   }
 };
 
-export const BookScopes = { sortedForDisplay, scopedToQuery };
 
 // Citations in other books of the book, pointing at it or one of its alternate ids
 const citedByCount = (eb: DbExprBuilder<'books'>, name: string = 'cited_by_count') => (
   eb.selectFrom('citations')
     .select(eb.fn.countAll<string>().as('n'))
-    .where('citations.reference_book_id', 'in', idsCitedAsColumn('books.id'))
-    .where('citations.source_book_id', 'not in', idsCitedAsColumn('books.id'))
+    .where('citations.reference_book_id', 'in',
+      AlternateIdsSql.idsCitedAsColumn('books.id'))
     .as(name)
 );
 
@@ -52,7 +51,7 @@ const pageCount = (eb: DbExprBuilder<'books'>, name: string = 'page_count') => (
     .as(name)
 );
 
-export const BookSelectors = { citedByCount, pageCount };
+
 
 
 // Save a book, replacing any earlier copy, in one transaction. The books row is upserted, so other
@@ -60,7 +59,7 @@ export const BookSelectors = { citedByCount, pageCount };
 // which also deletes their blocks, the citations in them and their cached insights. The blocks'
 // citations are saved with them: a citation_groups row per place each locationsCited group cites
 // (a range is a row per place; see core/citation_groups.ts).
-export const saveBook = (
+const saveBook = (
   db: Kysely<Database>,
   book: { id: string, title: string, author: string, url: string | null },
   pages: Page[],
@@ -145,5 +144,6 @@ export const saveBook = (
   return { pages: pages.length, blocks: blocks.length, citations: citations.length, groups };
 });
 
-
-
+export const BookScopes = { sortedForDisplay, scopedToQuery };
+export const BookActions = { saveBook };
+export const BookSelectors = { citedByCount, pageCount };

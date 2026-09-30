@@ -4,7 +4,9 @@
 import { sql, type Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import type { CitingCitation, ContextPage, PageInsights } from '../core/page_insights.ts';
-import { citesBook, idsCitedAs } from './alternate_ids.ts';
+import { AlternateIdsScopes, AlternateIdsSql } from './alternate_ids.ts';
+import { withScopes } from './model_utils.js';
+import { CITATION_RANGE, CitationScopes } from './citations.js';
 
 export const findPage = (db: Kysely<Database>, bookId: string, pageNumber: number) => (
   db.selectFrom('pages')
@@ -14,55 +16,23 @@ export const findPage = (db: Kysely<Database>, bookId: string, pageNumber: numbe
     .executeTakeFirst()
 );
 
-const CITATION_PARTS = 8;
-
-const range = Array.from({ length: CITATION_PARTS }, (_, i) => i + 1);
-
-// SQL: the citation_groups row `grp`'s parts as (type, value) pairs, for `(type, value) in (...)`
-const groupPartPairs = (grp: string) => sql.join(range.map((n) => (
-  sql`(${ sql.ref(`${ grp }.part${ n }_type`) }, ${ sql.ref(`${ grp }.part${ n }_value`) })`
-)));
 
 // SQL: the citation_groups row `grp`'s parts as a table (n, type, value), to join laterally; a
 // part that is null is left out by the caller (where type is not null)
-const groupPartRows = (grp: string) => sql`(values ${ sql.join(range.map((n) => (
+const groupPartRows = (grp: string) => sql`(values ${ sql.join(CITATION_RANGE.map((n) => (
   sql`(${ n }, ${ sql.ref(`${ grp }.part${ n }_type`) }, ${ sql.ref(`${ grp }.part${ n }_value`) })`
 ))) })`;
 
 // SQL: the non-null parts of a row as "type:value" keys, in order ('{book:1,question:2,article:3}');
 // `column(n, kind)` names part n's type or value column
 const partKeys = (column: (n: number, kind: 'type' | 'value') => string) => (
-  sql`array_remove(array[${ sql.join(range.map((n) => (
+  sql`array_remove(array[${ sql.join(CITATION_RANGE.map((n) => (
     sql`${ sql.ref(column(n, 'type')) } || ':' || ${ sql.ref(column(n, 'value')) }`
   ))) }], null)`
 );
 
 // SQL: every part of the book_pages_to_citations row `row` is one of the parts of the
 // citation_groups row `grp`. A part that is null asks for nothing.
-const groupHasRowParts = (row: string, grp: string) => sql.join(
-  range.map((n) => {
-    const type  = sql.ref(`${ row }.citation_part_${ n }_type`);
-    const value = sql.ref(`${ row }.citation_part_${ n }_value`);
-    return sql`(${ type } is null or (${ type }, ${ value }) in (${ groupPartPairs(grp) }))`;
-  }),
-  sql` and `,
-);
-
-// SQL: the citation `cit` cites the book's page by one of its book_pages_to_citations rows (for books
-// cited by part rather than page number, such as the Summa: book 1, question 2, article 1): some
-// place it cites (a citation_groups row) has every part of the row
-const citesPageByParts = (bookId: string, pageNumber: number, cit = 'citations') => sql<boolean>`exists (
-  select 1 from book_pages_to_citations bpc
-  join citation_groups grp on grp.citation_id = ${ sql.ref(`${ cit }.id`) }
-  where bpc.book_id = ${ bookId } and bpc.page_number = ${ pageNumber }
-    and ${ groupHasRowParts('bpc', 'grp') })`;
-
-// SQL: the citation `cit` cites page number `printed` (some place it cites has a "page" part
-// equal to it)
-const citesPrintedPage = (printed: number, cit = 'citations') => sql<boolean>`exists (
-  select 1 from citation_groups grp
-  where grp.citation_id = ${ sql.ref(`${ cit }.id`) }
-    and ('page', ${ printed }::integer) in (${ groupPartPairs('grp') }))`;
 
 // Citations in other books of a book's page (pointing at the book or one of its alternate ids, see
 // model/alternate_ids.ts): those with a "page" location equal to its printed page number (when that
@@ -71,12 +41,10 @@ const citesPrintedPage = (printed: number, cit = 'citations') => sql<boolean>`ex
 export const citationsOfPage = (
   db: Kysely<Database>, bookId: string, page: { pageNumber: number, printedNumber: number | null }
 ) => (
-  db.selectFrom('citations')
-    .where(citesBook(bookId))
-    .where((eb) => eb.or([
-      ...(page.printedNumber === null ? [] : [citesPrintedPage(page.printedNumber)]),
-      citesPageByParts(bookId, page.pageNumber),
-    ]))
+  withScopes(db.selectFrom('citations'), [
+    CitationScopes.citesBook(bookId),
+    CitationScopes.citesPage(bookId, page.printedNumber, page.pageNumber)
+  ])
     .orderBy('citations.source_book_id')
     .orderBy('citations.source_footnote_page')
     .orderBy('citations.id')
@@ -103,8 +71,8 @@ export const citedCountsByPage = async(
   const rows = await sql<{ page_number: number, n: string }>`
     with cited as (
       select c.id from citations c
-      where c.reference_book_id in ${ idsCitedAs(bookId) }
-        and c.source_book_id not in ${ idsCitedAs(bookId) }
+      where c.reference_book_id in ${ AlternateIdsSql.idsCitedAs(bookId) }
+        and c.source_book_id not in ${ AlternateIdsSql.idsCitedAs(bookId) }
     ),
     by_parts as (
       select bpc.page_number, grp.citation_id
@@ -114,7 +82,7 @@ export const citedCountsByPage = async(
         and grp.part1_value = bpc.citation_part_1_value
       join cited on cited.id = grp.citation_id
       where bpc.book_id = ${ bookId }
-        and ${ sql.join(range.slice(1).map(rowPartMatches), sql` and `) }
+        and ${ sql.join(CITATION_RANGE.slice(1).map(rowPartMatches), sql` and `) }
     ),
     by_number as (
       select p.page_number, grp.citation_id

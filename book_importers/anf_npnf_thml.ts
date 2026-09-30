@@ -17,8 +17,8 @@ import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import type { Database } from '../api/database.ts';
 import { volumeWorks, type Work } from '../core/fathers_thml.ts';
-import { saveBook } from '../model/books.ts';
 import { replacePageCitations } from '../model/book_pages_to_citations.ts';
+import { BookActions } from '../model/books.js';
 
 const argv   = process.argv.slice(2);
 const option = (name: string) => {
@@ -68,7 +68,7 @@ const main = async() => {
           + `${ footnotes(work) } footnotes, ${ cited.length } cited by divisions`);
 
         if (db) {
-          await saveBook(db, { id: work.id, title: work.title, author: work.author, url: work.url },
+          await BookActions.saveBook(db, { id: work.id, title: work.title, author: work.author, url: work.url },
                          work.pages);
           await replacePageCitations(db, work.id, cited.map((p) => ({
             pageNumber: p.pageNumber, parts: p.citationParts,

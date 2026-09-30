@@ -3,9 +3,10 @@ import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import type { CitationLocation } from '../types';
 import { DB } from './database.module';
 import type { Database } from './database';
-import { citesBook } from '../model/alternate_ids';
 import { findCitationSourcePage } from '../model/citation_source_pages';
 import { citation_page_html } from '../core/citation_pages';
+import { withScopes } from '../model/model_utils.js';
+import { CitationScopes } from '../model/citations.js';
 
 // The Citation schema in api.yaml
 export type CitationDto = {
@@ -83,9 +84,9 @@ export class CitationsService {
     const book = await this.db.selectFrom('books').select('id').where('id', '=', bookId).executeTakeFirst();
     if (!book) {return null;}
 
-    const matching = () => this.db
-      .selectFrom('citations')
-      .where(citesBook(bookId));
+    const matching = () => withScopes(this.db.selectFrom('citations'), [
+      CitationScopes.citesBook(bookId)
+    ]);
 
     const rows = await matching()
       .select(citation_columns)

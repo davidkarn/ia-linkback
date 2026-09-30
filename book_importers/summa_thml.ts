@@ -12,8 +12,8 @@ import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import type { Database } from '../api/database.ts';
 import { summaPages } from '../core/summa_thml.ts';
-import { saveBook } from '../model/books.ts';
 import { log } from '../lib/lib.ts';
+import { BookActions } from '../model/books.js';
 
 const BOOK = {
   id:     'summa-theologiae',
@@ -53,7 +53,7 @@ const main = async() => {
       }),
     });
     try {
-      const saved = await saveBook(db, BOOK, pages);
+      const saved = await BookActions.saveBook(db, BOOK, pages);
 
       console.log(`saved "${ BOOK.title }" as ${ BOOK.id }: `
         + `${ saved.pages } pages, ${ saved.blocks } blocks`);
