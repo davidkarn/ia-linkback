@@ -67,6 +67,7 @@ export type Div = {
   id: string,
   title: string,
   shortTitle: string,   // the label CCEL gives it in contents ("Chapter V", "Book I")
+  kind: string,         // its ThML type ("Chapter", "Book"), '' when it has none
   own: string,          // this div's HTML without its child divs
   children: Div[],
 };
@@ -77,7 +78,9 @@ const attr = (attrs: string, name: string) => (
 
 // The div tree of the ThML body
 export const parseDivs = (xml: string): Div[] => {
-  const root: Div = { level: 0, id: '', title: '', shortTitle: '', own: '', children: [] };
+  const root: Div = {
+    level: 0, id: '', title: '', shortTitle: '', kind: '', own: '', children: [],
+  };
   const stack     = [root];
   const tag       = /<(\/?)div(\d)\b([^>]*)>/g;
   let last        = 0;
@@ -95,6 +98,7 @@ export const parseDivs = (xml: string): Div[] => {
         id:         attr(m[3]!, 'id'),
         title:      attr(m[3]!, 'title'),
         shortTitle: attr(m[3]!, 'shorttitle'),
+        kind:       attr(m[3]!, 'type'),
         own:        '',
         children:   [],
       };

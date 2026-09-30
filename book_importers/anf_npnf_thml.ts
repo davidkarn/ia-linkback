@@ -27,7 +27,7 @@ const option = (name: string) => {
 };
 const DIR     = option('dir') ?? '../thml';
 const ONLY    = option('only')?.split(',');
-const DRY_RUN = true;//argv.includes('--dry-run');
+const DRY_RUN = argv.includes('--dry-run');
 
 const footnotes = (work: Work) => (
   work.pages.flatMap((p) => p.blocks).filter((b) => b.label === 'Footnote').length

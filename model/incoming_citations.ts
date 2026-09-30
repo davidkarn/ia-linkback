@@ -27,6 +27,21 @@ export const findCitationsFromOtherBooks = (db: Kysely<Database>, bookId: string
     .execute()
 );
 
+// Every citation whose author matches a Postgres regular expression (case-insensitive), in
+// reading order as findCitationsFromOtherBooks
+export const findCitationsByAuthor = (db: Kysely<Database>, authorPattern: string) => (
+  db.selectFrom('citations')
+    .select([
+      'citations.id', 'citations.source_book_id', 'citations.source_footnote_page', 'citations.author',
+      'citations.title', 'citations.location', 'citations.raw', 'citations.reference_book_id',
+    ])
+    .where('citations.author', '~*', authorPattern)
+    .orderBy('citations.source_book_id')
+    .orderBy('citations.source_footnote_page')
+    .orderBy('citations.id')
+    .execute()
+);
+
 // Point citations at a book, replacing their citation_groups rows with the given places, in one
 // transaction; then clear the cached insights of the pages they now cite. Returns the counts saved.
 export const relinkCitations = (

@@ -465,7 +465,7 @@ const workPlans = (
   })()];
 
   const children  = textChildren(work);
-  const divisions = children.map(divisionOf);
+  const divisions = numberByKind(children, children.map(divisionOf));
   const sibling   = divisions.find((d) => d?.type)?.type ?? 'chapter';
 
   return [
@@ -481,6 +481,50 @@ const workPlans = (
     }),
   ];
 };
+
+// Divisions for divs CCEL types as divisions ("Chapter") but gives no number, only a title (Book
+// I of the Exact Exposition of the Orthodox Faith: "Chapter I", then "Proof that there is a God",
+// ...): numbered by their place among their siblings of that type, when every numbered one of
+// them has the number of its place
+export const numberByKind = (
+  children: Pick<Div, 'kind'>[], divisions: (Division | null)[]
+): (Division | null)[] => {
+  const kinds = children.map((c) => c.kind.toLowerCase());
+
+  // each child's place among its siblings of its kind, from 1
+  const places = kinds.map((kind, i) => kinds.slice(0, i + 1).filter((k) => k === kind).length);
+
+  return divisions.map((division, i) => {
+    const kind    = kinds[i]!;
+    const same    = kinds.flatMap((k, j) => (k === kind ? [j] : []));
+    const inPlace = same.every((j) => divisions[j] === null || divisions[j]!.value === places[j]);
+
+    if (division !== null || kind.length === 0 || !DIVISION.test(`${ kind } 1`) || !inPlace) {
+      return division;
+    }
+    else {
+      return {
+        label: `${ kind[0]!.toUpperCase() + kind.slice(1) } ${ toRoman(places[i]!) }`,
+        type:  DIVISION_TYPES[kind] ?? 'chapter',
+        value: places[i]!,
+      };
+    }
+  });
+};
+
+const ROMAN_DIGITS: [number, string][] = [
+  [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'],
+  [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+];
+
+// 14 -> "XIV"
+const toRoman = (n: number): string => ROMAN_DIGITS.reduce(
+  (out, [value, digits]) => ({
+    rest: out.rest % value,
+    text: out.text + digits.repeat(Math.floor(out.rest / value)),
+  }),
+  { rest: n, text: '' },
+).text;
 
 // A book's id from its volume and title: "anf01-first-epistle-to-the-corinthians"
 export const workBookId = (volume: string, title: string): string => (

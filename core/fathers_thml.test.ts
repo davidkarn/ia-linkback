@@ -1,5 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
-import { authorOf, divisionOf, findWorks, numberOf, volumeWorks, workBookId } from './fathers_thml.ts';
+import {
+  authorOf, divisionOf, findWorks, numberByKind, numberOf, volumeWorks, workBookId,
+} from './fathers_thml.ts';
 import { parseDivs } from './summa_thml.ts';
 
 const div  = (level: number, id: string, title: string, inner: string, short = title) => (
@@ -50,6 +52,28 @@ describe('divisionOf and numberOf', () => {
 
   it('reads Roman, Arabic and ordinal numbers', () => {
     expect([numberOf('xliv'), numberOf('12'), numberOf('Third'), numberOf('Ep')]).toEqual([44, 12, 3, null]);
+  });
+});
+
+describe('numberByKind', () => {
+  const kinds  = (...ks: string[]) => ks.map((kind) => ({ kind }));
+  const number = (value: number) => ({ label: `Chapter ${ value }`, type: 'chapter', value });
+
+  it('numbers titled divs of a division type by their place among their kind', () => {
+    expect(numberByKind(kinds('Chapter', 'Chapter', 'Chapter'), [number(1), null, null]))
+      .toEqual([number(1), { label: 'Chapter II', type: 'chapter', value: 2 },
+                { label: 'Chapter III', type: 'chapter', value: 3 }]);
+  });
+
+  it('counts only siblings of the same kind', () => {
+    expect(numberByKind(kinds('Note', 'Chapter', 'Chapter'), [null, number(1), null])[2])
+      .toEqual({ label: 'Chapter II', type: 'chapter', value: 2 });
+  });
+
+  it('leaves divs of no division type, or among numbers out of place, unnumbered', () => {
+    expect(numberByKind(kinds('Note', 'Note'), [null, null])).toEqual([null, null]);
+    expect(numberByKind(kinds('', ''), [null, null])).toEqual([null, null]);
+    expect(numberByKind(kinds('Chapter', 'Chapter'), [number(5), null])).toEqual([number(5), null]);
   });
 });
 
@@ -119,7 +143,7 @@ describe('workBookId and authorOf', () => {
 
   it('finds authors by the work, then the divs it is in, then the volume', () => {
     const found = (title: string, within: string[] = []) => ({
-      div: { level: 2, id: 'x', title, shortTitle: title, own: '', children: [] }, within,
+      div: { level: 2, id: 'x', title, shortTitle: title, kind: '', own: '', children: [] }, within,
     });
     expect(authorOf('anf01', found('Epistle to Polycarp', ['IGNATIUS']))).toBe('Ignatius of Antioch');
     expect(authorOf('anf01', found('The Martyrdom of Polycarp', ['POLYCARP']))).toBe('Church of Smyrna');
