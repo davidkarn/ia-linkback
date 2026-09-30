@@ -4,6 +4,8 @@ import type { CitationLocation } from '../types';
 import { DB } from './database.module';
 import type { Database } from './database';
 import { citesBook } from '../model/alternate_ids';
+import { findCitationSourcePage } from '../model/citation_source_pages';
+import { citation_page_html } from '../core/citation_pages';
 
 // The Citation schema in api.yaml
 export type CitationDto = {
@@ -100,5 +102,23 @@ export class CitationsService {
       items: rows.map(to_citation_dto),
       count: Number(total.count),
     };
+  }
+
+  // The HTML of the page a citation's footnote is on, as GET /books/{bookId}/pages/{pageId}
+  // shows it beside a citation (see core/citation_pages.ts); null when there is no such citation
+  async sourcePage(
+    citationId: string
+  ): Promise<{ citationId: string, sourcePageText: string } | null> {
+    const found = await findCitationSourcePage(this.db, citationId);
+
+    if (!found) {
+      return null;
+    }
+    else {
+      return {
+        citationId,
+        sourcePageText: citation_page_html(found.blocks, found.blockId, found.identifier),
+      };
+    }
   }
 }

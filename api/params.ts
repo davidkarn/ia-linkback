@@ -17,6 +17,16 @@ export const optional_int_param = (
   raw === undefined || raw === '' ? undefined : int_param(name, raw, min, min, max)
 );
 
+// Parse a bigserial id path parameter, kept as a string (as the pg driver returns int8)
+export const id_param = (name: string, raw: string): string => {
+  if (!/^[1-9]\d{0,17}$/.test(raw)) {
+    throw new BadRequestException(`${ name } must be a positive integer id`);
+  }
+  else {
+    return raw;
+  }
+};
+
 export const string_param = (name: string, raw: unknown): string | undefined => {
   if (raw === undefined) {return undefined;}
   if (typeof raw !== 'string') {throw new BadRequestException(`${ name } must be a single string`);}

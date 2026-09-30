@@ -110,7 +110,9 @@ paths:
           schema:
             type: number
             minimum: 1
-      summary: Get one page of a book, with the citations in other books that point to it.
+      summary: >-
+        Get one page of a book, with the citations in other books that point to it (without the
+        text of the pages they are on: GET /citations/{citationId}/sourcePage).
       responses:
         '200':
           description: book page
@@ -156,6 +158,31 @@ paths:
           description: the OpenRouter request failed
         '503':
           description: insights are unavailable (OPENROUTER_KEY is not set)
+  /citations/{citationId}/sourcePage:
+    get:
+      tags:
+        - Citations
+      parameters:
+        - name: citationId
+          description: a Citation's id
+          in: path
+          required: true
+          schema:
+            type: string
+      summary: >-
+        Get the HTML of the page a citation's footnote is on, to show beside the page it cites
+        (fetched when the citation is expanded, rather than with GET /books/{bookId}/pages/{pageId}).
+      responses:
+        '200':
+          description: the citing page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitationSourcePage'
+        '400':
+          description: citationId is not an id
+        '404':
+          description: no citation with this id
   /books/{bookId}/citationsTo:
     get:
       tags:
@@ -213,7 +240,7 @@ components:
         foreignCitations:
           type: array
           items:
-            $ref: '#/components/schemas/PageCitation'
+            $ref: '#/components/schemas/Citation'
         blocks:
           type: array
           items:
@@ -226,7 +253,7 @@ components:
               citations:
                 type: array
                 items:
-                  $ref: '#/components/schemas/PageCitation'                                
+                  $ref: '#/components/schemas/Citation'
     PageInsights:
       type: object
       required:
@@ -278,17 +305,20 @@ components:
               summary:
                 description: what that author says about this page ('' if the model gave none)
                 type: string
-    PageCitation:
-      description: a Citation with the HTML of the page its footnote is on
-      allOf:
-        - $ref: '#/components/schemas/Citation'
-        - type: object
-          required:
-            - sourcePageText
-          properties:
-            sourcePageText:
-              description: the citing page's blocks' HTML, in reading order, one per line, without running headers and footers and with only this citation's footnote
-              type: string
+    CitationSourcePage:
+      description: the HTML of the page a citation's footnote is on
+      type: object
+      required:
+        - citationId
+        - sourcePageText
+      properties:
+        citationId:
+          type: string
+        sourcePageText:
+          description: >-
+            the citing page's blocks' HTML, in reading order, one per line, without running headers
+            and footers and with only this citation's footnote
+          type: string
     BookSummary:
       type: object
       required:
@@ -421,8 +451,6 @@ components:
           footnoteIdentifier:
             type: string
           footnotePage:
-            type: string
-          sourcePageText:
             type: string
         author:
           type: string

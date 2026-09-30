@@ -54,15 +54,15 @@ export type Citation = {
   locationsCited: CitationLocation[],
 };
 
-// A Citation in GET /books/{bookId}/pages/{pageId}, with the HTML of the page its footnote is on (its blocks'
-// HTML in reading order, one per line, without running headers and footers, and with only this citation's
-// footnote)
-export type PageCitation = Citation & { sourcePageText: string };
+// GET /citations/{citationId}/sourcePage: the HTML of the page a citation's footnote is on (its
+// blocks' HTML in reading order, one per line, without running headers and footers, and with only
+// this citation's footnote)
+export type CitationSourcePage = { citationId: string, sourcePageText: string };
 
 export type PageBlock = {
   label: 'SectionHeader' | 'Text' | 'PageHeader' | 'PageFooter' | 'Footnote',
   html: string,
-  citations: PageCitation[],
+  citations: Citation[],
 };
 
 export type BookPage = {
@@ -70,7 +70,7 @@ export type BookPage = {
   pageNumber: number,
   printedPageNumber: string,
   blocks: PageBlock[],
-  foreignCitations: PageCitation[],  // citations in other books that point to this page
+  foreignCitations: Citation[],  // citations in other books that point to this page
 };
 
 const getJson = async <T>(path: string): Promise<T> => {
@@ -106,6 +106,9 @@ export const fetchBook = (
 
 export const fetchPage = (bookId: string, pageId: number): Promise<BookPage> =>
   getJson(`/books/${encodeURIComponent(bookId)}/pages/${pageId}`);
+
+export const fetchCitationSourcePage = (citationId: string): Promise<CitationSourcePage> =>
+  getJson(`/citations/${encodeURIComponent(citationId)}/sourcePage`);
 
 // GET /books/{bookId}/pages/{pageId}/insights: what other books in the collection say about a page
 export type PageInsights = {

@@ -38,8 +38,15 @@ const logQuery = (event: LogEvent) => {
     provide:    DB,
     useFactory: () => {
       if (!process.env.DATABASE_URL) {throw new Error('DATABASE_URL is not set');}
+      // JIT compiling a query takes ~300ms, and the planner turns it on for queries it costs high
+      // from plans that never run (citationsOfPage's scan of citation_groups), which then take
+      // 300ms instead of a few: the app's queries are all small, so it is off
+      const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        options:          '-c jit=off',
+      });
       return new Kysely<Database>({
-        dialect: new PostgresDialect({ pool: new Pool({ connectionString: process.env.DATABASE_URL }) }),
+        dialect: new PostgresDialect({ pool }),
         log:     logQuery,
       });
     },

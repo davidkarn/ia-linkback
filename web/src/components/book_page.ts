@@ -1,8 +1,8 @@
-import { createElement as __, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createElement as __, useCallback, useEffect, useMemo, useState } from 'react'
 import './book_page.scss';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { type Book, type PageBlock, type PageCitation } from '../api';
-import { bookSummariesQuery, pageQuery } from '../queries';
+import { type Book, type Citation, type PageBlock } from '../api';
+import { bookSummariesQuery, citationSourcePageQuery, pageQuery } from '../queries';
 import { match, P } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
@@ -183,7 +183,7 @@ function Block({block}: {block: PageBlock}) {
 
 
 function CitedBy({citation, hrefForCitingBook, startCollapsed}: {
-  citation: PageCitation,
+  citation: Citation,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   startCollapsed: boolean,
 }) {
@@ -222,26 +222,35 @@ function CitedBy({citation, hrefForCitingBook, startCollapsed}: {
         ),
         __(ChevronDown, {className: 'cited-by-toggle'}),
       ),
-      !collapsed && citation.sourcePageText && __(SourcePage, {citation})
+      !collapsed && __(SourcePage, {citation})
     )
   );
 }
 
-function SourcePage({citation}: {citation: PageCitation}) {
-  const box = useRef<HTMLDivElement>(null);
-  const html = useMemo(
-    () => stripUnhighlightedBlocks(highlightFootnote(
-      citation.sourcePageText,
-      citation.source.footnoteIdentifier
-    )),
-    [citation.sourcePageText, citation.source.footnoteIdentifier]
+// The page the citation's footnote is on, with the footnote highlighted; fetched when it is first
+// shown
+function SourcePage({citation}: {citation: Citation}) {
+  const result = useQuery(citationSourcePageQuery(citation.id));
+  const text   = result.data?.sourcePageText;
+  const html   = useMemo(
+    () => (
+      text === undefined
+        ? ''
+        : stripUnhighlightedBlocks(highlightFootnote(text, citation.source.footnoteIdentifier))
+    ),
+    [text, citation.source.footnoteIdentifier]
   );
 
-  return __('div', {
-    className: 'source-page',
-    ref: box,
-    dangerouslySetInnerHTML: {__html: html}
-  });
+  return match(result)
+    .with({status: 'pending'}, () => __('p', {className: 'source-page muted'}, 'Loading'))
+    .with({status: 'error'}, (r) => (
+      __('p', {className: 'source-page error'}, "Couldn't load the citing page: ", r.error.message)
+    ))
+    .otherwise(() => (
+      html.length === 0
+        ? null
+        : __('div', {className: 'source-page', dangerouslySetInnerHTML: {__html: html}})
+    ));
 }
 
 const BookNavigation = ({book, hrefForPage, pageId}: {

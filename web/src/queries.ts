@@ -1,5 +1,5 @@
 import { QueryClient, queryOptions } from '@tanstack/react-query'
-import { fetchBook, fetchBooks, fetchPage, fetchPageInsights } from './api'
+import { fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage, fetchPageInsights } from './api'
 
 // The app's one QueryClient (see main.tsx). Books and pages don't change while they're open, so
 // data stays fresh for a while and isn't refetched when the window regains focus (page insights
@@ -56,4 +56,11 @@ export const pageQuery = (bookId: string, pageId: number) => queryOptions({
 export const pageInsightsQuery = (bookId: string, pageId: number) => queryOptions({
   queryKey: ['book', bookId, 'page', pageId, 'insights'],
   queryFn:  () => fetchPageInsights(bookId, pageId),
+});
+
+// Fetched when a citation is expanded: a much cited page has hundreds of citations, each on a
+// page of its own
+export const citationSourcePageQuery = (citationId: string) => queryOptions({
+  queryKey: ['citation', citationId, 'sourcePage'],
+  queryFn:  () => fetchCitationSourcePage(citationId),
 });
