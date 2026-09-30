@@ -1,4 +1,4 @@
-import { useRef, createElement as __, useState } from 'react'
+import { useRef, createElement as __, useState, memo } from 'react'
 import { Link, useNavigate } from 'react-router'
 import type { PageOrderEntry, VolumeSummary } from '../api'
 import { entryLabel } from '../core/contents'
@@ -6,7 +6,7 @@ import "./book_pager.scss"
 
 // A line per page of the volume open, between a dot per volume before it and a dot per volume
 // after it, which go to that volume's first page
-const BookPager = ({pages, volume, volumes, hrefForPage}: {
+const BookPager = memo(({pages, volume, volumes, hrefForPage}: {
   pages: PageOrderEntry[],
   volume: number,
   volumes: VolumeSummary[],
@@ -73,6 +73,6 @@ const BookPager = ({pages, volume, volumes, hrefForPage}: {
       )
     )
   );
-};
+});
 
 export default BookPager;

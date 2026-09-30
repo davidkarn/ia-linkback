@@ -26,6 +26,15 @@ export default function BookView() {
     return b.bookId + '#' + n;
   });
 
+  const hrefForPageByCol = useMemo(() => (
+    books.reduce((acc, _, column) => ({
+      ...acc,
+      [column]: (pageId: number, volume: number) => (
+        openBooksPath(withPage(books, column, pageId, volume))
+      )
+    }), {})
+  ), [books]);
+
   return (
     __('main', {className: 'book-view'},
       __(Header, {}),
@@ -40,9 +49,7 @@ export default function BookView() {
               key: keys[column],
               open,
               active: column === books.length - 1,
-              hrefForPage: (pageId: number, volume: number) => (
-                openBooksPath(withPage(books, column, pageId, volume))
-              ),
+              hrefForPage: hrefForPageByCol[column],
               hrefForCitingBook: (bookId: string, pageId: number) => (
                 openBooksPath(withBookOpened(books, column, { bookId, pageId }))
               ),
