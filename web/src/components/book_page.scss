@@ -27,21 +27,23 @@
         flex-grow: 1;
         width: min-content;
         
-        header.book-header {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            margin-bottom: 0rem;
-            max-width: 40rem;
-            
             .page-header {
+            max-width: 45rem;
+                position: sticky;
+                top: 0;
+                background: white;
                 display: flex;
                 flex-direction: row;
                 gap: 0.5rem;
                 text-transform: uppercase;
                 font-size: 0.75rem;
-                opacity: 0.75;
                 align-items: flex-start;
+                color: #222423cc;
+                z-index: 30;
+                padding-top: 0.25rem;
+                margin-top: -0.25rem;
+                margin-bottom: -0.75rem;
+                box-shadow: 0px 2px 5px 5px white;
                 
                 .page-header-item {
                     &.header-buttons {
@@ -77,6 +79,7 @@
                 }
 
                 .pager-buttons {
+                    opacity: 0.75;
                     display: flex;
                     flex-direction: row;
                     gap: 0.5rem;
@@ -96,6 +99,15 @@
                     }
                 }
             }
+
+            header.book-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-bottom: 0rem;
+            max-width: 45rem;
+
+
             
             .book-title-row {
                 position: relative;
@@ -106,11 +118,14 @@
             }
 
             .book-title {
-                font-size: 1.75rem;
+                font-size: 1.25rem;
                 margin: 0;
+                line-height: 1.2
             }
             .book-author {
-                font-size: 0.825rem;
+                line-height: 1;
+                font-size: 0.75rem;
+                margin-bottom: 0.25rem;
             }
         }
         article.page {

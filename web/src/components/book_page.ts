@@ -79,7 +79,6 @@ export const BookPageView = ({
         )},
           navigationOpen && __(BookNavigation, {book, hrefForPage, pageId}),
           __('div', {className: 'full-page-layout' + (loading ? ' loading' : '')},
-            __('header', {className: 'book-header'},
               __('div', {className: 'page-header'},
                 __('div', {className: 'page-header-item header-buttons'},
                   __(Link, {
@@ -130,6 +129,7 @@ export const BookPageView = ({
                   )
                 ),
               ),
+            __('header', {className: 'book-header'},
               __('div', {className: 'book-title-row'},
                 __('h1', {className: 'book-title'}, book.title),                
               ),
