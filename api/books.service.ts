@@ -49,27 +49,27 @@ export class BooksService {
     length: number,
     query?: string | undefined }
   ): Promise<{ items: BookSummary[], count: number }> {
-      const rows = await withScopes(
-        this.db.selectFrom('books'), [
-          BookScopes.scopedToQuery(opts.query),
-          DbScopes.offsetAndLimitScope(opts.offset, opts.length),
-          BookScopes.sortedForDisplay()
-        ])
-        .select((eb) => [
-          'books.id',
-          'books.title',
-          'books.author',
-          'books.url',
-          'books.cover_photo_path',
-          BookSelectors.pageCount,
-          BookSelectors.citedByCount(eb),
-        ])
+    const rows = await withScopes(
+      this.db.selectFrom('books'), [
+        BookScopes.scopedToQuery(opts.query),
+        DbScopes.offsetAndLimitScope(opts.offset, opts.length),
+        BookScopes.sortedForDisplay()
+      ])
+      .select((eb) => [
+        'books.id',
+        'books.title',
+        'books.author',
+        'books.url',
+        'books.cover_photo_path',
+        BookSelectors.pageCount,
+        BookSelectors.citedByCount(eb),
+      ])
       .execute();
 
     const total = await withScopes(
-        this.db.selectFrom('books'), [
-          BookScopes.scopedToQuery(opts.query)
-        ])
+      this.db.selectFrom('books'), [
+        BookScopes.scopedToQuery(opts.query)
+      ])
       .select((eb) => eb.fn.countAll<string>().as('count'))
       .executeTakeFirstOrThrow();
 

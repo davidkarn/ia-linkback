@@ -32,7 +32,7 @@ const citesPageByParts = (bookId: string, pageNumber: number, cit = 'citations')
 
 
 const citesPage = <O>(bookId: string, printedNumber: string|null, pageNumber: number) => (
-  (query: DbSelectQuery<'citations', O>) => query.where(eb => (
+  (query: DbSelectQuery<'citations', O>) => query.where((eb) => (
     eb.or([
       ...(printedNumber === null ? [] : [citesPrintedPage(printedNumber)]),
       citesPageByParts(bookId, pageNumber),
@@ -47,4 +47,4 @@ const citesBook = <O>(bookId: string) => (query: DbSelectQuery<'citations', O>) 
 );
 
 
-export const CitationScopes = {citesBook, citesPage};
+export const CitationScopes = { citesBook, citesPage };

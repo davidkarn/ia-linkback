@@ -22,5 +22,5 @@ const citesBook = <O>(bookId: string) => (query: DbSelectQuery<'citations', O>) 
   ]))
 );
 
-export const AlternateIdsScopes = {citesBook};
-export const AlternateIdsSql = {idsCitedAs, idsCitedAsColumn}
+export const AlternateIdsScopes = { citesBook };
+export const AlternateIdsSql = { idsCitedAs, idsCitedAsColumn };

@@ -13,8 +13,8 @@ export const likePattern = (q: string) => '%' + q.replace(/[\\%_]/g, (m) => '\\'
 const offsetAndLimitScope = <Tbl extends keyof DB, O>(
   offset: number, limit: number
 ): DbScope<Tbl, O> => (
-  (query) => query.offset(offset).limit(limit)
-);
+    (query) => query.offset(offset).limit(limit)
+  );
 
 export const DbScopes = { offsetAndLimitScope };
 

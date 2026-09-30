@@ -10,7 +10,7 @@ import { Command, CommandRunner } from 'nest-commander';
 import { DB } from '../../api/database.module.ts';
 import type { Database } from '../../api/database.ts';
 import { SCHOLSHELF } from '../../core/book_files.ts';
-import { citedTitle, skipCitation } from '../../core/citation_matching.ts';
+import { citedTitle, citationShouldBeSkipped } from '../../core/citation_matching.ts';
 import { matchCitedBooks, planArchiveQueue, type ArchiveCopy } from '../../core/cited_books.ts';
 import { searchArchive } from '../../lib/archive_search.ts';
 import { log } from '../../lib/lib.ts';
@@ -70,7 +70,7 @@ export class FindAndQueueCitedBooksCommand extends CommandRunner {
     const failed: { citation: CitationRow, error: string }[] = [];
     let consecutiveErrors                                    = 0;
 
-    for (const citation of citations.filter((c) => !skipCitation(c.author, c.title))) {
+    for (const citation of citations.filter((c) => !citationShouldBeSkipped(c.author, c.title))) {
       if (consecutiveErrors >= MAX_CONSECUTIVE_ARCHIVE_ERRORS) {
         failed.push({ citation, error: 'not searched: archive.org unreachable' });
       }

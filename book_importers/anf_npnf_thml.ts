@@ -69,7 +69,7 @@ const main = async() => {
 
         if (db) {
           await BookActions.saveBook(db, { id: work.id, title: work.title, author: work.author, url: work.url },
-                         work.pages);
+                                     work.pages);
           await replacePageCitations(db, work.id, cited.map((p) => ({
             pageNumber: p.pageNumber, parts: p.citationParts,
           })));

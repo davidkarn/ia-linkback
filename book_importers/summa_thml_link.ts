@@ -31,14 +31,14 @@ const main = async() => {
       throw new Error(`no pages for ${ SUMMA_BOOK_ID }: import it first (book_importers/summa_thml.ts)`);
     }
     else {
-      const cited      = pages.map((p) => ({
+      const cited = pages.map((p) => ({
         pageNumber: p.page_number,
         label:      p.printed_page_number,
         parts:      summaCitationParts(p.printed_page_number),
       }));
-      
+
       const unreadable = cited.filter((p) => !p.parts);
-      
+
       if (unreadable.length) {
         throw new Error('pages whose labels have no citation: '
           + unreadable.slice(0, 10).map((p) => `${ p.pageNumber } "${ p.label }"`).join(', '));
@@ -62,7 +62,7 @@ const main = async() => {
               (p) => ({ pageNumber: p.pageNumber, parts: p.parts! })
             )
           );
-          
+
           console.log(`saved ${ saved } page citations`);
         }
       }

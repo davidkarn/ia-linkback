@@ -40,7 +40,7 @@ const citedByCount = (eb: DbExprBuilder<'books'>, name: string = 'cited_by_count
   eb.selectFrom('citations')
     .select(eb.fn.countAll<string>().as('n'))
     .where('citations.reference_book_id', 'in',
-      AlternateIdsSql.idsCitedAsColumn('books.id'))
+           AlternateIdsSql.idsCitedAsColumn('books.id'))
     .as(name)
 );
 

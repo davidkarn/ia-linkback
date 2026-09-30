@@ -316,7 +316,7 @@ export const scripRefCitations = (
     ...rest,
   });
   // scripture cites the Bible, whichever copy of it the collection holds
-  const bible    = (raw: string, passages: Passage[]) => (identifier: string) => [citation(identifier, {
+  const bible = (raw: string, passages: Passage[]) => (identifier: string) => [citation(identifier, {
     author:         'Bible',
     title:          bookName(passages[0]!.book),
     location:       locationText(passages),
