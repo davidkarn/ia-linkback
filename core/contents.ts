@@ -5,17 +5,23 @@ import type { CitationLocation } from '../types.ts';
 import type { CitationPart } from './summa_thml.ts';
 
 // pageId: the page to go to for the entry (a pageId of the book's pageOrder): the page cited by
-// exactly its parts (a question's contents page), or else the first page under it
+// exactly its parts (a question's contents page), or else the first page under it.
+// printedPageNumber: that page's printed number ('' when it has none)
 export type ContentsEntry = {
   partType: CitationLocation['type'],
   partValue: string,
   pageId: number,
+  printedPageNumber: string,
   childEntries: ContentsEntry[],
 };
 
 // The table of contents of pages cited by these parts, given in page order: entries in the order
-// they are first reached, a part shared by pages ("book 1") one entry holding the parts under it
-export const contentsOf = (pages: { pageId: number, parts: CitationPart[] }[]): ContentsEntry[] => {
+// they are first reached, a part shared by pages ("book 1") one entry holding the parts under it.
+// printedNumbers: the book's pages' printed numbers by pageId.
+export const contentsOf = (
+  pages: { pageId: number, parts: CitationPart[] }[],
+  printedNumbers: Map<number, string> = new Map(),
+): ContentsEntry[] => {
   const root: ContentsEntry[] = [];
   // entries whose pageId is a page cited by exactly their parts, which a later page can't replace
   const exact = new Set<ContentsEntry>();
@@ -27,17 +33,19 @@ export const contentsOf = (pages: { pageId: number, parts: CitationPart[] }[]): 
 
       if (found) {
         if (last && !exact.has(found)) {
-          found.pageId = page.pageId;
+          found.pageId            = page.pageId;
+          found.printedPageNumber = printedNumbers.get(page.pageId) ?? '';
           exact.add(found);
         }
         return found.childEntries;
       }
       else {
         const entry: ContentsEntry = {
-          partType:     part.type as CitationLocation['type'],
-          partValue:    String(part.value),
-          pageId:       page.pageId,
-          childEntries: [],
+          partType:          part.type as CitationLocation['type'],
+          partValue:         String(part.value),
+          pageId:            page.pageId,
+          printedPageNumber: printedNumbers.get(page.pageId) ?? '',
+          childEntries:      [],
         };
         if (last) {
           exact.add(entry);

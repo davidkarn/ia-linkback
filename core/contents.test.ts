@@ -43,4 +43,13 @@ describe('contentsOf', () => {
       parts(['book', '1'], ['chapter', '2']),
     )))).toEqual([['book 1 p2', ['chapter 1 p1', 'chapter 2 p3']]]);
   });
+
+  it("labels each entry with its page's printed number, '' when it has none", () => {
+    const contents = contentsOf(
+      pages(parts(['book', '1']), parts(['book', '1'], ['question', '1'])),
+      new Map([[1, 'iv']]),
+    );
+    expect(contents[0]!.printedPageNumber).toBe('iv');
+    expect(contents[0]!.childEntries[0]!.printedPageNumber).toBe('');
+  });
 });

@@ -295,8 +295,9 @@ const BookNavigation = ({book, hrefForPage, pageId}: {
           ))
           .with('contents', () => (
             __(TableOfContents, {
-              contents:  book.contents,
-              pageOrder: book.pageOrder,
+              contents: book.contents,
+              volumes:  book.volumes,
+              volume:   book.volume,
               pageId,
               hrefForPage,
             })

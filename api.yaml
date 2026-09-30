@@ -374,9 +374,9 @@ components:
                 type: number
         contents:
           description: >-
-            the table of contents of the volume opened, from the parts its pages are cited by in
-            book_pages_to_citations (e.g. book > question > article): the volume's own entry, or
-            the whole table for a book without volumes; empty when it has none
+            the book's whole table of contents, from the parts its pages are cited by in
+            book_pages_to_citations (e.g. book > question > article), every volume's entries (its
+            top level, for a book with volumes); empty when it has none
           type: array
           items:
             $ref: '#/components/schemas/ContentsEntry'
@@ -413,6 +413,7 @@ components:
         - partType
         - partValue
         - pageId
+        - printedPageNumber
         - childEntries
       properties:
         partType:
@@ -423,8 +424,12 @@ components:
         pageId:
           description: >-
             the page to go to for this entry (a pageId from pageOrder): the page cited by exactly
-            this entry's parts, or else the first page under it
+            this entry's parts, or else the first page under it. For a book with volumes, a page
+            of the volume of the entry's top-level ancestor, which may not be the one opened.
           type: number
+        printedPageNumber:
+          description: the printed number of the page at pageId ('' when it has none)
+          type: string
         childEntries:
           type: array
           items:

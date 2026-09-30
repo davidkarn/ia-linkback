@@ -2,7 +2,6 @@
 // citation part ("book 1", "book 2") is a volume. A book with no such rows has no volumes, and
 // is read as a single volume 1 holding every page. Pure functions; the service reads the rows.
 import type { CitationPart } from './summa_thml.ts';
-import type { ContentsEntry } from './contents.ts';
 
 // number: 1-based, in the order the volumes are first reached in page order.
 // pageIds: the volume's pages, in page order
@@ -79,15 +78,3 @@ export const selectVolume = (
     return 1;
   }
 };
-
-// The table of contents of one volume: its own entry, the top level of a book's contents being its
-// volumes. The whole table for a book without volumes (`volume` undefined).
-export const contentsOfVolume = (
-  contents: ContentsEntry[], volume: Volume | undefined
-): ContentsEntry[] => (
-  volume === undefined
-    ? contents
-    : contents.filter((e) => (
-      e.partType === volume.partType && e.partValue === String(volume.partValue)
-    ))
-);

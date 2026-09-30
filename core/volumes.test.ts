@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { contentsOfVolume, selectVolume, volumesOf } from './volumes.ts';
+import { selectVolume, volumesOf } from './volumes.ts';
 
 const cited = (pageId: number, ...pairs: [string, number][]) => ({
   pageId, parts: pairs.map(([type, value]) => ({ type, value })),
@@ -78,21 +78,5 @@ describe('selectVolume', () => {
     expect(selectVolume([], { volume: 1 })).toBe(1);
     expect(selectVolume([], { volume: 2 })).toBeNull();
     expect(selectVolume([], { pageId: 5 })).toBe(1);
-  });
-});
-
-describe('contentsOfVolume', () => {
-  const entry    = (partType: string, partValue: string) => (
-    { partType: partType as 'book', partValue, pageId: 1, childEntries: [] }
-  );
-  const contents = [entry('book', '1'), entry('book', '2')];
-
-  it("keeps only the volume's own entry", () => {
-    const [, second] = volumesOf([1, 2], [cited(1, ['book', 1]), cited(2, ['book', 2])]);
-    expect(contentsOfVolume(contents, second)).toEqual([entry('book', '2')]);
-  });
-
-  it('keeps the whole table for a book without volumes', () => {
-    expect(contentsOfVolume(contents, undefined)).toEqual(contents);
   });
 });

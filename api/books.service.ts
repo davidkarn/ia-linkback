@@ -7,7 +7,7 @@ import { citablePageNumber } from '../core/page_insights';
 import { citationsOfPage, citedCountsByPage } from '../model/page_insights';
 import { findCitedPages } from '../model/book_pages_to_citations';
 import { contentsOf, type ContentsEntry } from '../core/contents';
-import { contentsOfVolume, selectVolume, volumesOf } from '../core/volumes';
+import { selectVolume, volumesOf } from '../core/volumes';
 import { BookScopes, BookSelectors } from '../model/books.js';
 import { DbScopes, withScopes } from '../model/model_utils.js';
 
@@ -86,8 +86,8 @@ export class BooksService {
   }
 
   // A book opened to one of its volumes: `volume`, else the first holding `pageId`, else volume 1
-  // (see core/volumes.ts). pageOrder and contents hold only that volume's pages. null when there
-  // is no such book or volume.
+  // (see core/volumes.ts). pageOrder holds only that volume's pages; contents is the whole book's.
+  // null when there is no such book or volume.
   async get(
     bookId: string, opts: { volume?: number | undefined, pageId?: number | undefined } = {}
   ): Promise<BookForApi | null> {
@@ -151,7 +151,11 @@ export class BooksService {
               printedPageNumber: p.printed_page_number,
               citedByCount:      citedBy.get(p.page_number) ?? 0,
             })),
-          contents:     contentsOfVolume(contentsOf(citedPages), opened),
+          // the whole book's, every volume's entries: those of other volumes go to their pages
+          // in those volumes
+          contents:     contentsOf(
+            citedPages, new Map(pages.map((p) => [p.page_number, p.printed_page_number]))
+          ),
         };
       }
     }

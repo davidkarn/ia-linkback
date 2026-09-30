@@ -16,12 +16,15 @@ export type BookList = { meta: { count: number }, items: BookSummary[] };
 // this page (its foreignCitations).
 export type PageOrderEntry = { pageId: number, printedPageNumber: string, citedByCount: number };
 // A table of contents entry: a part the book's pages are cited by ("question 2"), and the parts
-// under it. pageId is the page to go to (a pageOrder pageId): the page cited by exactly its parts,
-// or else the first page under it. Empty for books cited by printed page number.
+// under it. pageId is the page to go to: the page cited by exactly its parts, or else the first
+// page under it, in the volume of its top-level entry (for a book with volumes, maybe not the one
+// open), and printedPageNumber that page's printed number. Empty for books cited by printed page
+// number.
 export type ContentsEntry = {
   partType: string,
   partValue: string,
   pageId: number,
+  printedPageNumber: string,
   childEntries: ContentsEntry[],
 };
 // One of a book's volumes: a distinct first citation part of its pages ("book 2"), numbered from 1
@@ -34,8 +37,9 @@ export type VolumeSummary = {
   lastPageId: number,
   pageCount: number,
 };
-// GET /books/{bookId}: opened to one volume, the pageOrder and contents holding only its pages.
-// volumes is empty for a book without volumes, which is always opened to volume 1.
+// GET /books/{bookId}: opened to one volume, the pageOrder holding only its pages, and contents
+// the whole book's (a volume's entries at its top level). volumes is empty for a book without
+// volumes, which is always opened to volume 1.
 export type Book = BookSummary & {
   volume: number,
   volumes: VolumeSummary[],
