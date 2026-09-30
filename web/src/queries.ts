@@ -22,12 +22,6 @@ export const booksQuery = (
   queryFn:  () => fetchBooks(opts),
 });
 
-export const bookSummariesQuery = () => queryOptions({
-  queryKey:  ['books', 'summaries'],
-  queryFn:   async() => new Map((await fetchBooks({ length: 100 })).items.map((b) => [b.id, b])),
-  staleTime: Infinity,
-});
-
 const bookVolumeKey = (bookId: string, volume: number) => ['book', bookId, 'volume', volume];
 
 // A book opened to `volume`; without one, to the volume holding `pageId` (volume 1 when it's

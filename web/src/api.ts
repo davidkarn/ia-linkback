@@ -75,6 +75,8 @@ export type BookPage = {
   printedPageNumber: string,
   blocks: PageBlock[],
   foreignCitations: Citation[],  // citations in other books that point to this page
+  // the title and author of each book a foreignCitation is in
+  foreignCitationTitles: { bookId: string, title: string, author: string }[],
 };
 
 const getJson = async <T>(path: string): Promise<T> => {

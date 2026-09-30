@@ -241,6 +241,22 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Citation'
+        foreignCitationTitles:
+          description: the title and author of each book a citation in foreignCitations is in
+          type: array
+          items:
+            type: object
+            required:
+              - bookId
+              - title
+              - author
+            properties:
+              bookId:
+                type: string
+              title:
+                type: string
+              author:
+                type: string
         blocks:
           type: array
           items:

@@ -1,8 +1,8 @@
 import { createElement as __, useCallback, useEffect, useMemo, useState } from 'react'
 import './book_page.scss';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { type Book, type Citation, type PageBlock } from '../api';
-import { bookSummariesQuery, citationSourcePageQuery, pageQuery } from '../queries';
+import { type Book, type BookPage, type Citation, type PageBlock } from '../api';
+import { citationSourcePageQuery, pageQuery } from '../queries';
 import { match, P } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
@@ -42,6 +42,7 @@ export const BookPageView = ({
 
   const headerBlocks = page?.blocks.filter((block) => block.label === 'PageHeader') ?? [];
   const bodyBlocks   = page?.blocks.filter((block) => block.label !== 'PageHeader') ?? [];
+  const citingBooks  = new Map(page?.foreignCitationTitles.map((b) => [b.bookId, b]) ?? []);
 
   const thisPageIndex = allPages.findIndex(p => p.pageId === pageId);
   const nextEntry     = thisPageIndex >= 0 ? allPages[thisPageIndex + 1] : undefined;
@@ -154,6 +155,7 @@ export const BookPageView = ({
                 c => __(CitedBy, {
                   key: c.id,
                   citation: c,
+                  citing: citingBooks.get(c.source.bookId),
                   hrefForCitingBook,
                   startCollapsed: page.foreignCitations.length > MAX_CITATIONS_BEFORE_COLLAPSING,
                 })
@@ -182,17 +184,14 @@ function Block({block}: {block: PageBlock}) {
 
 
 
-function CitedBy({citation, hrefForCitingBook, startCollapsed}: {
+// citing: the title and author of the book the citation is in
+function CitedBy({citation, citing, hrefForCitingBook, startCollapsed}: {
   citation: Citation,
+  citing: BookPage['foreignCitationTitles'][number] | undefined,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   startCollapsed: boolean,
 }) {
-  const books = useQuery(
-    bookSummariesQuery()
-  ).data ?? new Map<string, never>();
-  
   const source                    = citation.source;
-  const citing                    = books.get(source.bookId);
   const [collapsed, setCollapsed] = useState(startCollapsed);
   const toggle                    = () => setCollapsed(!collapsed);
 

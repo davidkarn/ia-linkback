@@ -4,7 +4,7 @@ import { DB } from './database.module';
 import type { Database } from './database';
 import { citation_columns, to_citation_dto, type CitationDto } from './citations.service';
 import { citablePageNumber } from '../core/page_insights';
-import { citationsOfPage, citedCountsByPage } from '../model/page_insights';
+import { citationsOfPage, citedCountsByPage, findBooks } from '../model/page_insights';
 import { findCitedPages } from '../model/book_pages_to_citations';
 import { contentsOf, type ContentsEntry } from '../core/contents';
 import { selectVolume, volumesOf } from '../core/volumes';
@@ -36,6 +36,8 @@ export type BookPageForApi = {
   printedPageNumber: string,
   blocks: { label: string, html: string, citations: CitationDto[] }[],
   foreignCitations: CitationDto[],
+  // the title and author of each book a foreignCitation is in
+  foreignCitationTitles: { bookId: string, title: string, author: string }[],
 };
 
 @Injectable()
@@ -203,6 +205,10 @@ export class BooksService {
         .select((eb) => citation_columns(eb))
         .execute();
 
+      const citingBooks = await findBooks(
+        this.db, [...new Set(foreignCitations.map((c) => c.source_book_id))]
+      );
+
       return {
         bookId,
         pageNumber:        page.page_number,
@@ -214,7 +220,12 @@ export class BooksService {
             .filter((c) => c.page_block_id === b.id)
             .map(to_citation_dto),
         })),
-        foreignCitations: foreignCitations.map(to_citation_dto),
+        foreignCitations:      foreignCitations.map(to_citation_dto),
+        foreignCitationTitles: [...citingBooks.values()].map((b) => ({
+          bookId: b.id,
+          title:  b.title,
+          author: b.author,
+        })),
       };
     }
   }
