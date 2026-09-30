@@ -1,6 +1,6 @@
 // Search archive.org for a cited work: an item whose title and creator match the citation's (the rules in
 // citation_matching.ts) that isn't lending-library only and has a public PDF. Used by link_citations.ts and
-// spider/find_and_queue_cited_books.ts.
+// the find-and-queue-cited-books command (cli/commands/find_and_queue_cited_books.command.ts).
 //
 // Answers, including "not found", are cached in output/archive_cache.json (relative to the working directory,
 // src/), so the same author and title are only searched once. Requests are spaced ~1s apart.

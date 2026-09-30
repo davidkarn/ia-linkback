@@ -1,5 +1,5 @@
 // OCR results -> Pages: block labels and printed page numbers. Used by build_book.ts and
-// spider/process_ocred_books.ts.
+// the process-ocred-books command (cli/commands/process_ocred_books.command.ts).
 import type { Page, PageBlock } from '../types';
 
 // ---------------------------------------------------------------------------

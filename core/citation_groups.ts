@@ -2,7 +2,7 @@
 // (part1_type/part1_value ... part8_type/part8_value), in the order the citation gives them
 // ("chapter 1, verse 2"), and the raw label of the locations it came from. A range is a row per
 // place: "ch. 1, vv. 2-4" is three rows, chapter 1 with verse 2, 3 and 4, each labelled
-// "ch. 1, vv. 2-4". Pure functions; model/books.ts and spider/process_ocred_books.ts save them.
+// "ch. 1, vv. 2-4". Pure functions; model/books.ts and model/extracted_citations.ts save them.
 import type { CitationLocation } from '../types.ts';
 import type { CitationPart } from './summa_thml.ts';
 

@@ -6,9 +6,10 @@
     "test": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js",
     "start": "tsx api/main.ts",
     "dev": "tsx watch --clear-screen=false --include .env api/main.ts",
-    "repl": "tsx watch --clear-screen=false --include .env api/repl.ts",      
+    "repl": "tsx watch --clear-screen=false --include .env api/repl.ts",
     "migrate": "tsx migrate.ts",
-      "lint": "eslint .",
+    "cli": "tsx cli/main.ts",
+    "lint": "eslint .",
     "format": "eslint --fix ."
   },
   "type": "module",
@@ -30,7 +31,7 @@
     "jest": "30.5.2",
     "sass-embedded": "1.105.0",
     "tsx": "4.23.13",
-    "typescript": "^.0.3",
+    "typescript": "6.0.3",
     "typescript-eslint": "8.70.1"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "dotenv": "18.0.4",
     "jaro-winkler": "0.2.8",
     "kysely": "0.29.6",
+    "nest-commander": "3.21.0",
     "node-html-parser": "9.0.4",
     "pg": "8.23.0",
     "reflect-metadata": "0.2.2",

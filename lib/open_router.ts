@@ -1,4 +1,5 @@
-// OpenRouter chat completions (the same request process_ocred_books.ts makes). Needs OPENROUTER_KEY.
+// OpenRouter chat completions (for process-ocred-books and
+// consolidate-footnote-insights, see cli/). Needs OPENROUTER_KEY.
 import type { JSONSchema7 } from 'json-schema';
 
 export type ORMessage = {

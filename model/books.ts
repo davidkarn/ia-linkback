@@ -144,6 +144,27 @@ const saveBook = (
   return { pages: pages.length, blocks: blocks.length, citations: citations.length, groups };
 });
 
+// The ids, titles and authors of the books but one: those it may cite
+const findOtherBookNames = (db: Kysely<Database>, bookId: string) => (
+  db.selectFrom('books')
+    .select(['id', 'title', 'author'])
+    .where('id', '<>', bookId)
+    .execute()
+);
+
+const findBookIds = async(db: Kysely<Database>): Promise<Set<string>> => (
+  new Set((await db.selectFrom('books').select('id').execute()).map((b) => b.id))
+);
+
+// coverPhotoPath: relative to the frontend's root ("covers/<file>")
+const setCoverPhotoPath = (db: Kysely<Database>, bookId: string, coverPhotoPath: string) => (
+  db.updateTable('books')
+    .set({ cover_photo_path: coverPhotoPath })
+    .where('id', '=', bookId)
+    .execute()
+);
+
 export const BookScopes = { sortedForDisplay, scopedToQuery };
-export const BookActions = { saveBook };
+export const BookActions = { saveBook, setCoverPhotoPath };
 export const BookSelectors = { citedByCount, pageCount };
+export const BookQueries = { findOtherBookNames, findBookIds };

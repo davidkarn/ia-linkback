@@ -1,5 +1,5 @@
 // Citations in other books of a book: reading them, and pointing them at the book with new locations.
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import type { PlaceGroup } from '../core/citation_groups.ts';
 import { groupRow } from './citation_groups.ts';
@@ -66,3 +66,39 @@ export const relinkCitations = (
 
   return { citations: citations.length, groups };
 });
+
+// A book's own citations (those in its footnotes), in reading order
+export const findCitationsInBook = (db: Kysely<Database>, bookId: string) => (
+  db.selectFrom('citations')
+    .select([
+      'id', 'source_footnote_page', 'source_footnote_identifier', 'author', 'title', 'location', 'raw',
+      'reference_book_id',
+    ])
+    .where('source_book_id', '=', bookId)
+    .orderBy('source_footnote_page')
+    .orderBy('id')
+    .execute()
+);
+
+// Point citations at the books they cite, keeping their locations, in one transaction; then clear
+// the cached insights of the pages they now cite. Returns how many were updated.
+export const linkCitations = (
+  db: Kysely<Database>, links: { citationId: string, bookId: string }[]
+): Promise<number> => (
+  links.length === 0
+    ? Promise.resolve(0)
+    : db.transaction().execute(async(trx) => {
+      const citationIds = links.map((l) => l.citationId);
+      const result      = await sql`
+        UPDATE citations SET reference_book_id = r.book_id
+        FROM unnest(
+          ${ citationIds }::bigint[],
+          ${ links.map((l) => l.bookId) }::text[]
+        ) AS r(citation_id, book_id)
+        WHERE citations.id = r.citation_id`.execute(trx);
+
+      await invalidateInsightsCitedBy(trx, citationIds);
+
+      return Number(result.numAffectedRows ?? 0);
+    })
+);

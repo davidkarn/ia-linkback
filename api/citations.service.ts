@@ -5,7 +5,7 @@ import { DB } from './database.module';
 import type { Database } from './database';
 import { findCitationSourcePage } from '../model/citation_source_pages';
 import { citation_page_html } from '../core/citation_pages';
-import { withScopes } from '../model/model_utils.js';
+import { DbScopes, withScopes } from '../model/model_utils.js';
 import { CitationScopes } from '../model/citations.js';
 
 // The Citation schema in api.yaml
@@ -88,13 +88,13 @@ export class CitationsService {
       CitationScopes.citesBook(bookId)
     ]);
 
-    const rows = await matching()
+    const rows = await withScopes(
+      matching(), [DbScopes.offsetAndLimitScope(opts.offset, opts.length)]
+    )
       .select(citation_columns)
       .orderBy('citations.source_book_id')
       .orderBy('citations.source_footnote_page')
       .orderBy('citations.id')
-      .limit(opts.length)
-      .offset(opts.offset)
       .execute();
 
     const total = await matching().select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();

@@ -2,7 +2,7 @@
 // (Google's usage notice, blank endpapers, Digital Library of India pages: "TEXT FLY WITHIN THE BOOK ONLY", a
 // "UNIVERSAL LIBRARY" label, an accession stamp, a library card, "THE BOOK WAS DRENCHED"). Pages are checked by
 // their share of dark pixels and by OCR'ing them with tesseract; if none of the first MAX_PAGES qualifies, page
-// 1 is used. Used by extract_covers.ts and spider/process_ocred_books.ts.
+// 1 is used. Used by the save-cover command (cli/commands/save_cover.command.ts).
 // Needs ImageMagick (`magick`) with Ghostscript for reading PDFs, and tesseract.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';

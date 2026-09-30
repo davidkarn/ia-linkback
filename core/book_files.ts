@@ -1,5 +1,5 @@
-// Where a queued book's files live: its PDF in ../scholshelf/ (as downloaded by find_and_queue_cited_books.ts
-// and link_citations.ts) and its surya OCR results in ../scholshelf/results/surya/<folder>/results.json.
+// Where a queued book's files live: its PDF in ../scholshelf/ (as downloaded by the find-and-queue-cited-books
+// command and link_citations.ts) and its surya OCR results in ../scholshelf/results/surya/<folder>/results.json.
 // SCHOLSHELF_DIR overrides ../scholshelf, e.g. for testing.
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -7,7 +7,7 @@ import path from 'node:path';
 export const SCHOLSHELF = process.env.SCHOLSHELF_DIR ?? '../scholshelf';
 export const SURYA_RESULTS_DIR = path.join(SCHOLSHELF, 'results', 'surya');
 
-// The PDF's file name: the last part of pdf_url, as is (still URL-encoded), as ocr_queued.sh expects
+// The PDF's file name: the last part of pdf_url, as is (still URL-encoded), as surya's output folder is named after it (see lib/surya.ts)
 export const pdfFileName = (pdfUrl: string) => (
   new URL(pdfUrl).pathname.split('/').pop() ?? ''
 );
