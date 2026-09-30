@@ -43,32 +43,58 @@
         flex-direction: column;
         align-items: flex-start;
         gap: 0.375rem;
-        padding: 0.5rem 0 0.5rem 0.875rem;
+        padding: 0.5rem 0 0.5rem 0;
 
         .volume-dot {
             width: 0.375rem;
             height: 0.375rem;
             border-radius: 50%;
             background: #857F89bb;
+            margin-left: 0.5rem;
 
-            &:hover {
-                background: #343959;
-                transform: scale(1.5);
+            span {
+                display: none;
             }
         }
+
+        .volume-dot-wrapper {
+            width: 100%;
+
+            &:hover {
+                .volume-dot {
+                    display: flex;
+                    border-radius: 0;
+                    height: auto;
+                    background: none;
+                    width: 100%;
+                    margin-left: 0;
+                    text-align: center;
+                    padding-bottom: 0.25rem;
+                    padding-top: 0.25rem;
+                    
+                    span {
+                        font-size: 0.675rem;
+                        display: flex;
+                    }
+                    
+                }
+            }
+        }
+
     }
 
     .lines {
         display: flex;
         flex-direction: column;
-        height: calc(var(--page-count) * 4px);
+        min-height: calc(var(--page-count) * 4px);
     }
 
     .line {
         display: flex;
         align-items: center;
         cursor: pointer;
-        flex-grow: 1;        
+        flex-grow: 1;
+        height: 0.25rem;
 
         &::after {
             width: 1rem;
@@ -96,6 +122,7 @@
         }
 
         &:hover {
+            height: auto;
             font-size: 0.75rem;
             padding-left: 0rem;
             

@@ -31,10 +31,14 @@ const BookPager = memo(({pages, volume, volumes, hrefForPage}: {
         __(Link, {
           key:          v.volume,
           to:           hrefForPage(v.firstPageId, v.volume),
-          className:    'volume-dot',
+          className:    'volume-dot-wrapper',
           title:        entryLabel(v),
           'aria-label': entryLabel(v),
-        })
+        },
+          __('div', {className: 'volume-dot'},
+            __('span', {}, entryLabel(v))
+          )
+        )
       ))
     )
   );
