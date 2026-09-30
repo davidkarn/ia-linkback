@@ -1,8 +1,7 @@
 // A book's alternate ids (the alternate_ids table): citations that point at one of them count as
 // citations of the book. These say which citations cite a book, for the queries that look them up.
-import { sql, type ExpressionBuilder, type RawBuilder } from 'kysely';
-import type { Database } from '../api/database.ts';
-import type { DbExprBuilder, DbSelectQuery } from './model_utils.js';
+import { sql, type RawBuilder } from 'kysely';
+import type { DbSelectQuery } from './model_utils.js';
 
 // SQL: the ids that citations of `bookId` point at: its own and its alternates'
 const idsCitedAs = (bookId: string): RawBuilder<string> => sql<string>`(

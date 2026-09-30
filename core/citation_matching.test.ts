@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { citedTitle, fold, keyNames, sameAuthor, sameTitle, skipCitation, volumeOf } from './citation_matching.ts';
+import { citedTitle, fold, keyNames, sameAuthor, sameTitle, citationShouldBeSkipped, volumeOf } from './citation_matching.ts';
 
 describe('fold', () => {
   it('lowercases, strips accents and rejoins words broken at a line end', () => {
@@ -62,11 +62,11 @@ describe('sameTitle', () => {
   });
 });
 
-describe('skipCitation', () => {
+describe('citationShouldBeSkipped', () => {
   it('skips citations with no author or title, and the Bible', () => {
-    expect(skipCitation('', 'Summa Theologica')).toBe(true);
-    expect(skipCitation('Aquinas', '')).toBe(true);
-    expect(skipCitation('Bible', '2 Corinthians')).toBe(true);
-    expect(skipCitation('Aquinas', 'Summa Theologica')).toBe(false);
+    expect(citationShouldBeSkipped('', 'Summa Theologica')).toBe(true);
+    expect(citationShouldBeSkipped('Aquinas', '')).toBe(true);
+    expect(citationShouldBeSkipped('Bible', '2 Corinthians')).toBe(true);
+    expect(citationShouldBeSkipped('Aquinas', 'Summa Theologica')).toBe(false);
   });
 });

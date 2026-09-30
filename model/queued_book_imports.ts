@@ -51,7 +51,7 @@ export const findQueuedUrls = async(db: Kysely<Database>): Promise<Set<string>> 
 };
 
 // Queue a book found on archive.org for OCR. Returns its id.
-export const queueBook = async(
+const queueBook = async(
   db: Kysely<Database>,
   book: { title: string, author: string, archiveUrl: string, pdfUrl: string },
 ): Promise<string> => {
@@ -67,4 +67,8 @@ export const queueBook = async(
     .executeTakeFirstOrThrow();
 
   return row.id;
+};
+
+export const QueuedBookImportsActions = {
+  queueBook
 };

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { Kysely } from 'kysely';
 import { DB } from './database.module';
 import type { Database } from './database';
 import { citation_columns, to_citation_dto, type CitationDto } from './citations.service';

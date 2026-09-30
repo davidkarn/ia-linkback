@@ -3,23 +3,20 @@
 // those found for OCR. Marks it importedAndCrawled. See core/cited_books.ts.
 //   npm run cli -- find-and-queue-cited-books
 import { Inject } from '@nestjs/common';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import type { Kysely } from 'kysely';
 import { Command, CommandRunner } from 'nest-commander';
 import { DB } from '../../api/database.module.ts';
 import type { Database } from '../../api/database.ts';
-import { SCHOLSHELF } from '../../core/book_files.ts';
 import { citedTitle, citationShouldBeSkipped } from '../../core/citation_matching.ts';
-import { matchCitedBooks, planArchiveQueue, type ArchiveCopy } from '../../core/cited_books.ts';
+import { actionsForArchivePlan, matchCitedBooks, planArchiveQueue, type ArchiveCopy } from '../../core/cited_books.ts';
 import { searchArchive } from '../../lib/archive_search.ts';
 import { log } from '../../lib/lib.ts';
-import { downloadPdf } from '../../lib/pdf_download.ts';
 import { BookQueries } from '../../model/books.ts';
 import { findCitationsInBook, linkCitations } from '../../model/incoming_citations.ts';
 import {
-  findNextQueuedBook, findQueuedBookNames, findQueuedUrls, queueBook, setQueuedBookStatus,
+  findNextQueuedBook, findQueuedBookNames, findQueuedUrls, setQueuedBookStatus,
 } from '../../model/queued_book_imports.ts';
+import { executeActions } from '../../actions/app_actions.ts';
 
 // After this many archive.org searches fail in a row, the rest aren't tried
 const MAX_CONSECUTIVE_ARCHIVE_ERRORS = 5;
@@ -76,7 +73,11 @@ export class FindAndQueueCitedBooksCommand extends CommandRunner {
       }
       else {
         try {
-          const hit         = await searchArchive(citation.author, citedTitle(citation.title) || citation.title);
+          const hit = await searchArchive(
+            citation.author,
+            citedTitle(citation.title) || citation.title
+          );
+
           consecutiveErrors = 0;
 
           if (hit) {
@@ -100,29 +101,10 @@ export class FindAndQueueCitedBooksCommand extends CommandRunner {
 
   // Download the copies not queued or imported already to the scholshelf folder, and queue them
   private async queueArchiveCopies(copies: ArchiveCopy[]) {
-    const plan   = planArchiveQueue(copies, await findQueuedUrls(this.db), await BookQueries.findBookIds(this.db));
-    const queued = [];
-    const failed = [...plan.failed];
+    const plan    = planArchiveQueue(copies, await findQueuedUrls(this.db), await BookQueries.findBookIds(this.db));
+    const actions = actionsForArchivePlan(plan);
+    const result  = await executeActions(this.db, actions);
 
-    await fs.mkdir(SCHOLSHELF, { recursive: true });
-
-    for (const copy of plan.toQueue) {
-      try {
-        const file = path.join(SCHOLSHELF, copy.fileName);
-        const size = await fs.stat(file).then((st) => st.size, () => 0);
-
-        if (size === 0) {
-          await downloadPdf(copy.pdfUrl, file);
-        }
-
-        const id = await queueBook(this.db, copy);
-        queued.push({ id, archiveUrl: copy.archiveUrl, pdfUrl: copy.pdfUrl, file, citations: copy.citations });
-      }
-      catch (e) {
-        failed.push({ archiveUrl: copy.archiveUrl, error: (e as Error).message ?? String(e) });
-      }
-    }
-
-    return { queued, skipped: plan.skipped, failed };
+    return result;
   }
 }

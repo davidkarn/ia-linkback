@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { matchCitedBooks, planArchiveQueue } from './cited_books.ts';
+import { actionsForArchivePlan, matchCitedBooks, planArchiveQueue } from './cited_books.ts';
 
 const citation = (id: string, author: string, title: string, location = '') => (
   { id, author, title, location, reference_book_id: null as string | null }
@@ -61,5 +61,29 @@ describe('planArchiveQueue', () => {
     expect(plan.toQueue).toEqual([]);
     expect(plan.skipped.map((s) => s.reason)).toEqual(['already queued', 'already a book']);
     expect(plan.failed.map((f) => f.archiveUrl)).toEqual([copy('odd').archiveUrl]);
+  });
+});
+
+describe('actionsForArchivePlan', () => {
+  const plan              = planArchiveQueue([{
+    archiveUrl: 'https://archive.org/details/x',
+    pdfUrl:     'https://archive.org/download/x/x.pdf',
+    author:     'A',
+    title:      'T',
+  }], new Set(), new Set());
+  const [download, queue] = actionsForArchivePlan(plan);
+  const result            = (success: boolean) => ({
+    'downloadPdf:0': { id: 'downloadPdf:0', success, result: null },
+  });
+
+  it('downloads each PDF, then queues its book', () => {
+    expect(download).toMatchObject({ id: 'downloadPdf:0', cmd: 'downloadPdf' });
+    expect(typeof queue === 'function' && queue(result(true))).toMatchObject({
+      id: 'saveToQueue:0', cmd: 'modelAction',
+    });
+  });
+
+  it("doesn't queue a book whose PDF failed to download", () => {
+    expect(typeof queue === 'function' && queue(result(false))).toBeNull();
   });
 });

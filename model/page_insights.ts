@@ -4,7 +4,7 @@
 import { sql, type Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import type { CitingCitation, ContextPage, PageInsights } from '../core/page_insights.ts';
-import { AlternateIdsScopes, AlternateIdsSql } from './alternate_ids.ts';
+import { AlternateIdsSql } from './alternate_ids.ts';
 import { withScopes } from './model_utils.js';
 import { CITATION_RANGE, CitationScopes } from './citations.js';
 
@@ -22,14 +22,6 @@ export const findPage = (db: Kysely<Database>, bookId: string, pageNumber: numbe
 const groupPartRows = (grp: string) => sql`(values ${ sql.join(CITATION_RANGE.map((n) => (
   sql`(${ n }, ${ sql.ref(`${ grp }.part${ n }_type`) }, ${ sql.ref(`${ grp }.part${ n }_value`) })`
 ))) })`;
-
-// SQL: the non-null parts of a row as "type:value" keys, in order ('{book:1,question:2,article:3}');
-// `column(n, kind)` names part n's type or value column
-const partKeys = (column: (n: number, kind: 'type' | 'value') => string) => (
-  sql`array_remove(array[${ sql.join(CITATION_RANGE.map((n) => (
-    sql`${ sql.ref(column(n, 'type')) } || ':' || ${ sql.ref(column(n, 'value')) }`
-  ))) }], null)`
-);
 
 // SQL: every part of the book_pages_to_citations row `row` is one of the parts of the
 // citation_groups row `grp`. A part that is null asks for nothing.

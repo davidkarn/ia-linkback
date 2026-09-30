@@ -1,5 +1,5 @@
 // Saving a whole book: its books row, pages and page blocks.
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import type { Page } from '../types.ts';
 import { placesOf } from '../core/citation_groups.ts';

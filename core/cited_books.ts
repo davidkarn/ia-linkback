@@ -2,7 +2,10 @@
 // and title, see core/citation_matching.ts), those queued for import, and the rest, to look for on
 // archive.org and queue. Pure functions; cli/commands/find_and_queue_cited_books.command.ts reads
 // and saves them and searches archive.org.
-import { citedTitle, sameAuthor, sameTitle, skipCitation, volumeOf } from './citation_matching.ts';
+import path from 'node:path';
+import type { AppActionStep } from '../actions/app_actions.ts';
+import { citedTitle, sameAuthor, sameTitle, citationShouldBeSkipped, volumeOf } from './citation_matching.ts';
+import { SCHOLSHELF } from './book_files.ts';
 
 type CitationFields = { id: string, author: string, title: string, location: string, reference_book_id: string | null };
 type Named          = { title: string, author: string };
@@ -41,7 +44,7 @@ export const matchCitedBooks = <C extends CitationFields>(
     if (c.reference_book_id !== null) {
       // linked already
     }
-    else if (skipCitation(c.author, c.title)) {
+    else if (citationShouldBeSkipped(c.author, c.title)) {
       notReferencing.push(c);
     }
     else {
@@ -119,3 +122,39 @@ export const planArchiveQueue = (
 
   return plan;
 };
+
+export const actionsForArchivePlan = (plan: {
+  toQueue: (ArchiveCopy & { fileName: string, citations: number })[],
+  skipped: { archiveUrl: string, reason: string }[],
+  failed: { archiveUrl: string, error: string }[],
+}): AppActionStep[] => (
+  plan.toQueue.flatMap((queueItem, i): AppActionStep[] => [
+    {
+      id:   'downloadPdf:' + i,
+      cmd:  'downloadPdf',
+      data: {
+        url:       queueItem.pdfUrl,
+        localPath: path.join(SCHOLSHELF, queueItem.fileName)
+      }
+    },
+    // queued only once its PDF is downloaded: ocr-queued-books stops at a book without one
+    (results) => (
+      results['downloadPdf:' + i]?.success
+        ? {
+            id:   'saveToQueue:' + i,
+            cmd:  'modelAction',
+            data: {
+              model:  'QueuedBookImports',
+              act:    'queueBook',
+              params: [{
+                title:      queueItem.title,
+                author:     queueItem.author,
+                archiveUrl: queueItem.archiveUrl,
+                pdfUrl:     queueItem.pdfUrl
+              }]
+            }
+          }
+        : null
+    ),
+  ])
+);

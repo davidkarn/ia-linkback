@@ -1,6 +1,5 @@
-import { sql, type ExpressionBuilder, type RawBuilder } from 'kysely';
-import type { Database } from '../api/database.ts';
-import type { DbExprBuilder, DbSelectQuery } from './model_utils.js';
+import { sql } from 'kysely';
+import type { DbSelectQuery } from './model_utils.js';
 import { AlternateIdsSql } from './alternate_ids.js';
 
 export const CITATION_PARTS = 8;
