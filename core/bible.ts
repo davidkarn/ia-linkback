@@ -1,6 +1,10 @@
 // The books of the Bible in the Catholic (Douay) canon, and how sources name them. A Bible
 // citation's "book" location is the book's position in DOUAY_CANON (1-73).
 
+// The id Bible citations reference: not a book itself, but an alternate id of the Bibles in the
+// collection (the alternate_ids table: douay-rheims)
+export const BIBLE_BOOK_ID = 'bible';
+
 // Lower case, in canonical order
 export const DOUAY_CANON = [
   'genesis', 'exodus', 'leviticus', 'numbers', 'deuteronomy', 'josue', 'judges', 'ruth',

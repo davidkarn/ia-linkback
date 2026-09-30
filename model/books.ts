@@ -5,7 +5,7 @@ import type { Page } from '../types.ts';
 import { placesOf } from '../core/citation_groups.ts';
 import { groupRow } from './citation_groups.ts';
 import { idsCitedAsColumn } from './alternate_ids.ts';
-import { likePattern, type DbExprBuilder, type DbSelectQuery } from './model_utils.js';
+import { likePattern, type DbExprBuilder, type DbSelectQuery } from './model_utils.ts';
 
 const CHUNK = 500;
 

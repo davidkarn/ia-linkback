@@ -23,7 +23,7 @@ describe('scripRefCitations: scripture', () => {
       raw:        'Jn. 14:6',
       citations:  [{
         source:          { bookId: 'summa-theologiae', footnoteIdentifier: '1', footnotePage: 13 },
-        referenceBookId: null,
+        referenceBookId: 'bible',
         author:          'Bible',
         title:           'John',
         location:        '14:6',

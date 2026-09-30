@@ -1,7 +1,8 @@
 import { Kysely, sql } from 'kysely';
 
 // Other ids a book goes by: citations that point at alternate_id (another copy or edition of the
-// book) count as citations of book_id (see model/alternate_ids.ts)
+// book) count as citations of book_id (see model/alternate_ids.ts). alternate_id no longer
+// references books (0012_alternate_ids_without_book.ts).
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable('alternate_ids')

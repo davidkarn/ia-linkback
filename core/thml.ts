@@ -1,7 +1,7 @@
 // Reading CCEL's ThML (Theological Markup Language) books: shared by the ThML importers, such as
 // core/summa_thml.ts. Pure functions.
 import type { Citation, CitationLocation } from '../types.ts';
-import { bookName, osisBookNumber, printedBookNumber } from './bible.ts';
+import { BIBLE_BOOK_ID, bookName, osisBookNumber, printedBookNumber } from './bible.ts';
 
 // One cited passage: a chapter, and verses in it (none for a whole chapter)
 type Passage = { book: number, chapter: number, verses: number[] };
@@ -303,23 +303,26 @@ export const scripRefCitations = (
   firstIdentifier = 1,
 ): { html: string, footnotes: ThmlFootnote[] } => {
   const citation = (
-    identifier: string, rest: Omit<Citation, 'source' | 'referenceBookId'>
+    identifier: string,
+    rest: Omit<Citation, 'source' | 'referenceBookId'>,
+    referenceBookId: string | null = null,
   ): Citation => ({
     source: {
       bookId:             source.bookId,
       footnoteIdentifier: identifier,
       footnotePage:       source.footnotePage,
     },
-    referenceBookId: null,
+    referenceBookId,
     ...rest,
   });
+  // scripture cites the Bible, whichever copy of it the collection holds
   const bible    = (raw: string, passages: Passage[]) => (identifier: string) => [citation(identifier, {
     author:         'Bible',
     title:          bookName(passages[0]!.book),
     location:       locationText(passages),
     raw,
     locationsCited: passageLocations(passages),
-  })];
+  }, BIBLE_BOOK_ID)];
 
   // the text with each <note> swapped for a placeholder, so that what a note contains isn't taken
   // for citations in the text; the placeholder is where the note's <sup> goes
