@@ -40,3 +40,7 @@ export const mapLimited = async <T, R>(
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
 };
+
+export const column = <T, K extends keyof T>(records: T[], key: K): T[K][] => (
+  records.map((r) => r[key])
+);

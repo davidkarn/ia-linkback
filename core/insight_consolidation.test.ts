@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import {
-  checkConsolidation, describeChanges, isChanged, unconsolidated,
+  checkConsolidation, describeChanges, insightsHaveChanged, unconsolidated,
 } from './insight_consolidation.ts';
 
 const original = [
@@ -24,14 +24,14 @@ describe('checkConsolidation', () => {
 
 describe('isChanged', () => {
   it('is false for insights kept as they are', () => {
-    expect(isChanged(original, unconsolidated(original))).toBe(false);
+    expect(insightsHaveChanged(original, unconsolidated(original))).toBe(false);
   });
 
   it('is true for a merge or a rewording', () => {
-    expect(isChanged(original, [
+    expect(insightsHaveChanged(original, [
       { insight: 'merged', sourceIds: ['1', '2'] }, { insight: original[2]!.insight, sourceIds: ['3'] },
     ])).toBe(true);
-    expect(isChanged(original.slice(0, 1), [{ insight: 'reworded', sourceIds: ['1'] }])).toBe(true);
+    expect(insightsHaveChanged(original.slice(0, 1), [{ insight: 'reworded', sourceIds: ['1'] }])).toBe(true);
   });
 });
 

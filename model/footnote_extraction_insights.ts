@@ -14,7 +14,7 @@ export const findInsights = (db: Kysely<Database>): Promise<Insight[]> => (
 
 // Replace the insights read (by id) with these, in one transaction. Only the rows read are
 // deleted, so an insight saved in the meantime is kept.
-export const replaceInsights = (db: Kysely<Database>, originalIds: string[], insights: string[]) => (
+const replaceInsights = (db: Kysely<Database>, originalIds: string[], insights: string[]) => (
   db.transaction().execute(async(trx) => {
     await trx.deleteFrom('footnote_extraction_insights').where('id', 'in', originalIds).execute();
 
@@ -25,3 +25,5 @@ export const replaceInsights = (db: Kysely<Database>, originalIds: string[], ins
     }
   })
 );
+
+export const FootnoteExtractionInsightActions = { replaceInsights };

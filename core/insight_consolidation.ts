@@ -1,6 +1,8 @@
 // Consolidating footnote_extraction_insights with an LLM: merging insights that say the same or
 // overlapping things, without losing any. Pure functions;
 // cli/commands/consolidate_footnote_insights.command.ts makes the request and saves the result.
+import type { AppAction } from '../actions/app_actions.ts';
+import { column } from '../lib/lib.ts';
 import type { ORResponseFormat } from '../lib/open_router.ts';
 
 export type Insight = { id: string, insight: string };
@@ -80,7 +82,7 @@ export const checkConsolidation = (
 };
 
 // Whether consolidating changed anything: a merge, a rewording, or a different count
-export const isChanged = (original: Insight[], consolidated: ConsolidatedInsight[]): boolean => {
+export const insightsHaveChanged = (original: Insight[], consolidated: ConsolidatedInsight[]): boolean => {
   const byId = new Map(original.map((i) => [i.id, i.insight]));
 
   return consolidated.length !== original.length
@@ -89,7 +91,7 @@ export const isChanged = (original: Insight[], consolidated: ConsolidatedInsight
 
 // What consolidating changed, as lines to show: each merged or reworded insight with the
 // originals it replaces, then a count
-export const describeChanges = (
+const describeChanges = (
   original: Insight[], consolidated: ConsolidatedInsight[]
 ): string[] => {
   const byId      = new Map(original.map((i) => [i.id, i.insight]));
@@ -107,4 +109,42 @@ export const describeChanges = (
       ]),
     `\n${ original.length } insights -> ${ consolidated.length } (${ unchanged.length } unchanged)`,
   ];
+};
+
+
+export const insightConsolidationActions = (
+  originalInsights: Insight[],
+  consolidated: ConsolidatedInsight,
+  missingIds: string[]
+): AppAction[] => {
+  if (!insightsHaveChanged) {
+    return [{ cmd: 'log', data: ['no changes'] }];
+  }
+  else {
+    const byId = new Map(insights.map((i) => [i.id, i.insight]));
+
+    return describeChanges(originalInsights, consolidated)
+      .map((logName) => ({ cmd: 'log', data: [logName] }))
+      .concat(
+        missingIds.length === 0
+          ? []
+          : [{
+              cmd:  'log',
+              data: [
+                '\nnot replacing: no consolidated insight includes these originals:'
+              ] },
+             ...missingIds.map((id) => ({
+               cmd:  'log',
+               data: [`  - [${ id }] ${ byId.get(id) }`]
+             }))]
+      )
+      .concat([{
+        cmd:  'modelAction',
+        data: {
+          model:  'FootnoteExtractionInsights',
+          act:    'replaceInsights',
+          params: [column(originalInsights, 'id'), column(consolidated, 'insight')]
+        }
+      }]);
+  }
 };

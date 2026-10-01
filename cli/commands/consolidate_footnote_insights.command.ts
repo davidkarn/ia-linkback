@@ -8,11 +8,12 @@ import { Command, CommandRunner } from 'nest-commander';
 import { DB } from '../../api/database.module.ts';
 import type { Database } from '../../api/database.ts';
 import {
-  checkConsolidation, CONSOLIDATE_PROMPT, CONSOLIDATED_FORMAT, describeChanges, isChanged,
+  checkConsolidation, CONSOLIDATE_PROMPT, CONSOLIDATED_FORMAT, insightConsolidationActions,
   MIN_TO_CONSOLIDATE, unconsolidated, type ConsolidatedInsight, type Insight,
 } from '../../core/insight_consolidation.ts';
 import { makeOpenRouterRequest, parseJsonResponse } from '../../lib/open_router.ts';
-import { findInsights, replaceInsights } from '../../model/footnote_extraction_insights.ts';
+import { findInsights } from '../../model/footnote_extraction_insights.ts';
+import { executeActions } from '../../actions/app_actions.ts';
 
 @Command({
   name:        'consolidate-footnote-insights',
@@ -26,22 +27,8 @@ export class ConsolidateFootnoteInsightsCommand extends CommandRunner {
   async run(): Promise<void> {
     const insights                     = await findInsights(this.db);
     const { consolidated, missingIds } = await this.consolidate(insights);
-    const byId                         = new Map(insights.map((i) => [i.id, i.insight]));
 
-    describeChanges(insights, consolidated).forEach((line) => console.log(line));
-
-    if (missingIds.length > 0) {
-      // replacing would lose these: leave the table as it is
-      console.log('\nnot replacing: no consolidated insight includes these originals:');
-      missingIds.forEach((id) => console.log(`  - [${ id }] ${ byId.get(id) }`));
-    }
-    else if (!isChanged(insights, consolidated)) {
-      console.log('nothing to replace');
-    }
-    else {
-      await replaceInsights(this.db, insights.map((i) => i.id), consolidated.map((c) => c.insight));
-      console.log('replaced the insights in the database');
-    }
+    executeActions(insightConsolidationActions(insights, consolidated, missingIds));
   }
 
   private async consolidate(insights: Insight[]) {

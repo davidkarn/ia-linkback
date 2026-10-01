@@ -4,9 +4,11 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import { downloadPdf } from "../lib/pdf_download.ts";
 import { QueuedBookImportsActions } from "../model/queued_book_imports.js";
+import { FootnoteExtractionInsightActions } from '../model/footnote_extraction_insights.ts';
 
 const modelActions = {
-  QueuedBookImports: QueuedBookImportsActions
+  QueuedBookImports:          QueuedBookImportsActions,
+  FootnoteExtractionInsights: FootnoteExtractionInsightActions
 };
 
 // A function's parameters after the first (the db the executor passes itself)
@@ -24,18 +26,21 @@ type ModelActionDatas = {
 }[keyof (typeof modelActions)];
 
 type ModelAction = {
-  id?: string,
   cmd: 'modelAction',
   data: ModelActionDatas
 };
 
 type DownloadAction = {
-  id?: string,
   cmd: 'downloadPdf',
   data: {url: string, localPath: string}
 };
 
-export type AppAction = (DownloadAction | ModelAction);
+type LogAction = {
+  cmd: 'log',
+  data: unknown[]
+};
+
+export type AppAction = (DownloadAction | ModelAction | LogAction) & {id?: string};
 export type ActionResult = {
   id: string,
   success: boolean,
@@ -111,5 +116,9 @@ export const executeAction = async(
   }
   else if (action.cmd === 'modelAction') {
     return await modelActions[action.data.model][action.data.act](db, ...action.data.params);
+  }
+  else if (action.cmd === 'log') {
+    console.log(...action.data);
+    return true;
   }
 };

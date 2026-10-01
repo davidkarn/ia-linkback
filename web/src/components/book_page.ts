@@ -64,11 +64,6 @@ export const BookPageView = ({
   const [navigationOpen, setNavigationOpen] = useState(true);
   const navigationLabel                     = navigationOpen ? 'Hide navigation' : 'Show navigation';
 
-  // the table of contents, opened by the button left of the title; a click outside the title
-  // row closes it
-  const [contentsOpen, setContentsOpen] = useState(false);
-  const closeContents                   = useCallback(() => setContentsOpen(false), []);
-
   return match<boolean, React.ReactElement>(true)
     .with(!!error, () => __('p', {className: "error"}, "Couldn't load this page: ", error))
     .with(!page, () => __('p', {className: "muted"}, 'Loading'))
@@ -127,7 +122,7 @@ export const BookPageView = ({
                       )
                     )
                   )
-                ),
+                )
               ),
             __('header', {className: 'book-header'},
               __('div', {className: 'book-title-row'},
