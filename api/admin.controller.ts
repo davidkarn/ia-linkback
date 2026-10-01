@@ -60,4 +60,11 @@ export class AdminController {
   dashboard() {
     return this.admin.dashboard();
   }
+
+  // The footnote extraction insights with their scores
+  @Get('citation-insights')
+  @UseGuards(AdminGuard)
+  citationInsights() {
+    return this.admin.citationInsights();
+  }
 }

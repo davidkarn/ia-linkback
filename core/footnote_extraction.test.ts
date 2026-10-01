@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
-  footnoteBlockFor, footnoteHtml, footnotesPrompt, insightsForPrompt, newInsights, pageCitations,
-  placeCitations, removeDuplicateInsights,
+  byScore, footnoteBlockFor, footnoteHtml, footnotesPrompt, insightsForPrompt, newInsights, pageCitations,
+  isGivenToModel, placeCitations, removeDuplicateInsights,
 } from './footnote_extraction.ts';
 import type { SuryaPage } from '../types.ts';
 
@@ -31,6 +31,19 @@ describe('insightsForPrompt', () => {
       { insight: 'common', score: 1 },
       { insight: 'also common', score: 1 },
     ])).toEqual(['common', 'also common', 'common-ish', 'unscored']);
+  });
+});
+
+describe('byScore and isGivenToModel', () => {
+  it('orders insights by score, the unscored last, keeping the order of equal scores', () => {
+    expect(byScore([
+      { insight: 'c', score: null }, { insight: 'b', score: 4 }, { insight: 'a1', score: 1 },
+      { insight: 'a2', score: 1 },
+    ]).map((i) => i.insight)).toEqual(['a1', 'a2', 'b', 'c']);
+  });
+
+  it('gives the model insights scored 2 or less, and those not scored', () => {
+    expect([1, 2, 3, 5, null].map(isGivenToModel)).toEqual([true, true, false, false, true]);
   });
 });
 

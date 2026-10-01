@@ -135,14 +135,26 @@ ${ insights.map((insight) => '    - ' + insight).join('\n') }
     each with ${ INSIGHT_SCORES }.
 `;
 
-// The insights to give the model: those scored up to MAX_PROMPT_SCORE, most widely applying
-// first, then those not scored yet (saved before scores), in the order given
-export const insightsForPrompt = (insights: ScoredInsight[]): string[] => (
+// Whether an insight with this score is given the model: scored up to MAX_PROMPT_SCORE, or not
+// scored yet (saved before scores)
+export const isGivenToModel = (score: number | null): boolean => (
+  score === null || score <= MAX_PROMPT_SCORE
+);
+
+// Insights most widely applying first (score 1), then those not scored yet, each score's in the
+// order given
+export const byScore = <I extends ScoredInsight>(insights: I[]): I[] => (
   insights
-    .filter((i) => i.score === null || i.score <= MAX_PROMPT_SCORE)
-    .map((i, order) => ({ ...i, order }))
-    .sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity) || a.order - b.order)
-    .map((i) => i.insight)
+    .map((insight, order) => ({ insight, order }))
+    .sort((a, b) => (
+      (a.insight.score ?? Infinity) - (b.insight.score ?? Infinity) || a.order - b.order
+    ))
+    .map(({ insight }) => insight)
+);
+
+// The insights to give the model, in the order to give them
+export const insightsForPrompt = (insights: ScoredInsight[]): string[] => (
+  byScore(insights.filter((i) => isGivenToModel(i.score))).map((i) => i.insight)
 );
 
 // A page's Footnote blocks' HTML, in reading order: what the model is given

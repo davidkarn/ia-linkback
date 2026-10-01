@@ -299,8 +299,58 @@ paths:
           description: not signed in
         '503':
           description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
+  /admin/citation-insights:
+    get:
+      tags:
+        - Admin
+      summary: >-
+        Every footnote extraction insight (footnote_extraction_insights) with its score, most widely
+        applying first, then those not scored yet. Needs the session cookie from POST /admin/login.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitationInsights'
+        '401':
+          description: not signed in
+        '503':
+          description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
 components:
   schemas:
+    CitationInsights:
+      type: object
+      required:
+        - maxPromptScore
+        - insights
+      properties:
+        maxPromptScore:
+          description: insights scored above this aren't given the model when extracting citations
+          type: number
+        insights:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - insight
+              - score
+              - givenToModel
+            properties:
+              id:
+                type: string
+              insight:
+                type: string
+              score:
+                description: >-
+                  how widely it applies, 1 (citations seen in a wide number of texts) to 5 (very
+                  obscure); null until scored
+                type: [number, 'null']
+              givenToModel:
+                description: >-
+                  whether it's given the model when extracting citations (scored up to
+                  maxPromptScore, or not scored yet)
+                type: boolean
     AdminSession:
       type: object
       required:

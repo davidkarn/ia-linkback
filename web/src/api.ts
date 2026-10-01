@@ -206,3 +206,14 @@ export const adminLogin = (username: string, password: string): Promise<AdminSes
 export const adminLogout = (): Promise<AdminSession> => requestJson('POST', '/admin/logout');
 
 export const fetchAdminDashboard = (): Promise<AdminDashboard> => requestJson('GET', '/admin/dashboard');
+
+// The CitationInsights schema: the footnote extraction insights, most widely applying (score 1)
+// first, then the unscored. givenToModel: scored up to maxPromptScore, or not scored yet.
+export type CitationInsights = {
+  maxPromptScore: number,
+  insights: { id: string, insight: string, score: number | null, givenToModel: boolean }[],
+};
+
+export const fetchAdminCitationInsights = (): Promise<CitationInsights> => (
+  requestJson('GET', '/admin/citation-insights')
+);
