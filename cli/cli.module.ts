@@ -6,6 +6,7 @@ import { FindAndQueueCitedBooksCommand } from './commands/find_and_queue_cited_b
 import { OcrQueuedBooksCommand } from './commands/ocr_queued_books.command.ts';
 import { ProcessOcredBooksCommand } from './commands/process_ocred_books.command.ts';
 import { SaveCoverCommand } from './commands/save_cover.command.ts';
+import { ReplCommand } from './commands/repl.command.ts';
 
 // The commands of cli/main.ts, sharing the API's database connection
 @Module({
@@ -17,6 +18,7 @@ import { SaveCoverCommand } from './commands/save_cover.command.ts';
     ConsolidateFootnoteInsightsCommand,
     SaveCoverCommand,
     CheckCopyrightCommand,
+    ReplCommand,
   ],
 })
 export class CliModule {}

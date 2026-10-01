@@ -19,7 +19,7 @@ export type ORResponse = {
 };
 
 export const makeOpenRouterRequest = (
-  msgs: ORMessage[], responseFormat?: ORResponseFormat
+  msgs: ORMessage[], responseFormat?: ORResponseFormat, model?: string = 'openai/gpt-4o'
 ) => (
   fetch('https://openrouter.ai/api/v1/chat/completions', {
     method:  'POST',
@@ -30,7 +30,7 @@ export const makeOpenRouterRequest = (
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model:    'openai/gpt-4o',
+      model:    model,
       messages: msgs,
       ...(responseFormat ? { response_format: responseFormat } : {}),
     }),

@@ -6,7 +6,7 @@
     "test": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js",
     "start": "tsx api/main.ts",
     "dev": "tsx watch --clear-screen=false --include .env api/main.ts",
-    "repl": "tsx watch --clear-screen=false --include .env api/repl.ts",
+    "repl": "tsx cli/main.ts repl",
     "migrate": "tsx migrate.ts",
     "cli": "tsx cli/main.ts",
     "lint": "eslint .",

@@ -78,18 +78,23 @@ export class ProcessOcredBooksCommand extends CommandRunner {
     const footnotePages                                  = pages.filter((p) => p.blocks.some((b) => b.label === 'Footnote'));
     const citations: Citation[]                          = [];
     const failedPages: { page: number, error: string }[] = [];
-    let insights: ScoredInsight[]                        = await FootnoteExtractionInsightQueries.findInsights(this.db);
+    
+    let insights: ScoredInsight[] = await FootnoteExtractionInsightQueries.findInsights(this.db);
+
+    let operatingInsights = insights.filter(i => i.score <= 1);
 
     await mapLimited(footnotePages, 1, async(page) => {
       try {
         const response = await makeOpenRouterRequest([
-          { role: 'system', content: footnotesPrompt(insightsForPrompt(insights)) },
+          { role: 'system', content: footnotesPrompt(insightsForPrompt(operatingInsights)) },
           { role: 'user', content: footnoteHtml(page) },
-        ], FOOTNOTES_FORMAT);
-        log(response);
+        ], FOOTNOTES_FORMAT, 'openai/gpt-4o-mini');
 
         const result = parseJsonResponse<PageFootnotes>(response);
         insights     = removeDuplicateInsights(insights.concat(result.additionalInsights));
+        operatingInsights = removeDuplicateInsights(
+          operatingInsights.concat(result.additionalInsights.filter(s => s.score <= 2))
+        );
         citations.push(...pageCitations(bookId, page.page, result));
 
         await setTimeout(REQUEST_INTERVAL_MS);
