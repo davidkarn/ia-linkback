@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import {
-  footnoteBlockFor, footnoteHtml, footnotesPrompt, newInsights, pageCitations,
+  footnoteBlockFor, footnoteHtml, footnotesPrompt, newInsights, pageCitations, placeCitations,
   removeDuplicateInsights,
 } from './footnote_extraction.ts';
 import type { SuryaPage } from '../types.ts';
@@ -80,5 +80,38 @@ describe('footnoteBlockFor', () => {
   it("takes a continued footnote's first block, and is undefined for a marker found nowhere", () => {
     expect(footnoteBlockFor(blocks, '')?.id).toBe('a');
     expect(footnoteBlockFor(blocks, '99')).toBeUndefined();
+  });
+});
+
+describe('placeCitations', () => {
+  const block = (label: 'Text' | 'Footnote', html: string) => (
+    { bbox: [0, 0, 1, 1] as [number, number, number, number], label, html, citations: [] }
+  );
+  const pages = [{ pageNumber:        4,
+                   printedPageNumber: '4',
+                   blocks:            [
+                     block('Text', '<p>Body</p>'),
+                     block('Footnote', '<p><sup>1</sup> Pohle.</p>'),
+                     block('Footnote', '<p><sup>2</sup> Tanquerey.</p>'),
+                   ] }];
+  const cite  = (footnotePage: number, footnoteIdentifier: string) => ({
+    source:          { bookId: 'b', footnoteIdentifier, footnotePage },
+    referenceBookId: null,
+    author:          '',
+    title:           '',
+    location:        '',
+    raw:             '',
+    locationsCited:  [],
+  });
+
+  it("places each citation at its footnote block's position on its page", () => {
+    expect(placeCitations(pages, [cite(4, '2'), cite(4, '1')]).placed).toEqual([
+      { pageNumber: 4, position: 2, citation: cite(4, '2') },
+      { pageNumber: 4, position: 1, citation: cite(4, '1') },
+    ]);
+  });
+
+  it('leaves out citations whose page has no block with their marker', () => {
+    expect(placeCitations(pages, [cite(4, '9'), cite(5, '1')]).unplaced).toEqual([cite(4, '9'), cite(5, '1')]);
   });
 });

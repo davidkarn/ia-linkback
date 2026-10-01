@@ -7,7 +7,9 @@ import { Command, CommandRunner } from 'nest-commander';
 import { DB } from '../../api/database.module.ts';
 import type { Database } from '../../api/database.ts';
 import { ocrWithSurya } from '../../lib/surya.ts';
-import { findNextQueuedBook, setQueuedBookStatus } from '../../model/queued_book_imports.ts';
+import {
+  QueuedBookImportsActions, QueuedBookImportsQueries,
+} from '../../model/queued_book_imports.ts';
 
 @Command({
   name:        'ocr-queued-books',
@@ -19,15 +21,15 @@ export class OcrQueuedBooksCommand extends CommandRunner {
   }
 
   async run(): Promise<void> {
-    for (let book = await findNextQueuedBook(this.db, 'queued'); book;
-      book = await findNextQueuedBook(this.db, 'queued')) {
+    for (let book = await QueuedBookImportsQueries.findNextQueuedBook(this.db, 'queued'); book;
+      book = await QueuedBookImportsQueries.findNextQueuedBook(this.db, 'queued')) {
       if (!book.pdf_url) {
         throw new Error(`queued book ${ book.id } has no pdf_url`);
       }
       else {
         console.log(`${ book.id }: OCR'ing ${ book.title }`);
         await ocrWithSurya(book.pdf_url);
-        await setQueuedBookStatus(this.db, book.id, 'inProgress');
+        await QueuedBookImportsActions.setQueuedBookStatus(this.db, book.id, 'inProgress');
       }
     }
 

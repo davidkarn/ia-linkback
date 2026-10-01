@@ -9,7 +9,7 @@ export type QueuedBook = Selectable<QueuedBookImportsTable>;
 export type QueueStatus = QueuedBookImportsTable['status'];
 
 // The first book queued with this status, if any
-export const findNextQueuedBook = (db: Kysely<Database>, status: QueueStatus) => (
+const findNextQueuedBook = (db: Kysely<Database>, status: QueueStatus) => (
   db.selectFrom('queued_book_imports')
     .selectAll()
     .where('status', '=', status)
@@ -18,7 +18,7 @@ export const findNextQueuedBook = (db: Kysely<Database>, status: QueueStatus) =>
     .executeTakeFirst()
 );
 
-export const setQueuedBookStatus = (db: Kysely<Database>, id: string, status: QueueStatus) => (
+const setQueuedBookStatus = (db: Kysely<Database>, id: string, status: QueueStatus) => (
   db.updateTable('queued_book_imports')
     .set({ status })
     .where('id', '=', id)
@@ -26,7 +26,7 @@ export const setQueuedBookStatus = (db: Kysely<Database>, id: string, status: Qu
 );
 
 // A queued book imported as the book bookId
-export const markQueuedBookImported = (db: Kysely<Database>, id: string, bookId: string) => (
+const markQueuedBookImported = (db: Kysely<Database>, id: string, bookId: string) => (
   db.updateTable('queued_book_imports')
     .set({ imported_book_id: bookId, status: 'imported' })
     .where('id', '=', id)
@@ -34,7 +34,7 @@ export const markQueuedBookImported = (db: Kysely<Database>, id: string, bookId:
 );
 
 // The titles and authors of the books queued but not imported yet
-export const findQueuedBookNames = (db: Kysely<Database>) => (
+const findQueuedBookNames = (db: Kysely<Database>) => (
   db.selectFrom('queued_book_imports')
     .select(['title', 'author'])
     .where('status', 'not in', ['imported', 'importedAndCrawled', 'complete'])
@@ -42,7 +42,7 @@ export const findQueuedBookNames = (db: Kysely<Database>) => (
 );
 
 // Every archive.org item and PDF url queued, whatever its status
-export const findQueuedUrls = async(db: Kysely<Database>): Promise<Set<string>> => {
+const findQueuedUrls = async(db: Kysely<Database>): Promise<Set<string>> => {
   const rows = await db.selectFrom('queued_book_imports')
     .select(['archive_url', 'pdf_url'])
     .execute();
@@ -69,6 +69,5 @@ const queueBook = async(
   return row.id;
 };
 
-export const QueuedBookImportsActions = {
-  queueBook
-};
+export const QueuedBookImportsQueries = { findNextQueuedBook, findQueuedBookNames, findQueuedUrls };
+export const QueuedBookImportsActions = { queueBook, setQueuedBookStatus, markQueuedBookImported };

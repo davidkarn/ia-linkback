@@ -111,23 +111,29 @@ const describeChanges = (
   ];
 };
 
-
 export const insightConsolidationActions = (
   originalInsights: Insight[],
-  consolidated: ConsolidatedInsight,
+  consolidated: ConsolidatedInsight[],
   missingIds: string[]
 ): AppAction[] => {
-  if (!insightsHaveChanged) {
+  if (!insightsHaveChanged(originalInsights, consolidated)) {
     return [{ cmd: 'log', data: ['no changes'] }];
   }
   else {
-    const byId = new Map(insights.map((i) => [i.id, i.insight]));
+    const byId = new Map(originalInsights.map((i) => [i.id, i.insight]));
 
     return describeChanges(originalInsights, consolidated)
       .map((logName) => ({ cmd: 'log', data: [logName] }))
       .concat(
         missingIds.length === 0
-          ? []
+          ? [{
+              cmd:  'modelAction',
+              data: {
+                model:  'FootnoteExtractionInsights',
+                act:    'replaceInsights',
+                params: [column(originalInsights, 'id'), column(consolidated, 'insight')]
+              }
+            }]
           : [{
               cmd:  'log',
               data: [
@@ -136,15 +142,8 @@ export const insightConsolidationActions = (
              ...missingIds.map((id) => ({
                cmd:  'log',
                data: [`  - [${ id }] ${ byId.get(id) }`]
-             }))]
-      )
-      .concat([{
-        cmd:  'modelAction',
-        data: {
-          model:  'FootnoteExtractionInsights',
-          act:    'replaceInsights',
-          params: [column(originalInsights, 'id'), column(consolidated, 'insight')]
-        }
-      }]);
+             }))
+          ]
+      );
   }
 };

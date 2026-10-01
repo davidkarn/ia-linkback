@@ -9,6 +9,7 @@
 - Update api.yaml with all endpoint changes, ensure types are updated to match openapi spec on both backend and frontend
 - Store business logic to modules in the core/ folder. Prefer to write business logic as pure functions with no side effects that can be unit-tested. Try to keep pure business logic separate from imperative code with side effects.
 - Store code that handles writing queries, and saving, reading, and formatting code from the database in modules in the model/ folder, try to keep database code abstracted and separate from business logic and controller code.
+- Models export scopes, actions, selectors, and queries (see model/book.ts for an example) and Sql snippets (see model/alternate_ids.ts. Scopes are for reusable, named scopes that replace where queries and can be applied by the withScope helper. Actions are for actions that can be performed on the db table and are executable by app_actions.ts. Selectors are for reusable selection functions that can be returned as columns in a select query. Queries are for reusable queries, and Sql snippets are for sql snippet builders. Prefer to avoid export indivudual functions from models.
 
 ## Frontend code patterns
 - Utilize helper functions in lib/lib.ts to handle common tasks on common data types such as arrays, objects, maps, dates, and sets.

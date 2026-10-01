@@ -3,7 +3,7 @@
 // (footnote_extraction_insights), and placing each citation in its footnote block. Pure functions;
 // cli/commands/process_ocred_books.command.ts makes the requests and saves the results.
 import type { ORResponseFormat } from '../lib/open_router.ts';
-import type { Citation, CitationLocation, SuryaPage } from '../types.ts';
+import type { Citation, CitationLocation, Page, SuryaPage } from '../types.ts';
 import { strip_tags } from './book_pages.ts';
 
 export const LOCATION_TYPES: CitationLocation['type'][] = [
@@ -197,4 +197,44 @@ export const footnoteBlockFor = <B extends { html: string }>(
   else {
     return blocks[0];
   }
+};
+
+// A citation in the footnote block at `position` among its page's blocks (as the book's pages are
+// saved, see BookActions.saveBook in model/books.ts)
+export type PlacedCitation = { pageNumber: number, position: number, citation: Citation };
+
+// Each citation in its footnote block (see footnoteBlockFor) among the book's pages, and those
+// whose page has no block with their marker
+export const placeCitations = (
+  pages: Page[], citations: Citation[]
+): { placed: PlacedCitation[], unplaced: Citation[] } => {
+  const footnotes = new Map(pages.map((p) => [
+    p.pageNumber,
+    p.blocks.flatMap((b, position) => (
+      b.label === 'Footnote'
+        ? [{ position, html: b.html }]
+        : []
+    )),
+  ]));
+
+  return citations.reduce<{
+    placed: PlacedCitation[],
+    unplaced: Citation[]
+  }>(
+    (out, citation) => {
+      const page  = citation.source.footnotePage;
+      const block = footnoteBlockFor(
+        footnotes.get(page) ?? [],
+        citation.source.footnoteIdentifier
+      );
+
+      return block === undefined
+        ? { ...out, unplaced: [...out.unplaced, citation] }
+        : { ...out, placed: [
+          ...out.placed,
+          { pageNumber: page, position: block.position, citation }
+        ] };
+    },
+    { placed: [], unplaced: [] }
+  );
 };

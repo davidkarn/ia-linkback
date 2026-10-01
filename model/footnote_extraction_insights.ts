@@ -5,7 +5,7 @@ import type { Database } from '../api/database.ts';
 import type { Insight } from '../core/insight_consolidation.ts';
 
 // Every insight, oldest first
-export const findInsights = (db: Kysely<Database>): Promise<Insight[]> => (
+const findInsights = (db: Kysely<Database>): Promise<Insight[]> => (
   db.selectFrom('footnote_extraction_insights')
     .select(['id', 'insight'])
     .orderBy('id')
@@ -26,4 +26,5 @@ const replaceInsights = (db: Kysely<Database>, originalIds: string[], insights: 
   })
 );
 
+export const FootnoteExtractionInsightQueries = { findInsights };
 export const FootnoteExtractionInsightActions = { replaceInsights };

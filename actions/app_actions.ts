@@ -5,10 +5,14 @@ import type { Database } from '../api/database.ts';
 import { downloadPdf } from "../lib/pdf_download.ts";
 import { QueuedBookImportsActions } from "../model/queued_book_imports.js";
 import { FootnoteExtractionInsightActions } from '../model/footnote_extraction_insights.ts';
+import { BookActions } from '../model/books.ts';
+import { ExtractedCitationActions } from '../model/extracted_citations.ts';
 
 const modelActions = {
   QueuedBookImports:          QueuedBookImportsActions,
-  FootnoteExtractionInsights: FootnoteExtractionInsightActions
+  FootnoteExtractionInsights: FootnoteExtractionInsightActions,
+  Books:                      BookActions,
+  ExtractedCitations:         ExtractedCitationActions,
 };
 
 // A function's parameters after the first (the db the executor passes itself)
@@ -99,6 +103,15 @@ export const executeActions = async(
   return results;
 };
 
+type ModelActionFn = (db: Kysely<Database>, ...params: unknown[]) => Promise<unknown>;
+
+// The model action a ModelAction names. Its params are checked against the action where the
+// ModelAction is made (ModelActionDatas); looking the action up by its names loses which model
+// goes with which params, so the lookup is typed loosely.
+const modelActionFor = (data: ModelActionDatas): ModelActionFn => (
+  (modelActions[data.model] as unknown as Record<string, ModelActionFn>)[data.act]!
+);
+
 export const executeAction = async(
   db: Kysely<Database>,
   action: AppAction
@@ -115,7 +128,7 @@ export const executeAction = async(
     return true;
   }
   else if (action.cmd === 'modelAction') {
-    return await modelActions[action.data.model][action.data.act](db, ...action.data.params);
+    return await modelActionFor(action.data)(db, ...action.data.params);
   }
   else if (action.cmd === 'log') {
     console.log(...action.data);

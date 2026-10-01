@@ -12,7 +12,7 @@ import {
   MIN_TO_CONSOLIDATE, unconsolidated, type ConsolidatedInsight, type Insight,
 } from '../../core/insight_consolidation.ts';
 import { makeOpenRouterRequest, parseJsonResponse } from '../../lib/open_router.ts';
-import { findInsights } from '../../model/footnote_extraction_insights.ts';
+import { FootnoteExtractionInsightQueries } from '../../model/footnote_extraction_insights.ts';
 import { executeActions } from '../../actions/app_actions.ts';
 
 @Command({
@@ -25,10 +25,13 @@ export class ConsolidateFootnoteInsightsCommand extends CommandRunner {
   }
 
   async run(): Promise<void> {
-    const insights                     = await findInsights(this.db);
+    const insights                     = await FootnoteExtractionInsightQueries.findInsights(this.db);
     const { consolidated, missingIds } = await this.consolidate(insights);
 
-    executeActions(insightConsolidationActions(insights, consolidated, missingIds));
+    await executeActions(
+      this.db,
+      insightConsolidationActions(insights, consolidated, missingIds)
+    );
   }
 
   private async consolidate(insights: Insight[]) {

@@ -14,7 +14,7 @@ import { log } from '../../lib/lib.ts';
 import { BookQueries } from '../../model/books.ts';
 import { findCitationsInBook, linkCitations } from '../../model/incoming_citations.ts';
 import {
-  findNextQueuedBook, findQueuedBookNames, findQueuedUrls, setQueuedBookStatus,
+  QueuedBookImportsActions, QueuedBookImportsQueries,
 } from '../../model/queued_book_imports.ts';
 import { executeActions } from '../../actions/app_actions.ts';
 
@@ -33,7 +33,7 @@ export class FindAndQueueCitedBooksCommand extends CommandRunner {
   }
 
   async run(): Promise<void> {
-    const book = await findNextQueuedBook(this.db, 'imported');
+    const book = await QueuedBookImportsQueries.findNextQueuedBook(this.db, 'imported');
 
     if (!book) {
       console.log('no imported book waiting to be crawled');
@@ -48,14 +48,14 @@ export class FindAndQueueCitedBooksCommand extends CommandRunner {
       const { referencing, notReferencing } = matchCitedBooks(
         await findCitationsInBook(this.db, bookId),
         await BookQueries.findOtherBookNames(this.db, bookId),
-        await findQueuedBookNames(this.db),
+        await QueuedBookImportsQueries.findQueuedBookNames(this.db),
       );
 
       const archiveCopies = await this.findArchiveCopies(notReferencing);
       const numRefsSaved  = await linkCitations(this.db, referencing);
       const queuedResults = await this.queueArchiveCopies(archiveCopies.found);
 
-      await setQueuedBookStatus(this.db, book.id, 'importedAndCrawled');
+      await QueuedBookImportsActions.setQueuedBookStatus(this.db, book.id, 'importedAndCrawled');
 
       log({ numRefsSaved, queuedResults, archiveSearchFailures: archiveCopies.failed.length });
     }
@@ -101,7 +101,7 @@ export class FindAndQueueCitedBooksCommand extends CommandRunner {
 
   // Download the copies not queued or imported already to the scholshelf folder, and queue them
   private async queueArchiveCopies(copies: ArchiveCopy[]) {
-    const plan    = planArchiveQueue(copies, await findQueuedUrls(this.db), await BookQueries.findBookIds(this.db));
+    const plan    = planArchiveQueue(copies, await QueuedBookImportsQueries.findQueuedUrls(this.db), await BookQueries.findBookIds(this.db));
     const actions = actionsForArchivePlan(plan);
     const result  = await executeActions(this.db, actions);
 

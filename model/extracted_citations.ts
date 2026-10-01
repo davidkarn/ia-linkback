@@ -2,37 +2,38 @@
 // with the insights learned extracting them
 import type { Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
-import type { Citation } from '../types.ts';
 import { placesOf } from '../core/citation_groups.ts';
-import { newInsights } from '../core/footnote_extraction.ts';
+import { newInsights, type PlacedCitation } from '../core/footnote_extraction.ts';
 import { groupRow } from './citation_groups.ts';
 
-// A book's Footnote blocks, in reading order
-export const findFootnoteBlocks = (db: Kysely<Database>, bookId: string) => (
-  db.selectFrom('page_blocks')
-    .select(['id', 'page_number', 'html'])
-    .where('book_id', '=', bookId)
-    .where('label', '=', 'Footnote')
-    .orderBy('page_number')
-    .orderBy('position')
-    .execute()
-);
+const blockKey = (pageNumber: number, position: number) => pageNumber + ':' + position;
 
-// Replace a book's citations with these, each in its Footnote block, with a citation_groups row per
-// place each of its location groups cites (see core/citation_groups.ts); and save the insights
-// learned that aren't saved already. In one transaction. Returns the counts saved, and how many
-// location values were left out of the places.
-export const replaceExtractedCitations = (
+// Replace a book's citations with these, each in its footnote block, with a citation_groups row
+// per place each of its location groups cites (see core/citation_groups.ts); and save the insights
+// learned that aren't saved already. In one transaction, after the book's pages are saved. Returns
+// the counts saved, and how many location values were left out of the places.
+const replaceExtractedCitations = (
   db: Kysely<Database>,
   bookId: string,
-  placed: { blockId: string, citation: Citation }[],
+  placed: PlacedCitation[],
   insights: string[],
 ) => db.transaction().execute(async(trx) => {
   const counts = { citations: 0, groups: 0, skippedValues: 0, newInsights: 0 };
 
+  const blocks   = await trx.selectFrom('page_blocks')
+    .select(['id', 'page_number', 'position'])
+    .where('book_id', '=', bookId)
+    .execute();
+  const blockIds = new Map(blocks.map((b) => [blockKey(b.page_number, b.position), b.id]));
+
   await trx.deleteFrom('citations').where('source_book_id', '=', bookId).execute();
 
-  for (const { blockId, citation: c } of placed) {
+  for (const { pageNumber, position, citation: c } of placed) {
+    const blockId = blockIds.get(blockKey(pageNumber, position));
+    if (blockId === undefined) {
+      throw new Error(`${ bookId } has no block ${ position } on page ${ pageNumber }`);
+    }
+
     const { id: citationId } = await trx.insertInto('citations')
       .values({
         page_block_id:              blockId,
@@ -74,3 +75,5 @@ export const replaceExtractedCitations = (
 
   return counts;
 });
+
+export const ExtractedCitationActions = { replaceExtractedCitations };
