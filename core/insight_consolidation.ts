@@ -4,16 +4,25 @@
 import type { AppAction } from '../actions/app_actions.ts';
 import { column } from '../lib/lib.ts';
 import type { ORResponseFormat } from '../lib/open_router.ts';
+import { INSIGHT_SCORES } from './footnote_extraction.ts';
 
-export type Insight = { id: string, insight: string };
+// score: 1 to 5 (see INSIGHT_SCORES), null until scored
+export type Insight = { id: string, insight: string, score: number | null };
 
 export type ConsolidatedInsight = {
   insight: string,
+  score: number | null,  // the model's; null only for an insight kept as it was, unscored
   sourceIds: string[],   // ids of the footnote_extraction_insights it was made from
 };
 
-// Fewer insights than this aren't sent to the model: they're kept as they are
+// Fewer insights than this aren't sent to the model, unless one isn't scored yet: they're kept as
+// they are
 export const MIN_TO_CONSOLIDATE = 5;
+
+// Whether to send the insights to the model: enough of them to merge, or some to score
+export const needsConsolidation = (insights: Insight[]): boolean => (
+  insights.length >= MIN_TO_CONSOLIDATE || insights.some((i) => i.score === null)
+);
 
 export const CONSOLIDATED_FORMAT: ORResponseFormat = {
   type:        'json_schema',
@@ -30,9 +39,10 @@ export const CONSOLIDATED_FORMAT: ORResponseFormat = {
           items: {
             type:                 'object',
             additionalProperties: false,
-            required:             ['insight', 'sourceIds'],
+            required:             ['insight', 'score', 'sourceIds'],
             properties:           {
               insight:   { type: 'string' },
+              score:     { type: 'integer', enum: [1, 2, 3, 4, 5] },
               sourceIds: { type: 'array', items: { type: 'string' } },
             },
           },
@@ -46,8 +56,8 @@ export const CONSOLIDATE_PROMPT = `You maintain a list of insights that help an 
 from the footnotes of scanned books: how works are commonly cited, how their parts are numbered, and pitfalls
 in reading citations.
 
-You will be given the insights as a JSON array of {id, insight}. Consolidate them into as few insights as
-possible without losing information:
+You will be given the insights as a JSON array of {id, insight, score}. Consolidate them into as few
+insights as possible without losing information:
 
 - Merge insights that say the same thing, or overlapping things, into one insight that keeps every distinct
 detail from each of them (abbreviations, numbering schemes, examples, exceptions).
@@ -56,11 +66,14 @@ detail from each of them (abbreviations, numbering schemes, examples, exceptions
 - Do not add information that is not in the insights.
 - Every input id must appear in the sourceIds of exactly the insights that contain its information.
 
-Return the consolidated insights, each with the ids of the input insights it was made from.`;
+Give each consolidated insight ${ INSIGHT_SCORES }. An input's score, when it has one, is an
+earlier judgement: keep it unless the consolidated insight applies more or less widely.
+
+Return the consolidated insights, each with its score and the ids of the input insights it was made from.`;
 
 // Insights kept as they are, one each, when there are too few to consolidate
 export const unconsolidated = (insights: Insight[]): ConsolidatedInsight[] => (
-  insights.map((i) => ({ insight: i.insight, sourceIds: [i.id] }))
+  insights.map((i) => ({ insight: i.insight, score: i.score, sourceIds: [i.id] }))
 );
 
 // The model's consolidation checked against the originals: source ids it made up are dropped, and
@@ -81,31 +94,43 @@ export const checkConsolidation = (
   };
 };
 
-// Whether consolidating changed anything: a merge, a rewording, or a different count
-export const insightsHaveChanged = (original: Insight[], consolidated: ConsolidatedInsight[]): boolean => {
-  const byId = new Map(original.map((i) => [i.id, i.insight]));
-
-  return consolidated.length !== original.length
-    || consolidated.some((c) => c.sourceIds.length !== 1 || byId.get(c.sourceIds[0]!) !== c.insight);
+// A consolidated insight that is one original as it was, text and score
+const isUnchanged = (byId: Map<string, Insight>, c: ConsolidatedInsight) => {
+  const source = c.sourceIds.length === 1 ? byId.get(c.sourceIds[0]!) : undefined;
+  return source !== undefined && source.insight === c.insight && source.score === c.score;
 };
 
-// What consolidating changed, as lines to show: each merged or reworded insight with the
-// originals it replaces, then a count
+// Whether consolidating changed anything: a merge, a rewording, a new score, or a different count
+export const insightsHaveChanged = (original: Insight[], consolidated: ConsolidatedInsight[]): boolean => {
+  const byId = new Map(original.map((i) => [i.id, i]));
+
+  return consolidated.length !== original.length || !consolidated.every((c) => isUnchanged(byId, c));
+};
+
+const showScore = (score: number | null) => (score === null ? 'unscored' : `score ${ score }`);
+
+// What consolidating changed, as lines to show: each merged, reworded or rescored insight with the
+// originals it replaces and their scores, then a count
 const describeChanges = (
   original: Insight[], consolidated: ConsolidatedInsight[]
 ): string[] => {
-  const byId      = new Map(original.map((i) => [i.id, i.insight]));
-  const unchanged = consolidated.filter((c) => (
-    c.sourceIds.length === 1 && byId.get(c.sourceIds[0]!) === c.insight
-  ));
+  const byId      = new Map(original.map((i) => [i.id, i]));
+  const unchanged = consolidated.filter((c) => isUnchanged(byId, c));
+  const kind      = (c: ConsolidatedInsight) => (
+    c.sourceIds.length > 1
+      ? `merged ${ c.sourceIds.length } insights`
+      : (byId.get(c.sourceIds[0]!)?.insight === c.insight ? 'rescored' : 'reworded')
+  );
 
   return [
     ...consolidated
       .filter((c) => !unchanged.includes(c))
       .flatMap((c) => [
-        c.sourceIds.length > 1 ? `\nmerged ${ c.sourceIds.length } insights:` : '\nreworded:',
-        ...c.sourceIds.map((id) => `  - [${ id }] ${ byId.get(id) }`),
-        `  => ${ c.insight }`,
+        `\n${ kind(c) }:`,
+        ...c.sourceIds.map((id) => (
+          `  - [${ id }] (${ showScore(byId.get(id)?.score ?? null) }) ${ byId.get(id)?.insight }`
+        )),
+        `  => (${ showScore(c.score) }) ${ c.insight }`,
       ]),
     `\n${ original.length } insights -> ${ consolidated.length } (${ unchanged.length } unchanged)`,
   ];
@@ -120,30 +145,25 @@ export const insightConsolidationActions = (
     return [{ cmd: 'log', data: ['no changes'] }];
   }
   else {
-    const byId = new Map(originalInsights.map((i) => [i.id, i.insight]));
+    const byId                 = new Map(originalInsights.map((i) => [i.id, i.insight]));
+    const log                  = (line: string): AppAction => ({ cmd: 'log', data: [line] });
+    const outcome: AppAction[] = missingIds.length === 0
+      ? [{
+          cmd:  'modelAction',
+          data: {
+            model:  'FootnoteExtractionInsights',
+            act:    'replaceInsights',
+            params: [
+              column(originalInsights, 'id'),
+              consolidated.map(({ insight, score }) => ({ insight, score })),
+            ],
+          },
+        }]
+      : [
+          log('\nnot replacing: no consolidated insight includes these originals:'),
+          ...missingIds.map((id) => log(`  - [${ id }] ${ byId.get(id) }`)),
+        ];
 
-    return describeChanges(originalInsights, consolidated)
-      .map((logName) => ({ cmd: 'log', data: [logName] }))
-      .concat(
-        missingIds.length === 0
-          ? [{
-              cmd:  'modelAction',
-              data: {
-                model:  'FootnoteExtractionInsights',
-                act:    'replaceInsights',
-                params: [column(originalInsights, 'id'), column(consolidated, 'insight')]
-              }
-            }]
-          : [{
-              cmd:  'log',
-              data: [
-                '\nnot replacing: no consolidated insight includes these originals:'
-              ] },
-             ...missingIds.map((id) => ({
-               cmd:  'log',
-               data: [`  - [${ id }] ${ byId.get(id) }`]
-             }))
-          ]
-      );
+    return [...describeChanges(originalInsights, consolidated).map(log), ...outcome];
   }
 };

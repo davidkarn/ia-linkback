@@ -52,7 +52,7 @@ describe('importOcredBookActions', () => {
   const extracted = {
     citations:   [citation(1, '1'), citation(2, '4')],
     failedPages: [{ page: 3, error: 'timeout' }],
-    insights:    ['Synopsis is by Tanquerey.'],
+    insights:    [{ insight: 'Synopsis is by Tanquerey.', score: 2 }],
   };
   const steps     = importOcredBookActions(queued, 'god', pages, extracted);
 

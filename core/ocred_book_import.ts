@@ -5,16 +5,16 @@
 // marked imported. Pure functions; actions/app_actions.ts carries the actions out.
 import type { AppAction, AppActionStep, ActionResultsTbl } from '../actions/app_actions.ts';
 import type { Citation, Page } from '../types.ts';
-import { placeCitations } from './footnote_extraction.ts';
+import { placeCitations, type ScoredInsight } from './footnote_extraction.ts';
 
 export type QueuedImport = { id: string, title: string, author: string, archive_url: string | null };
 
 // The citations extracted from the book's footnotes, the pages whose request failed, and the
-// insights the model has, those it was given and those it learned
+// insights the model has, those saved and those it learned, scored
 export type ExtractedCitations = {
   citations: Citation[],
   failedPages: { page: number, error: string }[],
-  insights: string[],
+  insights: ScoredInsight[],
 };
 
 const log = (...data: unknown[]): AppAction => ({ cmd: 'log', data });

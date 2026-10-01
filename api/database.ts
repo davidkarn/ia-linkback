@@ -105,6 +105,8 @@ export interface QueuedBookImportsTable {
 export interface FootnoteExtractionInsightsTable {
   id: Generated<string>,          // bigserial
   insight: string,
+  // 1 (seen in a wide number of texts) to 5 (very obscure); null until scored
+  score: number | null,
   created_at: Generated<Date>,
 }
 

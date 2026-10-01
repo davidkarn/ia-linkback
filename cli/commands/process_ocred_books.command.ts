@@ -15,8 +15,9 @@ import type { Database } from '../../api/database.ts';
 import { build_pages } from '../../core/book_pages.ts';
 import { suryaResultsPath } from '../../core/book_files.ts';
 import {
-  FOOTNOTES_FORMAT, footnoteHtml, footnotesPrompt, pageCitations, removeDuplicateInsights,
-  type PageFootnotes,
+  FOOTNOTES_FORMAT, footnoteHtml, footnotesPrompt, insightsForPrompt, pageCitations,
+  removeDuplicateInsights,
+  type PageFootnotes, type ScoredInsight,
 } from '../../core/footnote_extraction.ts';
 import {
   importOcredBookActions, startImportActions, type ExtractedCitations,
@@ -77,13 +78,12 @@ export class ProcessOcredBooksCommand extends CommandRunner {
     const footnotePages                                  = pages.filter((p) => p.blocks.some((b) => b.label === 'Footnote'));
     const citations: Citation[]                          = [];
     const failedPages: { page: number, error: string }[] = [];
-    let insights                                         = (await FootnoteExtractionInsightQueries.findInsights(this.db))
-      .map((i) => i.insight);
+    let insights: ScoredInsight[]                        = await FootnoteExtractionInsightQueries.findInsights(this.db);
 
     await mapLimited(footnotePages, 1, async(page) => {
       try {
         const response = await makeOpenRouterRequest([
-          { role: 'system', content: footnotesPrompt(insights) },
+          { role: 'system', content: footnotesPrompt(insightsForPrompt(insights)) },
           { role: 'user', content: footnoteHtml(page) },
         ], FOOTNOTES_FORMAT);
         log(response);

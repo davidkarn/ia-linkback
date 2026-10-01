@@ -12,9 +12,20 @@ export const LOCATION_TYPES: CitationLocation['type'][] = [
   'distinction',
 ];
 
-// What the model returns for one page: each footnote on it, and the citations in each footnote
+// An insight with how widely it applies (see INSIGHT_SCORES); score null until scored
+export type ScoredInsight = { insight: string, score: number | null };
+
+// How the model scores an insight
+export const INSIGHT_SCORES = `a score from 1 to 5 of how widely it applies: 1 for citations likely
+to appear in a wide number of texts, up to 5 for very obscure ones, unlikely to be seen often`;
+
+// Insights scored above this aren't given the model when extracting citations
+export const MAX_PROMPT_SCORE = 2;
+
+// What the model returns for one page: each footnote on it, the citations in each footnote, and
+// the insights it learned, scored
 export type PageFootnotes = {
-  additionalInsights: string[],
+  additionalInsights: { insight: string, score: number }[],
   footnotes: {
     identifier: string,
     citations: {
@@ -39,7 +50,15 @@ export const FOOTNOTES_FORMAT: ORResponseFormat = {
       properties:           {
         additionalInsights: {
           type:  'array',
-          items: { type: 'string' },
+          items: {
+            type:                 'object',
+            additionalProperties: false,
+            required:             ['insight', 'score'],
+            properties:           {
+              insight: { type: 'string' },
+              score:   { type: 'integer', enum: [1, 2, 3, 4, 5] },
+            },
+          },
         },
         footnotes: {
           type:  'array',
@@ -87,7 +106,8 @@ export const FOOTNOTES_FORMAT: ORResponseFormat = {
   },
 };
 
-// The system prompt for extracting one page's citations. insights: footnote_extraction_insights rows.
+// The system prompt for extracting one page's citations. insights: those to give the model (see
+// insightsForPrompt).
 export const footnotesPrompt = (insights: string[]) => `You extract bibliographic citations from the footnotes of one page of a scanned book.
 The footnotes are OCR output as HTML, in reading order. Return every footnote on the page, in order:
 
@@ -111,8 +131,19 @@ The footnotes are OCR output as HTML, in reading order. Return every footnote on
 
 ${ insights.map((insight) => '    - ' + insight).join('\n') }
 
-    Track any insights learned during the extraction of citations that will help with future extractions into the 'additionalInsights' field.
+    Track any insights learned during the extraction of citations that will help with future extractions into the 'additionalInsights' field,
+    each with ${ INSIGHT_SCORES }.
 `;
+
+// The insights to give the model: those scored up to MAX_PROMPT_SCORE, most widely applying
+// first, then those not scored yet (saved before scores), in the order given
+export const insightsForPrompt = (insights: ScoredInsight[]): string[] => (
+  insights
+    .filter((i) => i.score === null || i.score <= MAX_PROMPT_SCORE)
+    .map((i, order) => ({ ...i, order }))
+    .sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity) || a.order - b.order)
+    .map((i) => i.insight)
+);
 
 // A page's Footnote blocks' HTML, in reading order: what the model is given
 export const footnoteHtml = (page: SuryaPage) => (
@@ -156,12 +187,12 @@ export const insightKey = (insight: string) => (
     .trim()
 );
 
-// Insights without repeats, keeping the first spelling of each, in order; blank insights are
-// dropped
-export const removeDuplicateInsights = (insights: string[]): string[] => {
+// Insights without repeats, keeping the first of each (its spelling and score), in order; blank
+// insights are dropped
+export const removeDuplicateInsights = (insights: ScoredInsight[]): ScoredInsight[] => {
   const seen = new Set<string>();
 
-  return insights.filter((insight) => {
+  return insights.filter(({ insight }) => {
     const key = insightKey(insight);
     if (key.length === 0 || seen.has(key)) {
       return false;
@@ -174,9 +205,9 @@ export const removeDuplicateInsights = (insights: string[]): string[] => {
 };
 
 // The insights learned that aren't among those saved already (by insightKey), without repeats
-export const newInsights = (learned: string[], saved: string[]): string[] => {
+export const newInsights = (learned: ScoredInsight[], saved: string[]): ScoredInsight[] => {
   const existing = new Set(saved.map(insightKey));
-  return removeDuplicateInsights(learned).filter((i) => !existing.has(insightKey(i)));
+  return removeDuplicateInsights(learned).filter((i) => !existing.has(insightKey(i.insight)));
 };
 
 // The Footnote block a citation belongs to: the one on its page where its marker starts a footnote
@@ -230,10 +261,11 @@ export const placeCitations = (
 
       return block === undefined
         ? { ...out, unplaced: [...out.unplaced, citation] }
-        : { ...out, placed: [
-          ...out.placed,
-          { pageNumber: page, position: block.position, citation }
-        ] };
+        : { ...out,
+            placed: [
+              ...out.placed,
+              { pageNumber: page, position: block.position, citation }
+            ] };
     },
     { placed: [], unplaced: [] }
   );

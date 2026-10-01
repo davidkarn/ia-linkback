@@ -9,7 +9,7 @@ import { DB } from '../../api/database.module.ts';
 import type { Database } from '../../api/database.ts';
 import {
   checkConsolidation, CONSOLIDATE_PROMPT, CONSOLIDATED_FORMAT, insightConsolidationActions,
-  MIN_TO_CONSOLIDATE, unconsolidated, type ConsolidatedInsight, type Insight,
+  needsConsolidation, unconsolidated, type ConsolidatedInsight, type Insight,
 } from '../../core/insight_consolidation.ts';
 import { makeOpenRouterRequest, parseJsonResponse } from '../../lib/open_router.ts';
 import { FootnoteExtractionInsightQueries } from '../../model/footnote_extraction_insights.ts';
@@ -35,7 +35,7 @@ export class ConsolidateFootnoteInsightsCommand extends CommandRunner {
   }
 
   private async consolidate(insights: Insight[]) {
-    if (insights.length < MIN_TO_CONSOLIDATE) {
+    if (!needsConsolidation(insights)) {
       return { consolidated: unconsolidated(insights), missingIds: [] };
     }
     else {

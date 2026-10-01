@@ -3,7 +3,7 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import { placesOf } from '../core/citation_groups.ts';
-import { newInsights, type PlacedCitation } from '../core/footnote_extraction.ts';
+import { newInsights, type PlacedCitation, type ScoredInsight } from '../core/footnote_extraction.ts';
 import { groupRow } from './citation_groups.ts';
 
 const blockKey = (pageNumber: number, position: number) => pageNumber + ':' + position;
@@ -16,7 +16,7 @@ const replaceExtractedCitations = (
   db: Kysely<Database>,
   bookId: string,
   placed: PlacedCitation[],
-  insights: string[],
+  insights: ScoredInsight[],
 ) => db.transaction().execute(async(trx) => {
   const counts = { citations: 0, groups: 0, skippedValues: 0, newInsights: 0 };
 
@@ -68,7 +68,7 @@ const replaceExtractedCitations = (
 
   if (added.length > 0) {
     await trx.insertInto('footnote_extraction_insights')
-      .values(added.map((insight) => ({ insight })))
+      .values(added.map(({ insight, score }) => ({ insight, score })))
       .execute();
   }
   counts.newInsights = added.length;

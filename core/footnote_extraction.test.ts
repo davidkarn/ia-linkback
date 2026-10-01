@@ -1,26 +1,45 @@
 import { describe, expect, it } from '@jest/globals';
 import {
-  footnoteBlockFor, footnoteHtml, footnotesPrompt, newInsights, pageCitations, placeCitations,
-  removeDuplicateInsights,
+  footnoteBlockFor, footnoteHtml, footnotesPrompt, insightsForPrompt, newInsights, pageCitations,
+  placeCitations, removeDuplicateInsights,
 } from './footnote_extraction.ts';
 import type { SuryaPage } from '../types.ts';
 
 describe('removeDuplicateInsights and newInsights', () => {
-  it('keeps the first spelling of insights differing in case, spacing, quotes or end punctuation', () => {
+  const scored = (insight: string, score: number | null = 1) => ({ insight, score });
+
+  it('keeps the first of insights differing in case, spacing, quotes or end punctuation', () => {
     expect(removeDuplicateInsights([
-      'Use “Ibid.” for the work before.', 'use "ibid."  for the work before', '  ', 'Another.',
-    ])).toEqual(['Use “Ibid.” for the work before.', 'Another.']);
+      scored('Use “Ibid.” for the work before.', 1), scored('use "ibid."  for the work before', 4),
+      scored('  '), scored('Another.', 2),
+    ])).toEqual([scored('Use “Ibid.” for the work before.', 1), scored('Another.', 2)]);
   });
 
   it('leaves out insights saved already', () => {
-    expect(newInsights(['Saved one.', 'New one', 'new one.'], ['saved ONE'])).toEqual(['New one']);
+    expect(newInsights([scored('Saved one.'), scored('New one'), scored('new one.')], ['saved ONE']))
+      .toEqual([scored('New one')]);
+  });
+});
+
+describe('insightsForPrompt', () => {
+  it('gives those scored 2 or less, most widely applying first, then those not scored', () => {
+    expect(insightsForPrompt([
+      { insight: 'obscure', score: 5 },
+      { insight: 'unscored', score: null },
+      { insight: 'common-ish', score: 2 },
+      { insight: 'rare', score: 3 },
+      { insight: 'common', score: 1 },
+      { insight: 'also common', score: 1 },
+    ])).toEqual(['common', 'also common', 'common-ish', 'unscored']);
   });
 });
 
 describe('footnotesPrompt', () => {
-  it('lists the insights', () => {
-    expect(footnotesPrompt(['First insight', 'Second insight']))
-      .toContain('    - First insight\n    - Second insight');
+  it('lists the insights, and asks for the new ones scored', () => {
+    const prompt = footnotesPrompt(['First insight', 'Second insight']);
+
+    expect(prompt).toContain('    - First insight\n    - Second insight');
+    expect(prompt).toContain('a score from 1 to 5');
   });
 });
 
