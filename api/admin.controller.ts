@@ -5,6 +5,7 @@ import {
   UnauthorizedException, UseGuards,
 } from '@nestjs/common';
 import { CITATION_MATCHES } from '../model/citations';
+import { BOOK_SORTS } from '../model/books';
 import { enum_param, int_param, string_param } from './params';
 import {
   adminCredentials, isAdmin, SESSION_MS, sessionCookieHeader, sessionToken,
@@ -69,16 +70,39 @@ export class AdminController {
   @UseGuards(AdminGuard)
   async citations(
     @Query('query') query?: unknown,
+    @Query('sourceBookId') sourceBookId?: unknown,
     @Query('matched') matched?: unknown,
     @Query('offset') offset?: unknown,
     @Query('length') length?: unknown,
   ) {
+    const book             = string_param('sourceBookId', sourceBookId);
     const { items, count } = await this.admin.citations({
+      sourceBookId: book === undefined || book.length === 0 ? undefined : book,
       // further than the other paged endpoints: there are hundreds of thousands of citations
-      offset: int_param('offset', offset, 0, 0, 10000000),
-      length: int_param('length', length, 50, 1, 200),
+      offset:       int_param('offset', offset, 0, 0, 10000000),
+      length:       int_param('length', length, 50, 1, 200),
+      query:        string_param('query', query) ?? '',
+      match:        enum_param('matched', matched, CITATION_MATCHES, 'all'),
+    });
+
+    return { meta: { count }, items };
+  }
+
+  // A page of the books with their citation counts, searched by title and author, sorted by
+  // title or by citations from them
+  @Get('books')
+  @UseGuards(AdminGuard)
+  async books(
+    @Query('query') query?: unknown,
+    @Query('sort') sort?: unknown,
+    @Query('offset') offset?: unknown,
+    @Query('length') length?: unknown,
+  ) {
+    const { items, count } = await this.admin.books({
       query:  string_param('query', query) ?? '',
-      match:  enum_param('matched', matched, CITATION_MATCHES, 'all'),
+      sort:   enum_param('sort', sort, BOOK_SORTS, 'title'),
+      offset: int_param('offset', offset, 0, 0, 100000),
+      length: int_param('length', length, 50, 1, 200),
     });
 
     return { meta: { count }, items };

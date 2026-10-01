@@ -238,14 +238,45 @@ export type CitationMatch = 'all' | 'matched' | 'unmatched';
 
 export type AdminCitationList = { meta: { count: number }, items: AdminCitation[] };
 
-// query: search titles, authors and raw text. matched: whether they're matched to a book.
+// query: search titles, authors and raw text. sourceBookId: only those in this book's footnotes
+// ('' for any book). matched: whether they're matched to a book.
 export const fetchAdminCitations = (opts: {
-  query: string, matched: CitationMatch, offset: number, length: number,
+  query: string, sourceBookId: string, matched: CitationMatch, offset: number, length: number,
 }): Promise<AdminCitationList> => {
   const params = new URLSearchParams({
     matched: opts.matched, offset: String(opts.offset), length: String(opts.length),
   });
   if (opts.query.length > 0) params.set('query', opts.query);
+  if (opts.sourceBookId.length > 0) params.set('sourceBookId', opts.sourceBookId);
 
   return requestJson('GET', `/admin/citations?${params}`);
+};
+
+// The AdminBook schema: a book with its citation counts. citationsTo: citations pointing at it (or
+// one of its alternate ids); citationsFrom: those in its own footnotes; unmatchedFrom: those of its
+// own not matched to the book they cite.
+export type AdminBook = {
+  id: string,
+  title: string,
+  author: string,
+  citationsTo: number,
+  citationsFrom: number,
+  unmatchedFrom: number,
+};
+
+// by title, or by the citations from the book, the most first
+export type BookSort = 'title' | 'citationsFrom' | 'unmatchedFrom';
+
+export type AdminBookList = { meta: { count: number }, items: AdminBook[] };
+
+// query: search titles and authors
+export const fetchAdminBooks = (opts: {
+  query: string, sort: BookSort, offset: number, length: number,
+}): Promise<AdminBookList> => {
+  const params = new URLSearchParams({
+    sort: opts.sort, offset: String(opts.offset), length: String(opts.length),
+  });
+  if (opts.query.length > 0) params.set('query', opts.query);
+
+  return requestJson('GET', `/admin/books?${params}`);
 };

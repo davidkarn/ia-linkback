@@ -1,19 +1,19 @@
 // The admin panel's Citations tab (/tl-admin/citations): every citation, by author then title,
-// searchable by title, author and raw text, and filtered by whether it's matched to the book it
-// cites. The search, filter and page are kept in the URL (?q=&matched=&page=).
-import { createElement as __, useState } from 'react'
+// searchable by title, author and raw text, and filtered by the book it's in and whether it's
+// matched to the book it cites. The search, filters and page are kept in the URL
+// (?q=&book=&matched=&page=); the Books tab links here with ?book=<id>&matched=unmatched.
+import { createElement as __ } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { match } from 'ts-pattern'
-import { Search } from 'lucide-react'
-import { useDebouncedCallback } from 'use-debounce'
+import { X } from 'lucide-react'
 import type { AdminCitation, AdminCitationList, CitationMatch } from '../api'
 import { adminCitationsQuery } from '../queries'
 import Pager from './pager'
+import { AdminSearch } from './admin_search'
 import './admin_citations.scss'
 
-const PAGE_LENGTH     = 50;
-const SEARCH_DELAY_MS = 250;
+const PAGE_LENGTH = 50;
 
 const MATCH_FILTERS: { value: CitationMatch, label: string }[] = [
   { value: 'all', label: 'All' },
@@ -29,51 +29,49 @@ export function AdminCitations() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const query   = searchParams.get('q') ?? '';
+  const book    = searchParams.get('book') ?? '';
   const matched = matchFrom(searchParams.get('matched'));
   const page    = Math.max(1, Number(searchParams.get('page')) || 1);
 
   const result = useQuery({
-    ...adminCitationsQuery({ query, matched, offset: (page - 1) * PAGE_LENGTH, length: PAGE_LENGTH }),
+    ...adminCitationsQuery({
+      query, sourceBookId: book, matched, offset: (page - 1) * PAGE_LENGTH, length: PAGE_LENGTH,
+    }),
     placeholderData: keepPreviousData,
   });
 
   // The URL with these changed; a new search or filter starts again at page 1
-  const show = (changes: { q?: string, matched?: CitationMatch, page?: number }) => {
-    const next = { q: query, matched, page, ...changes };
+  const show = (changes: { q?: string, book?: string, matched?: CitationMatch, page?: number }) => {
+    const next = { q: query, book, matched, page, ...changes };
     setSearchParams({
       ...(next.q.length > 0 ? { q: next.q } : {}),
+      ...(next.book.length > 0 ? { book: next.book } : {}),
       ...(next.matched === 'all' ? {} : { matched: next.matched }),
       ...(next.page > 1 ? { page: String(next.page) } : {}),
     }, { replace: changes.page === undefined });
   };
 
-  // the search box's text: the URL's query, unless what's typed is that query already (with
-  // spaces still being typed), updated when the URL's query changes (back, forward, a link)
-  const [draft, setDraft]       = useState(query);
-  const [draftFor, setDraftFor] = useState(query);
-  if (query !== draftFor) {
-    setDraftFor(query);
-    setDraft((d) => (d.trim() === query ? d : query));
-  }
-
-  const search = useDebouncedCallback((q: string) => show({ q: q.trim(), page: 1 }), SEARCH_DELAY_MS);
+  // the book filtered to, by its title when a citation shown has it
+  const bookTitle = result.data?.items.find((c) => c.sourceBookId === book)?.sourceBookTitle ?? book;
 
   return (
     __('div', {className: 'admin-citations' + (result.isPlaceholderData ? ' loading' : '')},
       __('h1', {}, 'Citations'),
       __('div', {className: 'citations-toolbar'},
-        __('label', {className: 'citations-search'},
-          __(Search, {size: 18, 'aria-hidden': true}),
-          __('input', {
-            type:         'search',
-            placeholder:  'Search titles, authors and citation text',
-            'aria-label': 'Search titles, authors and citation text',
-            value:        draft,
-            onChange:     (e: React.ChangeEvent<HTMLInputElement>) => {
-              setDraft(e.target.value);
-              search(e.target.value);
-            },
-          })
+        __(AdminSearch, {
+          query,
+          placeholder: 'Search titles, authors and citation text',
+          onSearch:    (q: string) => show({ q, page: 1 }),
+        }),
+        book.length > 0 && __('span', {className: 'book-filter'},
+          'In ',
+          __('cite', {}, bookTitle),
+          __('button', {
+            type:         'button',
+            title:        'Show citations in every book',
+            'aria-label': 'Show citations in every book',
+            onClick:      () => show({ book: '', page: 1 }),
+          }, __(X, {size: 14, 'aria-hidden': true}))
         ),
         __('div', {className: 'match-filter', role: 'group', 'aria-label': 'Matched to a book'},
           MATCH_FILTERS.map((f) => (

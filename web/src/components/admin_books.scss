@@ -1,0 +1,116 @@
+.admin-books {
+    transition: opacity 0.15s;
+
+    // a new search, sort or page is on its way
+    &.loading {
+        opacity: 0.6;
+    }
+
+    h1 {
+        margin-bottom: 1rem;
+    }
+
+    .books-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    // on a narrow screen the table scrolls sideways rather than squeezing its columns
+    .book-table-scroll {
+        overflow-x: auto;
+        margin: 0.75rem 0 1.5rem;
+    }
+
+    .book-table {
+        width: 100%;
+        min-width: 44rem;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+
+        th {
+            padding: 0.5rem 0.625rem;
+            border-bottom: 2px solid var(--light-accent);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            text-align: left;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.5rem 0.625rem;
+            border-bottom: 1px solid var(--light-accent);
+            vertical-align: top;
+        }
+
+        .numeric {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        th.numeric .sort-button {
+            justify-content: flex-end;
+            width: 100%;
+        }
+
+        // an unmatched count links to those citations in the Citations tab
+        td.numeric a {
+            color: inherit;
+            text-decoration: underline dotted;
+            text-underline-offset: 0.2em;
+
+            &:hover {
+                text-decoration-style: solid;
+            }
+        }
+
+        // a count of 0 unmatched: nothing to look at
+        td.none {
+            color: var(--text-muted);
+        }
+
+        tbody tr:hover {
+            background: var(--light-background);
+        }
+
+        .book-title {
+            width: 45%;
+
+            a {
+                color: inherit;
+            }
+        }
+
+        .book-author {
+            width: 25%;
+        }
+
+        .sort-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0;
+            border: none;
+            background: none;
+            color: inherit;
+            font: inherit;
+            letter-spacing: inherit;
+            text-transform: inherit;
+            cursor: pointer;
+
+            &:hover {
+                color: var(--text);
+            }
+
+            &.sorted {
+                color: var(--text);
+            }
+        }
+    }
+}

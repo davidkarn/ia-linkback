@@ -299,6 +299,70 @@ paths:
           description: not signed in
         '503':
           description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
+  /admin/books:
+    get:
+      tags:
+        - Admin
+      summary: >-
+        A page of all books with their citation counts. Needs the session cookie from
+        POST /admin/login.
+      parameters:
+        - name: query
+          description: only books whose title or author contains this, ignoring case
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sort
+          description: >-
+            title (the default): by title; citationsFrom: by the citations in their footnotes, the
+            most first; unmatchedFrom: by those of them not matched to a book, the most first
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - title
+              - citationsFrom
+              - unmatchedFrom
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 100000
+        - name: length
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        description: how many books match, in all
+                        type: number
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminBook'
+        '400':
+          description: sort, offset or length out of bounds
+        '401':
+          description: not signed in
+        '503':
+          description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
   /admin/citations:
     get:
       tags:
@@ -309,6 +373,12 @@ paths:
       parameters:
         - name: query
           description: only citations whose title, author or raw text contains this, ignoring case
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sourceBookId
+          description: only the citations in this book's footnotes
           in: query
           required: false
           schema:
@@ -382,6 +452,31 @@ paths:
           description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
 components:
   schemas:
+    AdminBook:
+      type: object
+      required:
+        - id
+        - title
+        - author
+        - citationsTo
+        - citationsFrom
+        - unmatchedFrom
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        citationsTo:
+          description: citations pointing at the book, or at one of its alternate ids
+          type: number
+        citationsFrom:
+          description: citations in the book's own footnotes
+          type: number
+        unmatchedFrom:
+          description: citations in the book's own footnotes not matched to the book they cite
+          type: number
     AdminCitation:
       type: object
       required:

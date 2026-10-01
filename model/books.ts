@@ -44,6 +44,40 @@ const citedByCount = (eb: DbExprBuilder<'books'>, name: string = 'cited_by_count
     .as(name)
 );
 
+// The citations in a book's own footnotes; with unmatched, only those not pointing at the book
+// they cite (no reference_book_id). Expressions, to select (citationsFromCount) or sort by.
+const citationsFrom = (eb: DbExprBuilder<'books'>, unmatched = false) => {
+  const all = eb.selectFrom('citations')
+    .select(eb.fn.countAll<string>().as('n'))
+    .whereRef('citations.source_book_id', '=', 'books.id');
+
+  return unmatched ? all.where('citations.reference_book_id', 'is', null) : all;
+};
+
+const citationsFromCount = (eb: DbExprBuilder<'books'>, name: string = 'citations_from_count') => (
+  citationsFrom(eb).as(name)
+);
+
+const unmatchedFromCount = (eb: DbExprBuilder<'books'>, name: string = 'unmatched_from_count') => (
+  citationsFrom(eb, true).as(name)
+);
+
+// How a list of books is sorted: by title, or by its citations, the most first
+export const BOOK_SORTS = ['title', 'citationsFrom', 'unmatchedFrom'] as const;
+export type BookSort = typeof BOOK_SORTS[number];
+
+const sortedBy = <O>(sort: BookSort) => (query: DbSelectQuery<'books', O>) => {
+  if (sort === 'citationsFrom') {
+    return query.orderBy((eb) => citationsFrom(eb), 'desc').orderBy('books.title').orderBy('books.id');
+  }
+  else if (sort === 'unmatchedFrom') {
+    return query.orderBy((eb) => citationsFrom(eb, true), 'desc').orderBy('books.title').orderBy('books.id');
+  }
+  else {
+    return query.orderBy('books.title').orderBy('books.id');
+  }
+};
+
 const pageCount = (eb: DbExprBuilder<'books'>, name: string = 'page_count') => (
   eb.selectFrom('pages')
     .select(eb.fn.countAll<string>().as('n'))
@@ -164,7 +198,7 @@ const setCoverPhotoPath = (db: Kysely<Database>, bookId: string, coverPhotoPath:
     .execute()
 );
 
-export const BookScopes = { sortedForDisplay, scopedToQuery };
+export const BookScopes = { sortedForDisplay, scopedToQuery, sortedBy };
 export const BookActions = { saveBook, setCoverPhotoPath };
-export const BookSelectors = { citedByCount, pageCount };
+export const BookSelectors = { citedByCount, citationsFromCount, unmatchedFromCount, pageCount };
 export const BookQueries = { findOtherBookNames, findBookIds };

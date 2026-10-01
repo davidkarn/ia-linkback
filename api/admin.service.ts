@@ -8,6 +8,7 @@ import { byScore, isGivenToModel, MAX_PROMPT_SCORE } from '../core/footnote_extr
 import { FootnoteExtractionInsightQueries } from '../model/footnote_extraction_insights';
 import { CitationScopes, type CitationMatch } from '../model/citations';
 import { DbScopes, withScopes } from '../model/model_utils';
+import { BookScopes, BookSelectors, type BookSort } from '../model/books';
 
 // How many of the books next up the dashboard lists
 const NEXT_UP_COUNT = 10;
@@ -45,6 +46,18 @@ export type AdminCitation = {
   sourceFootnotePage: number,
   referenceBookId: string | null,
   referenceBookTitle: string | null,
+};
+
+// The AdminBook schema in api.yaml. citationsTo: citations in other books pointing at it (or one
+// of its alternate ids); citationsFrom: those in its own footnotes; unmatchedFrom: those of its own
+// not pointing at the book they cite.
+export type AdminBook = {
+  id: string,
+  title: string,
+  author: string,
+  citationsTo: number,
+  citationsFrom: number,
+  unmatchedFrom: number,
 };
 
 @Injectable()
@@ -85,12 +98,14 @@ export class AdminService {
   }
 
   // A page of the citations, by author then title: those whose title, author or raw text contains
-  // `query`, matched to the book they cite or not; and how many there are in all
+  // `query`, in the book sourceBookId (any, without one), matched to the book they cite or not;
+  // and how many there are in all
   async citations(opts: {
-    query: string, match: CitationMatch, offset: number, length: number,
+    query: string, sourceBookId: string | undefined, match: CitationMatch, offset: number, length: number,
   }): Promise<{ items: AdminCitation[], count: number }> {
     const filtered = () => withScopes(this.db.selectFrom('citations'), [
       CitationScopes.matchingSearch(opts.query),
+      CitationScopes.inBook(opts.sourceBookId),
       CitationScopes.withMatch(opts.match),
     ]);
 
@@ -123,6 +138,41 @@ export class AdminService {
         sourceFootnotePage: r.source_footnote_page,
         referenceBookId:    r.reference_book_id,
         referenceBookTitle: r.reference_title ?? null,
+      })),
+      count: Number(total.count),
+    };
+  }
+
+  // A page of the books, those whose title or author contains `query`, sorted by title or by
+  // their citations, the most first; and how many there are in all
+  async books(opts: {
+    query: string, sort: BookSort, offset: number, length: number,
+  }): Promise<{ items: AdminBook[], count: number }> {
+    const rows = await withScopes(this.db.selectFrom('books'), [
+      BookScopes.scopedToQuery(opts.query),
+      BookScopes.sortedBy(opts.sort),
+      DbScopes.offsetAndLimitScope(opts.offset, opts.length),
+    ])
+      .select((eb) => [
+        'books.id', 'books.title', 'books.author',
+        BookSelectors.citedByCount(eb),
+        BookSelectors.citationsFromCount(eb),
+        BookSelectors.unmatchedFromCount(eb),
+      ])
+      .execute();
+
+    const total = await withScopes(this.db.selectFrom('books'), [BookScopes.scopedToQuery(opts.query)])
+      .select((eb) => eb.fn.countAll<string>().as('count'))
+      .executeTakeFirstOrThrow();
+
+    return {
+      items: rows.map((r) => ({
+        id:            r.id,
+        title:         r.title,
+        author:        r.author,
+        citationsTo:   Number(r.cited_by_count ?? 0),
+        citationsFrom: Number(r.citations_from_count ?? 0),
+        unmatchedFrom: Number(r.unmatched_from_count ?? 0),
       })),
       count: Number(total.count),
     };

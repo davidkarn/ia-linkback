@@ -67,6 +67,11 @@ const matchingSearch = <O>(search: string) => (query: DbSelectQuery<'citations',
 export const CITATION_MATCHES = ['all', 'matched', 'unmatched'] as const;
 export type CitationMatch = typeof CITATION_MATCHES[number];
 
+// The citations in a book's footnotes; all citations without a book
+const inBook = <O>(bookId: string | undefined) => (query: DbSelectQuery<'citations', O>) => (
+  bookId === undefined ? query : query.where('citations.source_book_id', '=', bookId)
+);
+
 const withMatch = <O>(match: CitationMatch) => (query: DbSelectQuery<'citations', O>) => {
   if (match === 'matched') {
     return query.where('citations.reference_book_id', 'is not', null);
@@ -90,5 +95,5 @@ const sortedByAuthorAndTitle = <O>() => (query: DbSelectQuery<'citations', O>) =
 );
 
 export const CitationScopes = {
-  citesBook, citesPage, matchingSearch, withMatch, sortedByAuthorAndTitle,
+  citesBook, citesPage, matchingSearch, inBook, withMatch, sortedByAuthorAndTitle,
 };
