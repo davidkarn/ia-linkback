@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../api/database.module.ts';
+import { CheckCopyrightCommand } from './commands/check_copyright.command.ts';
 import { ConsolidateFootnoteInsightsCommand } from './commands/consolidate_footnote_insights.command.ts';
 import { FindAndQueueCitedBooksCommand } from './commands/find_and_queue_cited_books.command.ts';
 import { OcrQueuedBooksCommand } from './commands/ocr_queued_books.command.ts';
@@ -15,6 +16,7 @@ import { SaveCoverCommand } from './commands/save_cover.command.ts';
     FindAndQueueCitedBooksCommand,
     ConsolidateFootnoteInsightsCommand,
     SaveCoverCommand,
+    CheckCopyrightCommand,
   ],
 })
 export class CliModule {}

@@ -126,6 +126,18 @@ export interface AlternateIdsTable {
   alternate_id: string,
 }
 
+// How likely a book is to be in the public domain, as an LLM judged it (see
+// core/copyright_status.ts), with notes on why. A book can have several checks.
+export interface CopyrightStatusCheckTable {
+  id: Generated<string>,          // bigserial
+  book_id: string,
+  copyright_status: 'likely_public_domain' | 'probably_public_domain' | 'doubtful_public_domain'
+    | 'likely_copyrighted',
+  notes: Generated<string>,
+  created_at: Generated<Date>,
+  updated_at: Generated<Date>,    // kept by a trigger: any update sets it
+}
+
 export interface Database {
   books: BooksTable,
   pages: PagesTable,
@@ -137,4 +149,5 @@ export interface Database {
   page_insights_cache: PageInsightsCacheTable,
   book_pages_to_citations: BookPagesToCitationsTable,
   alternate_ids: AlternateIdsTable,
+  copyright_status_check: CopyrightStatusCheckTable,
 }

@@ -4,6 +4,7 @@
 //   find-and-queue-cited-books     link the next imported book's citations; queue what it cites
 //   consolidate-footnote-insights  merge the footnote extraction insights
 //   save-cover <bookId>            save a book's cover image from its PDF
+//   check-copyright                judge whether the books not checked yet are in the public domain
 // A book found on archive.org goes through them in that order (see model/queued_book_imports.ts).
 // `npm run cli -- --help` lists them; `npm run cli -- <command> --help` describes one.
 // DATABASE_URL, OPENROUTER_KEY and SCHOLSHELF_DIR can come from .env.

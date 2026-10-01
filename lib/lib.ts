@@ -44,3 +44,11 @@ export const mapLimited = async <T, R>(
 export const column = <T, K extends keyof T>(records: T[], key: K): T[K][] => (
   records.map((r) => r[key])
 );
+
+// The items in runs of `size` (the last one shorter): [1,2,3,4,5], 2 -> [[1,2],[3,4],[5]]
+export const chunked = <T>(items: T[], size: number): T[][] => (
+  Array.from(
+    { length: Math.ceil(items.length / size) },
+    (_, i) => items.slice(i * size, (i + 1) * size),
+  )
+);

@@ -7,12 +7,14 @@ import { QueuedBookImportsActions } from "../model/queued_book_imports.js";
 import { FootnoteExtractionInsightActions } from '../model/footnote_extraction_insights.ts';
 import { BookActions } from '../model/books.ts';
 import { ExtractedCitationActions } from '../model/extracted_citations.ts';
+import { CopyrightStatusCheckActions } from '../model/copyright_status_checks.ts';
 
 const modelActions = {
   QueuedBookImports:          QueuedBookImportsActions,
   FootnoteExtractionInsights: FootnoteExtractionInsightActions,
   Books:                      BookActions,
   ExtractedCitations:         ExtractedCitationActions,
+  CopyrightStatusChecks:      CopyrightStatusCheckActions,
 };
 
 // A function's parameters after the first (the db the executor passes itself)
