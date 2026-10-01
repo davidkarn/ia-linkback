@@ -217,3 +217,35 @@ export type CitationInsights = {
 export const fetchAdminCitationInsights = (): Promise<CitationInsights> => (
   requestJson('GET', '/admin/citation-insights')
 );
+
+// The AdminCitation schema: a citation, the book it's in, and the book it's matched to, if any.
+// sourceFootnotePage is a pageId of sourceBookId. referenceBookTitle is null when it isn't matched,
+// or is matched to an alternate id ("bible") rather than a book.
+export type AdminCitation = {
+  id: string,
+  author: string,
+  title: string,
+  location: string,
+  raw: string,
+  sourceBookId: string,
+  sourceBookTitle: string | null,
+  sourceFootnotePage: number,
+  referenceBookId: string | null,
+  referenceBookTitle: string | null,
+};
+
+export type CitationMatch = 'all' | 'matched' | 'unmatched';
+
+export type AdminCitationList = { meta: { count: number }, items: AdminCitation[] };
+
+// query: search titles, authors and raw text. matched: whether they're matched to a book.
+export const fetchAdminCitations = (opts: {
+  query: string, matched: CitationMatch, offset: number, length: number,
+}): Promise<AdminCitationList> => {
+  const params = new URLSearchParams({
+    matched: opts.matched, offset: String(opts.offset), length: String(opts.length),
+  });
+  if (opts.query.length > 0) params.set('query', opts.query);
+
+  return requestJson('GET', `/admin/citations?${params}`);
+};

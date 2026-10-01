@@ -17,6 +17,21 @@ export const optional_int_param = (
   raw === undefined || raw === '' ? undefined : int_param(name, raw, min, min, max)
 );
 
+// Parse an optional query parameter that must be one of `values`; fallback when it's not given
+export const enum_param = <V extends string>(
+  name: string, raw: unknown, values: readonly V[], fallback: V
+): V => {
+  if (raw === undefined || raw === '') {
+    return fallback;
+  }
+  else if (typeof raw === 'string' && (values as readonly string[]).includes(raw)) {
+    return raw as V;
+  }
+  else {
+    throw new BadRequestException(`${ name } must be one of ${ values.join(', ') }`);
+  }
+};
+
 // Parse a bigserial id path parameter, kept as a string (as the pg driver returns int8)
 export const id_param = (name: string, raw: string): string => {
   if (!/^[1-9]\d{0,17}$/.test(raw)) {

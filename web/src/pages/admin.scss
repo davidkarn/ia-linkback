@@ -3,6 +3,11 @@ main.admin {
         max-width: 48rem;
         margin: 0 auto;
         padding: 2rem 1rem;
+
+        // the citations tab's table needs the room
+        &:has(.admin-citations) {
+            max-width: 90rem;
+        }
     }
 
     button {

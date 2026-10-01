@@ -299,6 +299,70 @@ paths:
           description: not signed in
         '503':
           description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
+  /admin/citations:
+    get:
+      tags:
+        - Admin
+      summary: >-
+        A page of all citations, by author then title (those with no author last). Needs the
+        session cookie from POST /admin/login.
+      parameters:
+        - name: query
+          description: only citations whose title, author or raw text contains this, ignoring case
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: matched
+          description: >-
+            matched: only citations pointing at the book they cite (reference_book_id set);
+            unmatched: only those not; all (the default): both
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - all
+              - matched
+              - unmatched
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 10000000
+        - name: length
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        description: how many citations match, in all
+                        type: number
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminCitation'
+        '400':
+          description: matched, offset or length out of bounds
+        '401':
+          description: not signed in
+        '503':
+          description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
   /admin/citation-insights:
     get:
       tags:
@@ -318,6 +382,44 @@ paths:
           description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
 components:
   schemas:
+    AdminCitation:
+      type: object
+      required:
+        - id
+        - author
+        - title
+        - location
+        - raw
+        - sourceBookId
+        - sourceBookTitle
+        - sourceFootnotePage
+        - referenceBookId
+        - referenceBookTitle
+      properties:
+        id:
+          type: string
+        author:
+          type: string
+        title:
+          type: string
+        location:
+          type: string
+        raw:
+          type: string
+        sourceBookId:
+          description: the book the citation is in
+          type: string
+        sourceBookTitle:
+          type: [string, 'null']
+        sourceFootnotePage:
+          description: the citing page, a pageId of sourceBookId
+          type: number
+        referenceBookId:
+          description: the book it cites, or an alternate id of one ("bible"); null when not matched
+          type: [string, 'null']
+        referenceBookTitle:
+          description: null when not matched, or matched to an alternate id rather than a book
+          type: [string, 'null']
     CitationInsights:
       type: object
       required:

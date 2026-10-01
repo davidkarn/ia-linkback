@@ -1,7 +1,7 @@
 import { QueryClient, queryOptions } from '@tanstack/react-query'
 import {
-  fetchAdminCitationInsights, fetchAdminDashboard, fetchAdminSession, fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage,
-  fetchPageInsights,
+  fetchAdminCitationInsights, fetchAdminCitations, fetchAdminDashboard, fetchAdminSession,
+  fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage, fetchPageInsights,
 } from './api'
 
 // The app's one QueryClient (see main.tsx). Books and pages don't change while they're open, so
@@ -80,6 +80,15 @@ export const adminDashboardQuery = () => queryOptions({
 export const adminCitationInsightsQuery = () => queryOptions({
   queryKey:  ['admin', 'citationInsights'],
   queryFn:   fetchAdminCitationInsights,
+  staleTime: 0,
+  retry:     false,
+});
+
+export const adminCitationsQuery = (
+  opts: Parameters<typeof fetchAdminCitations>[0]
+) => queryOptions({
+  queryKey:  ['admin', 'citations', opts],
+  queryFn:   () => fetchAdminCitations(opts),
   staleTime: 0,
   retry:     false,
 });
