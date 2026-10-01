@@ -99,6 +99,8 @@ export interface QueuedBookImportsTable {
   pdf_url: string | null,
   status: 'queued' | 'pending' | 'inProgress' | 'processingContents' | 'imported' | 'importedAndCrawled' | 'complete',
   imported_book_id: string | null,
+  created_at: Generated<Date>,
+  updated_at: Generated<Date>,    // kept by a trigger: any update sets it
 }
 
 // Insights passed to the LLM when extracting citations from footnotes

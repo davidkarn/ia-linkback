@@ -1,0 +1,25 @@
+.admin-sort-header {
+    .sort-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0;
+        border: none;
+        background: none;
+        color: inherit;
+        font: inherit;
+        letter-spacing: inherit;
+        text-transform: inherit;
+        cursor: pointer;
+
+        &:hover,
+        &.sorted {
+            color: var(--text);
+        }
+    }
+
+    &.numeric .sort-button {
+        justify-content: flex-end;
+        width: 100%;
+    }
+}

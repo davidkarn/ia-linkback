@@ -363,6 +363,86 @@ paths:
           description: not signed in
         '503':
           description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
+  /admin/queued-books:
+    get:
+      tags:
+        - Admin
+      summary: >-
+        A page of the books queued for import (queued_book_imports). Needs the session cookie from
+        POST /admin/login.
+      parameters:
+        - name: query
+          description: only queued books whose title or author contains this, ignoring case
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          description: only queued books with this status; all (the default) for every status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - all
+              - pending
+              - queued
+              - inProgress
+              - processingContents
+              - imported
+              - importedAndCrawled
+              - complete
+        - name: sort
+          description: >-
+            status (the default): by status in the order a book goes through them; created: by when
+            they were queued, the latest first; updated: by when they last changed, the latest
+            first. Then in queue order.
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - status
+              - created
+              - updated
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 100000
+        - name: length
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        description: how many queued books match, in all
+                        type: number
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminQueuedBook'
+        '400':
+          description: status, offset or length out of bounds
+        '401':
+          description: not signed in
+        '503':
+          description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
   /admin/citations:
     get:
       tags:
@@ -452,6 +532,43 @@ paths:
           description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
 components:
   schemas:
+    AdminQueuedBook:
+      type: object
+      required:
+        - id
+        - title
+        - author
+        - status
+        - archiveUrl
+        - importedBookId
+        - importedBookTitle
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          description: its place in the queue
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        status:
+          $ref: '#/components/schemas/QueueStatus'
+        archiveUrl:
+          type: [string, 'null']
+        importedBookId:
+          description: the book it was imported as, once it is
+          type: [string, 'null']
+        importedBookTitle:
+          type: [string, 'null']
+        createdAt:
+          description: when it was queued (for those queued before this was kept, when it started)
+          type: string
+          format: date-time
+        updatedAt:
+          description: when it last changed (its status, most often)
+          type: string
+          format: date-time
     AdminBook:
       type: object
       required:

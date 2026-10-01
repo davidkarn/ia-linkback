@@ -280,3 +280,35 @@ export const fetchAdminBooks = (opts: {
 
   return requestJson('GET', `/admin/books?${params}`);
 };
+
+// The AdminQueuedBook schema: a book queued for import, id its place in the queue, and the book it
+// was imported as, once it is
+export type AdminQueuedBook = {
+  id: string,
+  title: string,
+  author: string,
+  status: QueueStatus,
+  archiveUrl: string | null,
+  importedBookId: string | null,
+  importedBookTitle: string | null,
+  createdAt: string,  // ISO 8601: when it was queued
+  updatedAt: string,  // when it last changed (its status, most often)
+};
+
+export type AdminQueuedBookList = { meta: { count: number }, items: AdminQueuedBook[] };
+
+// by status, in the order a book goes through them, or by when they were created or last updated,
+// the latest first
+export type QueuedBookSort = 'status' | 'created' | 'updated';
+
+// query: search titles and authors. status: only those with it ('all' for every status).
+export const fetchAdminQueuedBooks = (opts: {
+  query: string, status: QueueStatus | 'all', sort: QueuedBookSort, offset: number, length: number,
+}): Promise<AdminQueuedBookList> => {
+  const params = new URLSearchParams({
+    status: opts.status, sort: opts.sort, offset: String(opts.offset), length: String(opts.length),
+  });
+  if (opts.query.length > 0) params.set('query', opts.query);
+
+  return requestJson('GET', `/admin/queued-books?${params}`);
+};

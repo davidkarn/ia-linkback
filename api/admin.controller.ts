@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { CITATION_MATCHES } from '../model/citations';
 import { BOOK_SORTS } from '../model/books';
+import { QUEUE_STATUSES } from '../core/queued_books';
+import { QUEUED_BOOK_SORTS } from '../model/queued_book_imports';
 import { enum_param, int_param, string_param } from './params';
 import {
   adminCredentials, isAdmin, SESSION_MS, sessionCookieHeader, sessionToken,
@@ -101,6 +103,29 @@ export class AdminController {
     const { items, count } = await this.admin.books({
       query:  string_param('query', query) ?? '',
       sort:   enum_param('sort', sort, BOOK_SORTS, 'title'),
+      offset: int_param('offset', offset, 0, 0, 100000),
+      length: int_param('length', length, 50, 1, 200),
+    });
+
+    return { meta: { count }, items };
+  }
+
+  // A page of the queued books, by status or by when they were created or updated, searched by
+  // title and author and filtered by status
+  @Get('queued-books')
+  @UseGuards(AdminGuard)
+  async queuedBooks(
+    @Query('query') query?: unknown,
+    @Query('status') status?: unknown,
+    @Query('sort') sort?: unknown,
+    @Query('offset') offset?: unknown,
+    @Query('length') length?: unknown,
+  ) {
+    const only             = enum_param('status', status, [...QUEUE_STATUSES, 'all'], 'all');
+    const { items, count } = await this.admin.queuedBooks({
+      query:  string_param('query', query) ?? '',
+      status: only === 'all' ? undefined : only,
+      sort:   enum_param('sort', sort, QUEUED_BOOK_SORTS, 'status'),
       offset: int_param('offset', offset, 0, 0, 100000),
       length: int_param('length', length, 50, 1, 200),
     });

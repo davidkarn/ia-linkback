@@ -54,11 +54,6 @@
             white-space: nowrap;
         }
 
-        th.numeric .sort-button {
-            justify-content: flex-end;
-            width: 100%;
-        }
-
         // an unmatched count links to those citations in the Citations tab
         td.numeric a {
             color: inherit;
@@ -89,28 +84,6 @@
 
         .book-author {
             width: 25%;
-        }
-
-        .sort-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0;
-            border: none;
-            background: none;
-            color: inherit;
-            font: inherit;
-            letter-spacing: inherit;
-            text-transform: inherit;
-            cursor: pointer;
-
-            &:hover {
-                color: var(--text);
-            }
-
-            &.sorted {
-                color: var(--text);
-            }
         }
     }
 }

@@ -2,9 +2,10 @@
 // find-and-queue-cited-books, OCR'd by ocr-queued-books, imported by process-ocred-books. A book
 // moves through the statuses queued -> inProgress (OCR'd) -> processingContents -> imported ->
 // importedAndCrawled (its citations linked and the books it cites queued).
-import type { Kysely, Selectable } from 'kysely';
+import { sql, type Kysely, type Selectable } from 'kysely';
 import type { Database, QueuedBookImportsTable } from '../api/database.ts';
-import type { QueueStatus } from '../core/queued_books.ts';
+import { QUEUE_STATUSES, type QueueStatus } from '../core/queued_books.ts';
+import { likePattern, type DbSelectQuery } from './model_utils.ts';
 
 export type QueuedBook = Selectable<QueuedBookImportsTable>;
 export type { QueueStatus };
@@ -70,7 +71,9 @@ const findQueuedUrls = async(db: Kysely<Database>): Promise<Set<string>> => {
     .select(['archive_url', 'pdf_url'])
     .execute();
 
-  return new Set(rows.flatMap((r) => [r.archive_url, r.pdf_url]).filter((u): u is string => u !== null));
+  return new Set(
+    rows.flatMap((r) => [r.archive_url, r.pdf_url]).filter((u): u is string => u !== null)
+  );
 };
 
 // Queue a book found on archive.org for OCR. Returns its id.
@@ -91,6 +94,57 @@ const queueBook = async(
 
   return row.id;
 };
+
+// Queued books whose title or author contains the search, ignoring case; all of them for an empty
+// search
+const matchingSearch = <O>(search: string) => (query: DbSelectQuery<'queued_book_imports', O>) => {
+  if (search.trim().length > 0) {
+    const pattern = likePattern(search.trim());
+
+    return query.where((eb) => eb.or([
+      eb('queued_book_imports.title', 'ilike', pattern),
+      eb('queued_book_imports.author', 'ilike', pattern),
+    ]));
+  }
+  else {
+    return query;
+  }
+};
+
+// Queued books with this status; all of them without one
+const withStatus = <O>(status: QueueStatus | undefined) => (
+  (query: DbSelectQuery<'queued_book_imports', O>) => (
+    status === undefined ? query : query.where('queued_book_imports.status', '=', status)
+  )
+);
+
+// How a list of queued books is sorted: by status, in the order a book goes through them
+// (QUEUE_STATUSES), or by when they were created or last updated, the latest first; then in queue
+// order
+export const QUEUED_BOOK_SORTS = ['status', 'created', 'updated'] as const;
+export type QueuedBookSort = typeof QUEUED_BOOK_SORTS[number];
+
+const sortedBy = <O>(sort: QueuedBookSort) => (query: DbSelectQuery<'queued_book_imports', O>) => {
+  if (sort === 'created') {
+    return query
+      .orderBy('queued_book_imports.created_at', 'desc')
+      .orderBy('queued_book_imports.id');
+  }
+  else if (sort === 'updated') {
+    return query
+      .orderBy('queued_book_imports.updated_at', 'desc')
+      .orderBy('queued_book_imports.id');
+  }
+  else {
+    return query
+      .orderBy(sql`array_position(
+        ${ sql.val(QUEUE_STATUSES) }::text[], queued_book_imports.status
+      )`)
+      .orderBy('queued_book_imports.id');
+  }
+};
+
+export const QueuedBookImportsScopes = { matchingSearch, withStatus, sortedBy };
 
 export const QueuedBookImportsQueries = {
   findNextQueuedBook, findNextQueuedBooks, countByStatus, findQueuedBookNames, findQueuedUrls,

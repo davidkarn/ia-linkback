@@ -3,7 +3,9 @@ import type { Kysely } from 'kysely';
 import { DB } from './database.module';
 import type { Database } from './database';
 import { NEXT_UP_STATUS, statusCounts, type QueueStatus } from '../core/queued_books';
-import { QueuedBookImportsQueries } from '../model/queued_book_imports';
+import {
+  QueuedBookImportsQueries, QueuedBookImportsScopes, type QueuedBookSort,
+} from '../model/queued_book_imports';
 import { byScore, isGivenToModel, MAX_PROMPT_SCORE } from '../core/footnote_extraction';
 import { FootnoteExtractionInsightQueries } from '../model/footnote_extraction_insights';
 import { CitationScopes, type CitationMatch } from '../model/citations';
@@ -58,6 +60,19 @@ export type AdminBook = {
   citationsTo: number,
   citationsFrom: number,
   unmatchedFrom: number,
+};
+
+// The AdminQueuedBook schema in api.yaml. importedBookId: the book it was imported as, once it is.
+export type AdminQueuedBook = {
+  id: string,
+  title: string,
+  author: string,
+  status: QueueStatus,
+  archiveUrl: string | null,
+  importedBookId: string | null,
+  importedBookTitle: string | null,
+  createdAt: string,  // ISO 8601
+  updatedAt: string,
 };
 
 @Injectable()
@@ -173,6 +188,50 @@ export class AdminService {
         citationsTo:   Number(r.cited_by_count ?? 0),
         citationsFrom: Number(r.citations_from_count ?? 0),
         unmatchedFrom: Number(r.unmatched_from_count ?? 0),
+      })),
+      count: Number(total.count),
+    };
+  }
+
+  // A page of the queued books, by status (in pipeline order) or by when they were created or
+  // updated, then queue order: those whose title or author contains `query`, with `status` (any,
+  // without one); and how many there are in all
+  async queuedBooks(opts: {
+    query: string, status: QueueStatus | undefined, sort: QueuedBookSort, offset: number, length: number,
+  }): Promise<{ items: AdminQueuedBook[], count: number }> {
+    const filtered = () => withScopes(this.db.selectFrom('queued_book_imports'), [
+      QueuedBookImportsScopes.matchingSearch(opts.query),
+      QueuedBookImportsScopes.withStatus(opts.status),
+    ]);
+
+    const rows = await withScopes(filtered(), [
+      QueuedBookImportsScopes.sortedBy(opts.sort),
+      DbScopes.offsetAndLimitScope(opts.offset, opts.length),
+    ])
+      .leftJoin('books as imported', 'imported.id', 'queued_book_imports.imported_book_id')
+      .select([
+        'queued_book_imports.id', 'queued_book_imports.title', 'queued_book_imports.author',
+        'queued_book_imports.status', 'queued_book_imports.archive_url',
+        'queued_book_imports.imported_book_id', 'imported.title as imported_title',
+        'queued_book_imports.created_at', 'queued_book_imports.updated_at',
+      ])
+      .execute();
+
+    const total = await filtered()
+      .select((eb) => eb.fn.countAll<string>().as('count'))
+      .executeTakeFirstOrThrow();
+
+    return {
+      items: rows.map((r) => ({
+        id:                r.id,
+        title:             r.title,
+        author:            r.author,
+        status:            r.status,
+        archiveUrl:        r.archive_url,
+        importedBookId:    r.imported_book_id,
+        importedBookTitle: r.imported_title ?? null,
+        createdAt:         r.created_at.toISOString(),
+        updatedAt:         r.updated_at.toISOString(),
       })),
       count: Number(total.count),
     };

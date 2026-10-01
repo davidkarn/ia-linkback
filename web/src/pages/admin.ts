@@ -1,6 +1,7 @@
 // The admin panel at /tl-admin: a sign-in form, then its tabs: the dashboard of the import queue
-// (/tl-admin), the books (/tl-admin/books), the citations (/tl-admin/citations) and the citation
-// extraction insights (/tl-admin/citation-insights). Signing in sets
+// (/tl-admin), the queued books (/tl-admin/queued-books), the books (/tl-admin/books), the
+// citations (/tl-admin/citations) and the citation extraction insights
+// (/tl-admin/citation-insights). Signing in sets
 // an HttpOnly session cookie (see core/admin_auth.ts in the API).
 import { createElement as __, useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router'
@@ -12,6 +13,7 @@ import { STATUS_LABELS } from '../core/queued_books'
 import { Header } from '../components/header'
 import { AdminCitations } from '../components/admin_citations'
 import { AdminBooks } from '../components/admin_books'
+import { AdminQueuedBooks } from '../components/admin_queued_books'
 import './admin.scss'
 
 export default function AdminPage() {
@@ -83,6 +85,7 @@ function SignIn() {
 // The tabs, a tab's content below them; paths relative to /tl-admin
 const TABS = [
   { path: '', label: 'Dashboard' },
+  { path: 'queued-books', label: 'Queued books' },
   { path: 'books', label: 'Books' },
   { path: 'citations', label: 'Citations' },
   { path: 'citation-insights', label: 'Citation insights' },
@@ -112,6 +115,7 @@ function AdminTabs() {
       ),
       __(Routes, {},
         __(Route, {index: true, element: __(Dashboard)}),
+        __(Route, {path: 'queued-books', element: __(AdminQueuedBooks)}),
         __(Route, {path: 'books', element: __(AdminBooks)}),
         __(Route, {path: 'citations', element: __(AdminCitations)}),
         __(Route, {path: 'citation-insights', element: __(CitationInsightsTab)}),

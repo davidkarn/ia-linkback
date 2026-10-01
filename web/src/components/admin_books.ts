@@ -6,11 +6,11 @@ import { createElement as __ } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { match } from 'ts-pattern'
-import { ArrowDown } from 'lucide-react'
 import type { AdminBookList, BookSort } from '../api'
 import { adminBooksQuery } from '../queries'
 import Pager from './pager'
 import { AdminSearch } from './admin_search'
+import { AdminSortHeader } from './admin_sort_header'
 import './admin_books.scss'
 
 const PAGE_LENGTH = 50;
@@ -53,7 +53,9 @@ export function AdminBooks() {
       ),
       match(result)
         .with({status: 'pending'}, () => __('p', {className: 'muted'}, 'Loading'))
-        .with({status: 'error'}, (r) => __('p', {className: 'error'}, "Couldn't load the books: ", r.error.message))
+        .with({status: 'error'}, (r) => (
+          __('p', {className: 'error'}, "Couldn't load the books: ", r.error.message)
+        ))
         .otherwise((r) => __(BookTable, {
           list:   r.data,
           page,
@@ -69,37 +71,6 @@ export function AdminBooks() {
   );
 }
 
-// A column header: a button sorting by it, when it has a sort
-function Header({label, sortBy, sort, onSort, numeric = false}: {
-  label: string,
-  sortBy?: BookSort,
-  sort: BookSort,
-  onSort: (sort: BookSort) => void,
-  numeric?: boolean,
-}) {
-  const sorted = sortBy !== undefined && sortBy === sort;
-
-  return (
-    __('th', {
-      scope:       'col',
-      className:   numeric ? 'numeric' : '',
-      'aria-sort': sorted ? (sortBy === 'title' ? 'ascending' : 'descending') : undefined,
-    },
-      sortBy === undefined
-        ? label
-        : __('button', {
-          type:      'button',
-          className: 'sort-button' + (sorted ? ' sorted' : ''),
-          title:     sortBy === 'title' ? 'Sort by title' : `Sort by ${ label.toLowerCase() }, the most first`,
-          onClick:   () => onSort(sortBy),
-        },
-          label,
-          sorted && __(ArrowDown, {size: 14, 'aria-hidden': true})
-        )
-    )
-  );
-}
-
 function BookTable({list, page, query, sort, onSort, onPage}: {
   list: AdminBookList,
   page: number,
@@ -111,7 +82,16 @@ function BookTable({list, page, query, sort, onSort, onPage}: {
   const pageCount = Math.ceil(list.meta.count / PAGE_LENGTH);
   const first     = (page - 1) * PAGE_LENGTH + 1;
   const header    = (label: string, sortBy?: BookSort, numeric = false) => (
-    __(Header, {label, sort, onSort, numeric, ...(sortBy === undefined ? {} : {sortBy})})
+    __(AdminSortHeader<BookSort>, {
+      label, sort, onSort, numeric,
+      ...(sortBy === undefined ? {} : {
+        sortBy,
+        ascending: sortBy === 'title',
+        title:     sortBy === 'title'
+          ? 'Sort by title'
+          : `Sort by ${ label.toLowerCase() }, the most first`,
+      }),
+    })
   );
 
   return (
@@ -151,7 +131,8 @@ function BookTable({list, page, query, sort, onSort, onPage}: {
                   b.unmatchedFrom === 0
                     ? '0'
                     : __(Link, {
-                      to:    `/tl-admin/citations?book=${ encodeURIComponent(b.id) }&matched=unmatched`,
+                      to:    `/tl-admin/citations?book=${ encodeURIComponent(b.id) }`
+                        + '&matched=unmatched',
                       title: `Show the unmatched citations in ${ b.title }`,
                     }, b.unmatchedFrom.toLocaleString())
                 ),
