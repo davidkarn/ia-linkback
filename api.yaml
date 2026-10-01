@@ -226,8 +226,142 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Citation'
+  /admin/session:
+    get:
+      tags:
+        - Admin
+      summary: Whether this browser is signed in to the admin panel (its session cookie is valid).
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSession'
+        '503':
+          description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
+  /admin/login:
+    post:
+      tags:
+        - Admin
+      summary: >-
+        Sign in to the admin panel with ADMIN_USERNAME and ADMIN_PASSWORD (from the API's
+        environment). Sets the tl_admin_session cookie (HttpOnly, SameSite=Strict), good for 7 days
+        or until the password changes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSession'
+        '401':
+          description: wrong username or password
+        '503':
+          description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
+  /admin/logout:
+    post:
+      tags:
+        - Admin
+      summary: Sign out of the admin panel, ending the session cookie.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSession'
+  /admin/dashboard:
+    get:
+      tags:
+        - Admin
+      summary: >-
+        The import queue (queued_book_imports): how many books have each status, and the next books
+        to be OCR'd. Needs the session cookie from POST /admin/login.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDashboard'
+        '401':
+          description: not signed in
+        '503':
+          description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
 components:
   schemas:
+    AdminSession:
+      type: object
+      required:
+        - signedIn
+      properties:
+        signedIn:
+          type: boolean
+    QueueStatus:
+      type: string
+      enum:
+        - pending
+        - queued
+        - inProgress
+        - processingContents
+        - imported
+        - importedAndCrawled
+        - complete
+    AdminDashboard:
+      type: object
+      required:
+        - statusCounts
+        - nextUp
+      properties:
+        statusCounts:
+          description: every status, in the order a book goes through them, with how many books have it
+          type: array
+          items:
+            type: object
+            required:
+              - status
+              - count
+            properties:
+              status:
+                $ref: '#/components/schemas/QueueStatus'
+              count:
+                type: number
+        nextUp:
+          description: the first 10 books with status queued, the next to be OCR'd, in queue order
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - title
+              - author
+              - archiveUrl
+              - pdfUrl
+              - status
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              author:
+                type: string
+              archiveUrl:
+                type: [string, 'null']
+              pdfUrl:
+                type: [string, 'null']
+              status:
+                $ref: '#/components/schemas/QueueStatus'
     BookPage:
       type: object
       properties:

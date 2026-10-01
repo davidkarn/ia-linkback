@@ -149,3 +149,60 @@ export const fetchPageInsights = async (bookId: string, pageId: number): Promise
     return res.json();
   }
 };
+
+// The admin panel (/tl-admin): the AdminSession, QueueStatus and AdminDashboard schemas in
+// ../api.yaml. Signing in sets an HttpOnly session cookie, which the browser sends with these.
+export type AdminSession = { signedIn: boolean };
+
+export type QueueStatus =
+  'pending' | 'queued' | 'inProgress' | 'processingContents' | 'imported' | 'importedAndCrawled' | 'complete';
+
+export type AdminDashboard = {
+  statusCounts: { status: QueueStatus, count: number }[],  // every status, in pipeline order
+  nextUp: {  // the next books to be OCR'd
+    id: string,
+    title: string,
+    author: string,
+    archiveUrl: string | null,
+    pdfUrl: string | null,
+    status: QueueStatus,
+  }[],
+};
+
+// A failed request's HTTP status, for telling a wrong password (401) from the panel being closed
+// (503)
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+const requestJson = async <T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> => {
+  const res = await fetch(`/api${path}`, {
+    method,
+    ...(body === undefined ? {} : {
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    }),
+  });
+
+  if (!res.ok) {
+    const message = await res.json().then((b) => b?.message, () => undefined);
+    throw new ApiError(res.status, message ?? `${method} ${path} failed: ${res.status} ${res.statusText}`);
+  }
+  else {
+    return res.json();
+  }
+};
+
+export const fetchAdminSession = (): Promise<AdminSession> => requestJson('GET', '/admin/session');
+
+export const adminLogin = (username: string, password: string): Promise<AdminSession> =>
+  requestJson('POST', '/admin/login', { username, password });
+
+export const adminLogout = (): Promise<AdminSession> => requestJson('POST', '/admin/logout');
+
+export const fetchAdminDashboard = (): Promise<AdminDashboard> => requestJson('GET', '/admin/dashboard');

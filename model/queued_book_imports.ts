@@ -4,9 +4,10 @@
 // importedAndCrawled (its citations linked and the books it cites queued).
 import type { Kysely, Selectable } from 'kysely';
 import type { Database, QueuedBookImportsTable } from '../api/database.ts';
+import type { QueueStatus } from '../core/queued_books.ts';
 
 export type QueuedBook = Selectable<QueuedBookImportsTable>;
-export type QueueStatus = QueuedBookImportsTable['status'];
+export type { QueueStatus };
 
 // The first book queued with this status, if any
 const findNextQueuedBook = (db: Kysely<Database>, status: QueueStatus) => (
@@ -17,6 +18,28 @@ const findNextQueuedBook = (db: Kysely<Database>, status: QueueStatus) => (
     .limit(1)
     .executeTakeFirst()
 );
+
+// The first `limit` books queued with this status, in the order they'll be taken
+const findNextQueuedBooks = (db: Kysely<Database>, status: QueueStatus, limit: number) => (
+  db.selectFrom('queued_book_imports')
+    .selectAll()
+    .where('status', '=', status)
+    .orderBy('id')
+    .limit(limit)
+    .execute()
+);
+
+// How many books are queued with each status (statuses no book has are left out)
+const countByStatus = async(
+  db: Kysely<Database>
+): Promise<{ status: QueueStatus, count: number }[]> => {
+  const rows = await db.selectFrom('queued_book_imports')
+    .select((eb) => ['status', eb.fn.countAll<string>().as('count')])
+    .groupBy('status')
+    .execute();
+
+  return rows.map((r) => ({ status: r.status, count: Number(r.count) }));
+};
 
 const setQueuedBookStatus = (db: Kysely<Database>, id: string, status: QueueStatus) => (
   db.updateTable('queued_book_imports')
@@ -69,5 +92,7 @@ const queueBook = async(
   return row.id;
 };
 
-export const QueuedBookImportsQueries = { findNextQueuedBook, findQueuedBookNames, findQueuedUrls };
+export const QueuedBookImportsQueries = {
+  findNextQueuedBook, findNextQueuedBooks, countByStatus, findQueuedBookNames, findQueuedUrls,
+};
 export const QueuedBookImportsActions = { queueBook, setQueuedBookStatus, markQueuedBookImported };

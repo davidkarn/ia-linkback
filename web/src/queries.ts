@@ -1,5 +1,8 @@
 import { QueryClient, queryOptions } from '@tanstack/react-query'
-import { fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage, fetchPageInsights } from './api'
+import {
+  fetchAdminDashboard, fetchAdminSession, fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage,
+  fetchPageInsights,
+} from './api'
 
 // The app's one QueryClient (see main.tsx). Books and pages don't change while they're open, so
 // data stays fresh for a while and isn't refetched when the window regains focus (page insights
@@ -57,4 +60,19 @@ export const pageInsightsQuery = (bookId: string, pageId: number) => queryOption
 export const citationSourcePageQuery = (citationId: string) => queryOptions({
   queryKey: ['citation', citationId, 'sourcePage'],
   queryFn:  () => fetchCitationSourcePage(citationId),
+});
+
+// The admin panel: fetched again whenever it's opened, as the queue changes while the CLI runs
+export const adminSessionQuery = () => queryOptions({
+  queryKey:  ['admin', 'session'],
+  queryFn:   fetchAdminSession,
+  staleTime: 0,
+  retry:     false,
+});
+
+export const adminDashboardQuery = () => queryOptions({
+  queryKey:  ['admin', 'dashboard'],
+  queryFn:   fetchAdminDashboard,
+  staleTime: 0,
+  retry:     false,
 });
