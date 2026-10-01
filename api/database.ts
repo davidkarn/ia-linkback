@@ -9,6 +9,7 @@ export interface BooksTable {
   author: string,
   url: string | null,
   cover_photo_path: string | null,
+  translator: string | null,      // who translated it, for a book read in translation
 }
 
 // How a book's pages are cited (migrations/0007_create_book_pages_to_citations.ts)

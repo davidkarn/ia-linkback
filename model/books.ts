@@ -93,9 +93,10 @@ const pageCount = (eb: DbExprBuilder<'books'>, name: string = 'page_count') => (
 // which also deletes their blocks, the citations in them and their cached insights. The blocks'
 // citations are saved with them: a citation_groups row per place each locationsCited group cites
 // (a range is a row per place; see core/citation_groups.ts).
+// translator: who translated it; left as it was when not given (importers that don't know one)
 const saveBook = (
   db: Kysely<Database>,
-  book: { id: string, title: string, author: string, url: string | null },
+  book: { id: string, title: string, author: string, url: string | null, translator?: string | null },
   pages: Page[],
 ) => db.transaction().execute(async(trx) => {
   await trx.insertInto('books')
@@ -104,6 +105,7 @@ const saveBook = (
       title:  eb.ref('excluded.title'),
       author: eb.ref('excluded.author'),
       url:    eb.ref('excluded.url'),
+      ...(book.translator === undefined ? {} : { translator: eb.ref('excluded.translator') }),
     })))
     .execute();
 

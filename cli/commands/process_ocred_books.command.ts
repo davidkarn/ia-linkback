@@ -96,7 +96,7 @@ export class ProcessOcredBooksCommand extends CommandRunner {
           operatingInsights.concat(result.additionalInsights.filter(s => s.score <= 2))
         );
         citations.push(...pageCitations(bookId, page.page, result));
-
+        log(response, 'page ' + page.page + ' of ' + pages.length);
         await setTimeout(REQUEST_INTERVAL_MS);
       }
       catch (e) {
