@@ -10,6 +10,7 @@ export interface BooksTable {
   url: string | null,
   cover_photo_path: string | null,
   translator: string | null,      // who translated it, for a book read in translation
+  author_id: string | null,       // its author (authors); null for one with none ("Anonymous")
 }
 
 // How a book's pages are cited (migrations/0007_create_book_pages_to_citations.ts)
@@ -156,6 +157,23 @@ export interface BookPartNamesTable {
   name: string,
 }
 
+// Authors, and the names they go by, their own among them: each name is one
+// author's (ignoring case). migrations/0020_create_authors.ts
+export interface AuthorsTable {
+  id: Generated<string>,          // bigserial
+  name: string,
+  created_at: Generated<Date>,
+  updated_at: Generated<Date>,    // kept by a trigger: any update sets it
+}
+
+export interface AlternateAuthorNamesTable {
+  id: Generated<string>,          // bigserial
+  author_id: string,
+  name: string,
+  created_at: Generated<Date>,
+  updated_at: Generated<Date>,    // kept by a trigger: any update sets it
+}
+
 export interface Database {
   books: BooksTable,
   pages: PagesTable,
@@ -169,4 +187,6 @@ export interface Database {
   alternate_ids: AlternateIdsTable,
   copyright_status_check: CopyrightStatusCheckTable,
   book_part_names: BookPartNamesTable,
+  authors: AuthorsTable,
+  alternate_author_names: AlternateAuthorNamesTable,
 }

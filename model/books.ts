@@ -5,6 +5,7 @@ import type { Page } from '../types.ts';
 import { placesOf } from '../core/citation_groups.ts';
 import { groupRow } from './citation_groups.ts';
 import { AlternateIdsSql } from './alternate_ids.ts';
+import { AuthorActions } from './authors.ts';
 import { likePattern, type DbExprBuilder, type DbSelectQuery } from './model_utils.ts';
 
 const CHUNK = 500;
@@ -93,18 +94,23 @@ const pageCount = (eb: DbExprBuilder<'books'>, name: string = 'page_count') => (
 // which also deletes their blocks, the citations in them and their cached insights. The blocks'
 // citations are saved with them: a citation_groups row per place each locationsCited group cites
 // (a range is a row per place; see core/citation_groups.ts).
-// translator: who translated it; left as it was when not given (importers that don't know one)
+// translator: who translated it; left as it was when not given (importers that don't know one).
+// Its author_id is the author its author names, added when no author goes by that name yet (see
+// model/authors.ts).
 const saveBook = (
   db: Kysely<Database>,
   book: { id: string, title: string, author: string, url: string | null, translator?: string | null },
   pages: Page[],
 ) => db.transaction().execute(async(trx) => {
+  const authorId = await AuthorActions.findOrCreateAuthor(trx, book.author);
+
   await trx.insertInto('books')
-    .values(book)
+    .values({ ...book, author_id: authorId })
     .onConflict((oc) => oc.column('id').doUpdateSet((eb) => ({
-      title:  eb.ref('excluded.title'),
-      author: eb.ref('excluded.author'),
-      url:    eb.ref('excluded.url'),
+      title:     eb.ref('excluded.title'),
+      author:    eb.ref('excluded.author'),
+      author_id: eb.ref('excluded.author_id'),
+      url:       eb.ref('excluded.url'),
       ...(book.translator === undefined ? {} : { translator: eb.ref('excluded.translator') }),
     })))
     .execute();
