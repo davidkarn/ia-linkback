@@ -11,6 +11,12 @@ export type BookSummary = {
 
 export type BookList = { meta: { count: number }, items: BookSummary[] };
 
+// The AuthorSummary schema in ../api.yaml: an author with books in the collection.
+// citedByCount: citations in other books of any of their books
+export type AuthorSummary = { id: string, name: string, bookCount: number, citedByCount: number };
+
+export type AuthorList = { meta: { count: number }, items: AuthorSummary[] };
+
 // GET /books/{bookId}: every page in reading order. pageId is the scan's page number; printedPageNumber
 // is the number printed on the page, '' when it has none. citedByCount: citations in other books that cite
 // this page (its foreignCitations). For a short book with volumes, every volume's pages are listed, each
@@ -101,15 +107,34 @@ const getJson = async <T>(path: string): Promise<T> => {
   }
 };
 
-// query: search titles and authors
-export const fetchBooks = async (opts: { offset?: number, length?: number, query?: string } = {}): Promise<BookList> => {
+// query: search titles and authors; authorId: only that author's books
+export const fetchBooks = async (
+  opts: { offset?: number, length?: number, query?: string, authorId?: string } = {}
+): Promise<BookList> => {
   const params = new URLSearchParams();
   if (opts.offset !== undefined) params.set('offset', String(opts.offset));
   if (opts.length !== undefined) params.set('length', String(opts.length));
   if (opts.query) params.set('query', opts.query);
+  if (opts.authorId !== undefined) params.set('authorId', opts.authorId);
 
   return getJson(`/books?${params}`);
 };
+
+// query: only authors going by a name containing it
+export const fetchAuthors = (
+  opts: { offset: number, length: number, query: string }
+): Promise<AuthorList> => {
+  const params = new URLSearchParams();
+  params.set('offset', String(opts.offset));
+  params.set('length', String(opts.length));
+  if (opts.query) params.set('query', opts.query);
+
+  return getJson(`/authors?${params}`);
+};
+
+export const fetchAuthor = (authorId: string): Promise<AuthorSummary> => (
+  getJson(`/authors/${encodeURIComponent(authorId)}`)
+);
 
 // opened to `volume`, or else to the first volume holding `pageId`, or else to volume 1
 export const fetchBook = (

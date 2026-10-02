@@ -35,6 +35,13 @@ paths:
          required: false
          schema:
           type: string      
+       - name: authorId
+         description: only the books of this author (an id from GET /authors)
+         in: query
+         required: false
+         schema:
+          type: string
+          pattern: '^[1-9][0-9]*$'
       summary: Search books
       responses:
         '200':
@@ -53,6 +60,72 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/BookSummary'
+  /authors:
+    get:
+      tags:
+        - Authors
+      summary: A page of the authors with books in the collection, by name
+      parameters:
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 10000
+        - name: length
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 100
+        - name: query
+          description: >-
+            only authors going by a name containing this, ignoring case: their own or another of
+            theirs (alternate_author_names: "Aquinas", "The Philosopher")
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: a page of authors, and meta.count, how many there are in all
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        type: number
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuthorSummary'
+  /authors/{authorId}:
+    get:
+      tags:
+        - Authors
+      summary: An author with books in the collection
+      parameters:
+        - name: authorId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[1-9][0-9]*$'
+      responses:
+        '200':
+          description: the author
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorSummary'
+        '404':
+          description: no author with that id has a book in the collection
   /books/{bookId}:
     get:
       tags:
@@ -918,6 +991,26 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ContentsEntry'
+    AuthorSummary:
+      type: object
+      required:
+        - id
+        - name
+        - bookCount
+        - citedByCount
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        bookCount:
+          description: the author's books in the collection
+          type: number
+        citedByCount:
+          description: >-
+            citations in other books of any of the author's books, directly or through one of
+            their alternate ids
+          type: number
     VolumeSummary:
       type: object
       required:

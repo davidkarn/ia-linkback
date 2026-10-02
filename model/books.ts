@@ -17,6 +17,11 @@ const chunks = <T>(rows: T[]): T[][] => (
   )
 );
 
+// The books of one author (authors.id)
+const byAuthor = <O>(authorId: string | undefined) => (query: DbSelectQuery<'books', O>) => (
+  authorId === undefined ? query : query.where('books.author_id', '=', authorId)
+);
+
 const sortedForDisplay = <O>() => (query: DbSelectQuery<'books', O>) => (
   query.orderBy('books.title').orderBy('books.id')
 );
@@ -206,7 +211,7 @@ const setCoverPhotoPath = (db: Kysely<Database>, bookId: string, coverPhotoPath:
     .execute()
 );
 
-export const BookScopes = { sortedForDisplay, scopedToQuery, sortedBy };
+export const BookScopes = { sortedForDisplay, scopedToQuery, sortedBy, byAuthor };
 export const BookActions = { saveBook, setCoverPhotoPath };
 export const BookSelectors = { citedByCount, citationsFromCount, unmatchedFromCount, pageCount };
 export const BookQueries = { findOtherBookNames, findBookIds };

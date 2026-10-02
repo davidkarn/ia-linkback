@@ -1,6 +1,6 @@
 import { Controller, Get, Inject, NotFoundException, Param, Query } from '@nestjs/common';
 import { BooksService } from './books.service';
-import { int_param, optional_int_param, paging_params, string_param } from './params';
+import { id_param, int_param, optional_int_param, paging_params, string_param } from './params';
 
 @Controller('books')
 export class BooksController {
@@ -11,10 +11,13 @@ export class BooksController {
     @Query('offset') offset?: unknown,
     @Query('length') length?: unknown,
     @Query('query') query?: unknown,
+    @Query('authorId') authorId?: unknown,
   ) {
+    const author           = string_param('authorId', authorId);
     const { items, count } = await this.books.search({
       ...paging_params(offset, length),
-      query: string_param('query', query),
+      query:    string_param('query', query),
+      authorId: author === undefined ? undefined : id_param('authorId', author),
     });
 
     return { meta: { count }, items };

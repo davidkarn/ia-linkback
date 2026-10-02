@@ -201,6 +201,11 @@
 
         &.bible-page-layout {
             padding-right: 0;
+            .page-header {
+                width: 100%;
+                max-width: 100%;
+                padding-right: 1rem;
+            }
         }
     }
     aside.cited-by {
@@ -260,8 +265,15 @@
 
             }
 
-            &:first-child .verse-citations {
-                border-top: 1px solid var(--light-accent);                
+            &:first-child {
+                border-top: 1px solid var(--light-accent);
+
+                .verse-text {
+                    padding-top: 0.75rem;
+                }
+                .verse-citations {
+
+                }
             }
                                 
 

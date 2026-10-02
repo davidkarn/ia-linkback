@@ -2,7 +2,8 @@ import { QueryClient, queryOptions } from '@tanstack/react-query'
 import {
   fetchAdminBooks, fetchAdminCitationInsights, fetchAdminCitations, fetchAdminDashboard,
   fetchAdminQueuedBooks, fetchAdminSession,
-  fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage, fetchPageInsights,
+  fetchAuthor, fetchAuthors, fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage,
+  fetchPageInsights,
 } from './api'
 
 // The app's one QueryClient (see main.tsx). Books and pages don't change while they're open, so
@@ -19,11 +20,24 @@ export const queryClient = new QueryClient({
 });
 
 
+// authorId: only that author's books
 export const booksQuery = (
-  opts: { offset: number, length: number, query: string }
+  opts: { offset: number, length: number, query: string, authorId?: string }
 ) => queryOptions({
   queryKey: ['books', opts],
   queryFn:  () => fetchBooks(opts),
+});
+
+export const authorsQuery = (opts: { offset: number, length: number, query: string }) => (
+  queryOptions({
+    queryKey: ['authors', opts],
+    queryFn:  () => fetchAuthors(opts),
+  })
+);
+
+export const authorQuery = (authorId: string) => queryOptions({
+  queryKey: ['author', authorId],
+  queryFn:  () => fetchAuthor(authorId),
 });
 
 const bookVolumeKey = (bookId: string, volume: number) => ['book', bookId, 'volume', volume];

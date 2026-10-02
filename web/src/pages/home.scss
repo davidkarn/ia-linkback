@@ -283,6 +283,7 @@ a {
     gap: 2rem;
 
     background-color: var(--light-background);
+    border-bottom: 1px solid var(--light-accent);
     
     .library-header {
         flex-direction: column;

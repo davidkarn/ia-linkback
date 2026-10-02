@@ -12,7 +12,8 @@ export const Header = () => {
       ),
       __('div', {className: 'separator'}),
       __('nav', {className: 'navbar'},
-        __('a', {className: 'navbar-link', href: '/'}, "Library")
+        __('a', {className: 'navbar-link', href: '/'}, "Library"),
+        __('a', {className: 'navbar-link', href: '/authors'}, "By author")
       )
     )
   )

@@ -61,14 +61,17 @@ export type BookPageForApi = {
 export class BooksService {
   constructor(@Inject(DB) private readonly db: Kysely<Database>) {}
 
+  // authorId: only that author's books
   async search(opts: {
     offset: number,
     length: number,
-    query?: string | undefined }
+    query?: string | undefined,
+    authorId?: string | undefined }
   ): Promise<{ items: BookSummary[], count: number }> {
     const rows = await withScopes(
       this.db.selectFrom('books'), [
         BookScopes.scopedToQuery(opts.query),
+        BookScopes.byAuthor(opts.authorId),
         DbScopes.offsetAndLimitScope(opts.offset, opts.length),
         BookScopes.sortedForDisplay()
       ])
@@ -85,7 +88,8 @@ export class BooksService {
 
     const total = await withScopes(
       this.db.selectFrom('books'), [
-        BookScopes.scopedToQuery(opts.query)
+        BookScopes.scopedToQuery(opts.query),
+        BookScopes.byAuthor(opts.authorId),
       ])
       .select((eb) => eb.fn.countAll<string>().as('count'))
       .executeTakeFirstOrThrow();
