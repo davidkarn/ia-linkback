@@ -1,7 +1,8 @@
 // Import Aristotle's works from the EPUBs Wikisource exports (in output/aristotle, the most recent
-// complete translation of each), a book per work, a page per chapter, with each page's book and
-// chapter saved to book_pages_to_citations (see core/aristotle_epub.ts) and the translator to
-// books.translator.
+// complete translation of each), and from plain-text editions where Wikisource has none (the
+// Physics and On Generation and Corruption, from the Internet Classics Archive), a book per work, a page per chapter, with each
+// page's book and chapter saved to book_pages_to_citations (see core/aristotle_epub.ts) and the
+// translator to books.translator.
 //
 // Usage (from src/):
 //   npx tsx book_importers/aristotle_epub.ts [--dir output/aristotle] [--only metaphysics,poetics]
@@ -16,7 +17,9 @@ import { unzipSync, strFromU8 } from 'fflate';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import type { Database } from '../api/database.ts';
-import { workPages, type EpubDocument, type WorkReading } from '../core/aristotle_epub.ts';
+import {
+  textDocument, withBooksFrom, workPages, type EpubDocument, type WorkReading,
+} from '../core/aristotle_epub.ts';
 import { BookActions } from '../model/books.ts';
 import { replacePageCitations } from '../model/book_pages_to_citations.ts';
 
@@ -29,13 +32,15 @@ const DIR     = option('dir') ?? 'output/aristotle';
 const ONLY    = option('only')?.split(',');
 const DRY_RUN = argv.includes('--dry-run');
 
-// file: the EPUB's name; page: the Wikisource page it was exported from. skip: documents left out
-// besides the first of several (the work's contents page): another work's, or the editor's.
-// reading: where the markers alone would mislead (see WorkReading).
+// file: the EPUB's name (or a plain-text edition's: file.txt, when there's no file.epub); page:
+// the Wikisource page it was exported from, or url: where else it came from. skip: documents left
+// out besides the first of several (the work's contents page): another work's, or the editor's.
+// reading: where the markers alone would mislead (see WorkReading). supplement: a plain-text
+// edition of the work (file.txt) its books are taken from, where the main one lacks them.
 type Work = {
-  file: string, id: string, title: string, translator: string, page: string, skip?: RegExp,
-  reading?: WorkReading,
-};
+  file: string, id: string, title: string, translator: string, skip?: RegExp, reading?: WorkReading,
+  supplement?: { file: string, books: number[] },
+} & ({ page: string } | { url: string });
 
 const WORKS: Work[] = [
   { file: 'categories_edghill_1928', id: 'aristotle-categories', title: 'Categories', translator: 'E. M. Edghill', page: 'The Works of Aristotle/Categories' },
@@ -50,6 +55,8 @@ const WORKS: Work[] = [
     skip:       /_Appendix/ },
   { file: 'topics_owen_1853', id: 'aristotle-topics', title: 'Topics', translator: 'Octavius Freire Owen', page: 'Organon (Owen)/Topics' },
   { file: 'on-sophistical-refutations_owen_1853', id: 'aristotle-on-sophistical-refutations', title: 'On Sophistical Refutations', translator: 'Octavius Freire Owen', page: 'Organon (Owen)/The Sophistical Elenchi' },
+  { file: 'physics_hardie-gaye_1930', id: 'aristotle-physics', title: 'Physics', translator: 'R. P. Hardie and R. K. Gaye', url: 'https://classics.mit.edu/Aristotle/physics.html' },
+  { file: 'on-generation-and-corruption_joachim_1922', id: 'aristotle-on-generation-and-corruption', title: 'On Generation and Corruption', translator: 'H. H. Joachim', url: 'https://classics.mit.edu/Aristotle/gener_corr.html' },
   { file: 'on-the-heavens_stocks_1922', id: 'aristotle-on-the-heavens', title: 'On the Heavens', translator: 'J. L. Stocks', page: 'On the Heavens' },
   { file:       'on-the-soul_wallace_1882',
     id:         'aristotle-on-the-soul',
@@ -74,7 +81,14 @@ const WORKS: Work[] = [
   { file: 'on-the-progression-of-animals_farquharson_1912', id: 'aristotle-on-the-progression-of-animals', title: 'On the Progression of Animals', translator: 'A. S. L. Farquharson', page: 'On the Progression of Animals' },
   { file: 'on-the-generation-of-animals_platt_1912', id: 'aristotle-on-the-generation-of-animals', title: 'On the Generation of Animals', translator: 'Arthur Platt', page: 'On the Generation of Animals' },
   { file: 'on-plants_forster_1913', id: 'aristotle-on-plants', title: 'On Plants', translator: 'E. S. Forster', page: 'On Plants' },
-  { file: 'metaphysics_ross_1908', id: 'aristotle-metaphysics', title: 'Metaphysics', translator: 'W. D. Ross', page: 'Metaphysics (Ross, 1908)' },
+  { file:       'metaphysics_ross_1908',
+    id:         'aristotle-metaphysics',
+    title:      'Metaphysics',
+    translator: 'W. D. Ross',
+    page:       'Metaphysics (Ross, 1908)',
+    // Wikisource's transcription has books I-IV, VI and X whole (with Ross's notes); the rest come
+    // from the Internet Classics Archive's text of Ross's translation
+    supplement: { file: 'metaphysics_ross_mit', books: [5, 7, 8, 9, 11, 12, 13, 14] } },
   { file: 'nicomachean-ethics_ross_1925', id: 'aristotle-nicomachean-ethics', title: 'Nicomachean Ethics', translator: 'W. D. Ross', page: 'Nicomachean Ethics (Ross)' },
   { file: 'eudemian-ethics_solomon_1925', id: 'aristotle-eudemian-ethics', title: 'Eudemian Ethics', translator: 'J. Solomon', page: 'Eudemian Ethics', skip: /Virtues_and_Vices/ },
   { file: 'on-virtues-and-vices_solomon_1925', id: 'aristotle-on-virtues-and-vices', title: 'On Virtues and Vices', translator: 'J. Solomon', page: 'Virtues and Vices' },
@@ -118,13 +132,20 @@ const main = async() => {
 
   try {
     for (const work of works) {
-      const file = path.join(DIR, work.file + '.epub');
-      if (!fs.existsSync(file)) {
-        console.log(`${ work.file }: no ${ file }, skipped`);
+      const epub = path.join(DIR, work.file + '.epub');
+      const text = path.join(DIR, work.file + '.txt');
+      if (!fs.existsSync(epub) && !fs.existsSync(text)) {
+        console.log(`${ work.file }: no ${ epub } or ${ text }, skipped`);
         continue;
       }
 
-      const pages     = workPages(work.title, epubDocuments(file, work.skip), work.reading);
+      const documents = fs.existsSync(epub)
+        ? epubDocuments(epub, work.skip)
+        : [textDocument(path.basename(text), fs.readFileSync(text, 'utf8'))];
+      const main      = workPages(work.title, documents, work.reading);
+      const pages     = work.supplement === undefined ? main : withBooksFrom(main, workPages(work.title, [
+        textDocument(work.supplement.file, fs.readFileSync(path.join(DIR, work.supplement.file + '.txt'), 'utf8')),
+      ]), work.supplement.books);
       const cited     = pages.filter((p) => p.citationParts.length > 0);
       const footnotes = pages.flatMap((p) => p.blocks).filter((b) => b.label === 'Footnote').length;
       const books     = new Set(cited.flatMap((p) => p.citationParts.filter((c) => c.type === 'book').map((c) => c.value)));
@@ -135,7 +156,11 @@ const main = async() => {
 
       if (db) {
         await BookActions.saveBook(db, {
-          id: work.id, title: work.title, author: 'Aristotle', url: wikisourceUrl(work.page), translator: work.translator,
+          id:         work.id,
+          title:      work.title,
+          author:     'Aristotle',
+          url:        'url' in work ? work.url : wikisourceUrl(work.page),
+          translator: work.translator,
         }, pages);
         await replacePageCitations(db, work.id, cited.map((p) => ({ pageNumber: p.pageNumber, parts: p.citationParts })));
       }

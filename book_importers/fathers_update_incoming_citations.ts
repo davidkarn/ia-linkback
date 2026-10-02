@@ -9,7 +9,9 @@
 // letter the volume leaves out, a location misread). The report lists those.
 //
 // Usage (from src/):
-//   npx tsx book_importers/fathers_update_incoming_citations.ts [--dry-run]
+//   npx tsx book_importers/fathers_update_incoming_citations.ts [--works fathers|aristotle] [--dry-run]
+//   --works  whose citations to link: the Fathers' (the default, core/fathers_citations.ts) or
+//            Aristotle's (core/aristotle_citations.ts)
 // DATABASE_URL comes from the environment or .env. Re-running reads the locations again.
 import 'dotenv/config';
 import { Kysely, PostgresDialect } from 'kysely';
@@ -18,15 +20,23 @@ import type { Database } from '../api/database.ts';
 import type { PlaceGroup } from '../core/citation_groups.ts';
 import type { CitationPart } from '../core/summa_thml.ts';
 import {
-  citedFatherWork, divisionTypes, FATHER_WORKS, parseFatherLocation, placeOnPage,
+  citedFatherWork, divisionTypes, FATHER_WORKS, parseFatherLocation, placeOnPage, type FatherWork,
 } from '../core/fathers_citations.ts';
+import { ARISTOTLE_WORKS } from '../core/aristotle_citations.ts';
 import { findCitationsByAuthor, relinkCitations } from '../model/incoming_citations.ts';
 import { findCitedPages } from '../model/book_pages_to_citations.ts';
 
 const DRY_RUN = process.argv.includes('--dry-run');
+const WORKS   = process.argv[process.argv.indexOf('--works') + 1] === 'aristotle' && process.argv.includes('--works')
+  ? 'aristotle' : 'fathers';
 
-// The authors of FATHER_WORKS, loosely: citedFatherWork decides
-const AUTHORS = 'augustin|damascen|damascus';
+// The works whose citations are linked (--works fathers, the default, or aristotle), and their
+// authors, loosely: citedFatherWork decides
+const LINKED: Record<typeof WORKS, { works: FatherWork[], authors: string }> = {
+  fathers:   { works: FATHER_WORKS, authors: 'augustin|damascen|damascus' },
+  aristotle: { works: ARISTOTLE_WORKS, authors: 'aristot|philosopher' },
+};
+const { works: CITED_WORKS, authors: AUTHORS }                               = LINKED[WORKS];
 
 const showPlace = (parts: CitationPart[]) => parts.map((p) => `${ p.type } ${ p.value }`).join(', ');
 
@@ -45,7 +55,7 @@ const main = async() => {
   });
 
   try {
-    const bookIds = [...new Set(FATHER_WORKS.map((w) => w.bookId))];
+    const bookIds = [...new Set(CITED_WORKS.map((w) => w.bookId))];
     const rows    = new Map(await Promise.all(bookIds.map(async(id) => (
       [id, await findCitedPages(db, id)] as const
     ))));
@@ -62,7 +72,7 @@ const main = async() => {
     const offPage: { bookId: string, place: string }[] = [];
 
     for (const c of all) {
-      const work     = citedFatherWork(c.author, c.title, c.location);
+      const work     = citedFatherWork(c.author, c.title, c.location, CITED_WORKS);
       const workRows = work === undefined ? [] : rows.get(work.bookId) ?? [];
 
       if (work === undefined) {

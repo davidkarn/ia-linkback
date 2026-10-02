@@ -1,5 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
-import { documentLeaves, fileBook, workPages, type EpubDocument } from './aristotle_epub.ts';
+import {
+  documentLeaves, fileBook, textDocument, withBooksFrom, workPages, type EpubDocument,
+} from './aristotle_epub.ts';
 
 const doc  = (name: string, body: string): EpubDocument => (
   { name, html: `<html><body>${ body }</body></html>` }
@@ -112,5 +114,58 @@ describe('workPages', () => {
       ['Text', '<p>Good<sup>1</sup> word word '],
       ['Footnote', '<p><sup>1</sup> A note.</p>'],
     ]);
+  });
+});
+
+describe('textDocument', () => {
+  const text = [
+    'Provided by The Internet Classics Archive.', '', 'Physics', 'By Aristotle', '',
+    'BOOK I', '', 'Part 1 ', '', 'When the objects of an inquiry, in any department,',
+    'have principles, conditions, or elements,', '', `${ 'more words '.repeat(20) }`, '',
+    'Part 2', '', `${ 'still more words '.repeat(20) }`, '', 'BOOK II', '', 'Part 1', '',
+    `${ 'nature '.repeat(40) }`, '', 'THE END', '', 'Copyright statement: all rights reserved.',
+  ].join('\r\n');
+
+  it("keeps the text from the first book to the end, a paragraph per run of lines", () => {
+    const html = textDocument('physics.txt', text).html;
+    expect(html).toContain('<p>When the objects of an inquiry, in any department, have principles, conditions, or elements,</p>');
+    expect(html).not.toContain('Internet Classics Archive');
+    expect(html).not.toContain('Copyright');
+  });
+
+  it("reads chapter lines with stray quotation marks, and drops paragraphs of nothing but them", () => {
+    const quoted = ['BOOK I', '', 'Part 1 "', '', '"', '', `"THERE are ${ 'senses '.repeat(40) }`, '', 'Part 2 "', '',
+                    `${ 'being '.repeat(40) }`, '', 'THE END'].join('\n');
+    const pages  = workPages('M', [textDocument('m.txt', quoted)]);
+
+    expect(pages.map((p) => p.printedPageNumber)).toEqual(['Book I, Chapter 1', 'Book I, Chapter 2']);
+    expect(pages[0]!.blocks.map((b) => b.html)).not.toContain('<p>"</p>');
+  });
+
+  it('reads as pages by book and chapter', () => {
+    expect(show([textDocument('physics.txt', text)])).toEqual([
+      'Book I, Chapter 1 [book 1, chapter 1]', 'Book I, Chapter 2 [book 1, chapter 2]',
+      'Book II, Chapter 1 [book 2, chapter 1]',
+    ]);
+  });
+});
+
+describe('withBooksFrom', () => {
+  const page = (source: string, book: number | null, chapter: number | null, n: number) => ({
+    pageNumber:        n,
+    printedPageNumber: `${ source } ${ book }.${ chapter }`,
+    citationParts:     [
+      ...(book === null ? [] : [{ type: 'book', value: book }]),
+      ...(chapter === null ? [] : [{ type: 'chapter', value: chapter }]),
+    ],
+    blocks: [],
+  });
+
+  it("takes the books given from the other edition, keeps the rest, in book order, numbered again", () => {
+    const main       = [page('main', null, null, 1), page('main', 1, 1, 2), page('main', 2, 1, 3), page('main', 3, 1, 4)];
+    const supplement = [page('mit', 1, 1, 1), page('mit', 2, 1, 2), page('mit', 2, 2, 3), page('mit', 4, 1, 4)];
+
+    expect(withBooksFrom(main, supplement, [2, 4]).map((p) => `${ p.pageNumber } ${ p.printedPageNumber }`))
+      .toEqual(['1 main null.null', '2 main 1.1', '3 mit 2.1', '4 mit 2.2', '5 main 3.1', '6 mit 4.1']);
   });
 });

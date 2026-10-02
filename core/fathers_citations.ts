@@ -119,11 +119,12 @@ export const FATHER_WORKS: FatherWork[] = [
 
 const collapse = (s: string) => s.replace(/\s+/g, ' ').trim();
 
-// The work a citation cites, by its author, title and location; undefined when it is none of them
+// The work a citation cites, by its author, title and location; undefined when it is none of them.
+// works: the aliases to try (the Fathers', or another author's: core/aristotle_citations.ts)
 export const citedFatherWork = (
-  author: string, title: string, location: string
+  author: string, title: string, location: string, works: FatherWork[] = FATHER_WORKS,
 ): FatherWork | undefined => (
-  FATHER_WORKS.find((w) => (
+  works.find((w) => (
     w.author.test(collapse(author))
       && w.title.test(collapse(title))
       && (w.location === undefined || w.location.test(location))

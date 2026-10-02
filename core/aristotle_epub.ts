@@ -58,7 +58,8 @@ const SKIPPED_CLASSES = ['pagenum', 'ws-pagenum', 'wst-verse', 'wst-sidenote', '
                          'licenseContainer', 'licenseBanner', 'licensetpl', 'mw-collapsible', 'wst-dhr', 'mw-cite-backlink',
                          'mw-empty-elt', 'wst-pagebreak', 'wst-license-container-title'];
 
-const CHAPTER_LABEL = /^(?:part|chapter|chap\.?)\s*([ivxlc]+|\d+)\b\.?(?:\s*[:.—–-].*)?$/i;
+// stray quotation marks after it allowed: 'Part 3 "' (a text's opening quotes, left behind)
+const CHAPTER_LABEL = /^(?:part|chapter|chap\.?)\s*([ivxlc]+|\d+)\b\.?(?:\s*[:.—–-].*|\s*["'“”‘’]+)?$/i;
 // a bare Roman number is only taken of I, V and X: "C." and "L." are more often abbreviations
 const BARE_NUMBER = /^([ivx]+|\d{1,3})\.?$/i;
 const BOOK_WORD   = '([ivxlc]+|\\d+|one|two|three|four|five|six|seven|eight|nine|ten|first|second|third|fourth'
@@ -397,4 +398,45 @@ export const workPages = (
       ],
     };
   });
+};
+
+// A plain-text edition as a document the pages can be read from (the Internet Classics Archive's,
+// say: "BOOK I", then "Part 1" ... with the text between): its text from the first book's heading
+// to "THE END" (without the archive's header and copyright notice), a paragraph per run of lines
+// between blank lines
+export const textDocument = (name: string, text: string): EpubDocument => {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const start = lines.findIndex((l) => BOOK_LABEL.test(l.trim()));
+  const end   = lines.findIndex((l, i) => i > start && /^THE END\.?$/i.test(l.trim()));
+  const body  = lines.slice(Math.max(start, 0), end < 0 ? undefined : end).join('\n');
+
+  return {
+    name,
+    html: '<body>' + body.split(/\n\s*\n/)
+      .map((p) => squash(p))
+      // a paragraph of no letters or digits: a stray quotation mark
+      .filter((p) => /[\p{L}\p{N}]/u.test(p))
+      .map((p) => `<p>${ escape(p) }</p>`)
+      .join('') + '</body>',
+  };
+};
+
+const bookOf = (page: WorkPage) => page.citationParts.find((p) => p.type === 'book')?.value ?? null;
+
+// A work's pages with some of its books taken from another edition of it (books a transcription
+// lacks, or has in part): the main edition's pages but for those books', and the other's pages of
+// those books, in book order (front matter first), numbered again from 1
+export const withBooksFrom = (
+  main: WorkPage[], supplement: WorkPage[], books: number[]
+): WorkPage[] => {
+  const taken = new Set(books);
+  const pages = [
+    ...main.filter((p) => !taken.has(bookOf(p) ?? 0)),
+    ...supplement.filter((p) => taken.has(bookOf(p) ?? 0)),
+  ];
+
+  return pages
+    .map((page, order) => ({ page, order, book: bookOf(page) ?? 0 }))
+    .sort((a, b) => a.book - b.book || a.order - b.order)
+    .map(({ page }, i) => ({ ...page, pageNumber: i + 1 }));
 };
