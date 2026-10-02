@@ -47,7 +47,8 @@
     width: 2.5rem;
     margin-bottom: 2.5rem;
     cursor: default;
-    touch-action: none;
+    // a vertical drag scrolls the pager (the wrapper) on touch screens
+    touch-action: pan-y;
     user-select: none;
     min-width: 2.5rem;
    
@@ -173,9 +174,5 @@
                 font-weight: bold;
             }
         }
-    }
-
-    &[data-state='hovering'] {
-        cursor: pointer;
     }
 }

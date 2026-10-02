@@ -73,7 +73,6 @@ const BookPager = memo(({pages, volume, volumes, hrefForPage}: {
       __('div', {className: 'fade-edge top', 'aria-hidden': true}),
       __('div', {
         className: 'book-pager',
-        'data-state': status,
         style: {'--page-count': pagesOnly(pages).length} as React.CSSProperties,
       },
         volumeDots(volumes.filter((v) => v.volume < volume)),

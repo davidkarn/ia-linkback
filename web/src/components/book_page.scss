@@ -342,10 +342,21 @@
         }
 
         aside.cited-by {
+            margin-left:2.5rem;
+            padding-left: 0.5rem;
             flex-basis: 100%;
             max-width: none;
             border-left: none;
             border-top: 1px solid var(--light-accent);
+            border-left: 1px solid var(--light-accent);
+        }
+
+        &.without-navigation {
+            aside.cited-by {            
+                margin-left: 0;
+                border-left: 0;
+                padding-left:1.5rem;
+            }
         }
     }
 }
