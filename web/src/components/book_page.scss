@@ -262,6 +262,7 @@
     position: sticky;
     top: 0;
     align-self: flex-start;
+    z-index:50;
 
     &.open-to-pager {
         max-height: 100vh;
@@ -306,5 +307,8 @@
     .navigation-contents {
         min-height: 0;
         overflow-y: auto;
+        overflow-x:hidden;
+        padding-right: 5rem;
+        margin-right:-5rem;
     }
 }

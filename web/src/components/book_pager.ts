@@ -52,8 +52,9 @@ const BookPager = memo(({pages, volume, volumes, hrefForPage}: {
         className: 'line' + (
           cited > 0 ? (cited > 4 ? ' with-many-citations' : ' with-citations') : ''
         ),
+        onClick: () => navigate(hrefForPage(page.pageId, volumeOf.get(page.pageId)))
       },
-        __('span', {onClick: () => navigate(hrefForPage(page.pageId, volumeOf.get(page.pageId)))},
+        __('span', {},
           page.printedPageNumber
         )
       )
@@ -68,6 +69,8 @@ const BookPager = memo(({pages, volume, volumes, hrefForPage}: {
         ref:      wrapper,
         onScroll: updateFades,
       },
+      // the edges fade out over lines scrolled out of view above or below
+      __('div', {className: 'fade-edge top', 'aria-hidden': true}),
       __('div', {
         className: 'book-pager',
         'data-state': status,
@@ -86,7 +89,8 @@ const BookPager = memo(({pages, volume, volumes, hrefForPage}: {
           ))
         ),
         volumeDots(volumes.filter((v) => v.volume > volume)),
-      )
+      ),
+      __('div', {className: 'fade-edge bottom', 'aria-hidden': true}),
     )
   );
 });
