@@ -174,6 +174,16 @@ export interface AlternateAuthorNamesTable {
   updated_at: Generated<Date>,    // kept by a trigger: any update sets it
 }
 
+// The names a book goes by, its title among them: one a book's once (ignoring
+// case), but books can share one. migrations/0021_create_alternate_book_names.ts
+export interface AlternateBookNamesTable {
+  id: Generated<string>,          // bigserial
+  book_id: string,
+  name: string,
+  created_at: Generated<Date>,
+  updated_at: Generated<Date>,    // kept by a trigger: any update sets it
+}
+
 export interface Database {
   books: BooksTable,
   pages: PagesTable,
@@ -189,4 +199,5 @@ export interface Database {
   book_part_names: BookPartNamesTable,
   authors: AuthorsTable,
   alternate_author_names: AlternateAuthorNamesTable,
+  alternate_book_names: AlternateBookNamesTable,
 }
