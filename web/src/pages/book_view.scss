@@ -139,11 +139,14 @@
 
 
 
-// Open books side by side, sharing the width equally (see core/open_books.ts). #root raises this above the
-// page-wide `div#root > main > section.page-body` layout.
+// Open books side by side, sharing the width: the rightmost wider, and the
+// others collapsed to their titles when it would be too narrow (the grid's
+// columns are set by pages/book_view.ts; see core/column_layout.ts). #root
+// raises this above the page-wide `div#root > main > section.page-body`
+// layout.
 div#root > main.book-view > section.book-columns {
     display: grid;
-    grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 0;
     align-items: start;
 
@@ -156,6 +159,40 @@ div#root > main.book-view > section.book-columns {
 
         & + .book-column {
             border-left: 1px solid var(--light-accent);
+        }
+
+        // the book's title alone, reading upwards, at the top of the column;
+        // the whole strip expands it
+        &.collapsed .collapsed-title {
+            position: sticky;
+            top: 0;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            max-height: 100vh;
+            padding: 1.5rem 0 0;
+            overflow: hidden;
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            font: inherit;
+            font-size: 0.875rem;
+            cursor: pointer;
+            align-items: flex-start;
+
+            &:hover {
+                color: var(--text);
+                background: var(--light-background);
+            }
+
+            span {
+                writing-mode: vertical-rl;
+                transform: rotate(180deg);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
         }
     }
 }

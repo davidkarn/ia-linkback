@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useRef, createElement as __, Fragment } from 'react'
+import { useEffect, useMemo, useRef, useState, createElement as __, Fragment } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { match } from 'ts-pattern';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query'
 import { type PageOrderEntry } from '../api'
 import { bookQuery } from '../queries'
-import { assertCond } from '../lib';
+import { assertCond, useWidthInRem } from '../lib';
 import "./book_view.scss"
 import BookPager from '../components/book_pager';
 import { Header } from '../components/header';
 import { BookPageView } from '../components/book_page';
 import { openBooksPath, parseOpenBooks, withBookClosed, withBookOpened, withPage, type OpenBook } from '../core/open_books';
 import { pagesOnly } from '../core/page_order'
+import { collapsedColumns, gridColumns } from '../core/column_layout'
 
 const pageLabel = (entry: PageOrderEntry) =>
   entry.printedPageNumber ? 'p. ' + entry.printedPageNumber : '[scan ' + entry.pageId + ']';
@@ -36,12 +37,27 @@ export default function BookView() {
     }), {})
   ), [books]);
 
+  // the main column: the one expanded by clicking it while collapsed, as long
+  // as the same books are open, else the rightmost. The others collapse, the
+  // leftmost first, while it would be too narrow (core/column_layout.ts).
+  const [expanded, setExpanded] = useState<{ key: string, openKeys: string } | null>(null);
+  const openKeys                = keys.join('|');
+  const expandedColumn          = expanded?.openKeys === openKeys ? keys.indexOf(expanded.key) : -1;
+  const main                    = expandedColumn >= 0 ? expandedColumn : books.length - 1;
+
+  const columnsRef = useRef<HTMLElement>(null);
+  const width      = useWidthInRem(columnsRef);
+  const collapsed  = width > 0
+    ? collapsedColumns(width, books.length, main)
+    : books.map(() => false);
+
   return (
     __('main', {className: 'book-view'},
       __(Header, {}),
       __('section', {
-          className: 'page-body book-columns',
-          style: {'--columns': Math.max(books.length, 1)} as React.CSSProperties,
+          className:           'page-body book-columns',
+          ref:                 columnsRef,
+          style:               {gridTemplateColumns: gridColumns(main, collapsed)},
         },
         books.length === 0
           ? __('p', {className: 'muted'}, 'No book is open.')
@@ -49,7 +65,9 @@ export default function BookView() {
             __(BookColumn, {
               key: keys[column],
               open,
-              active: column === books.length - 1,
+              active: column === main,
+              collapsed: collapsed[column] ?? false,
+              expand: () => setExpanded({ key: keys[column]!, openKeys }),
               hrefForPage: hrefForPageByCol[column],
               hrefForCitingBook: (bookId: string, pageId: number) => (
                 openBooksPath(withBookOpened(books, column, { bookId, pageId }))
@@ -64,9 +82,15 @@ export default function BookView() {
   );
 }
 
-function BookColumn({open, active, hrefForPage, hrefForCitingBook, hrefToClose}: {
+function BookColumn({
+  open, active, collapsed, expand, hrefForPage, hrefForCitingBook, hrefToClose,
+}: {
   open: OpenBook,
+  // the main column, which shows its page's citations
   active: boolean,
+  // only the book's title, sideways, in a slim column; clicking it expands it
+  collapsed: boolean,
+  expand: () => void,
   hrefForPage: (pageId: number, volume: number) => string,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   hrefToClose?: string,
@@ -85,8 +109,19 @@ function BookColumn({open, active, hrefForPage, hrefForCitingBook, hrefToClose}:
   const next   = index >= 0 ? pages[index + 1] : undefined;
 
   return (
-    __('div', {className: 'book-column'},
+    __('div', {className: 'book-column' + (collapsed ? ' collapsed' : '')},
       match<boolean, React.ReactElement>(true)
+        .with(collapsed, () => (
+          __('button', {
+            type:         'button',
+            className:    'collapsed-title',
+            title:        book?.title ?? '',
+            'aria-label': 'Expand ' + (book?.title ?? 'this book'),
+            onClick:      expand,
+          },
+            __('span', {}, book?.title ?? '')
+          )
+        ))
         .with(!!error, () => __('p', {className: "error"}, "Couldn't load this book: ", error))
         .with(!book, () => __('p', {className: "muted"}, 'Loading'))
         .otherwise(() => (
