@@ -227,6 +227,8 @@
         max-width: none;
         display: flex;
         flex-direction: column;
+        // its rows lay out by its own width (below)
+        container: bible-page / inline-size;
 
         .bible-page-insights {
             margin-bottom: 1rem;
@@ -304,6 +306,11 @@
                     border-top: none;
                 }
 
+                // scrolled to below the sticky page header
+                .cited-by-item {
+                    scroll-margin-top: 3rem;
+                }
+
                 .verse-citations-close {
                     float: right;
                     display: flex;
@@ -336,6 +343,44 @@
             .verse-citations {
                 flex: 1 1 50%;
                 max-width: none;
+            }
+        }
+
+
+    }
+
+    // too narrow for the citations beside the verses: they go below each
+    @container bible-page (max-width: 32rem) {
+        .full-page-layout {
+            padding-right: 1rem;
+
+            .page.bible-page {            
+                .verse-row,
+                &.viewing-citations .verse-row {
+                    flex-direction: column;
+                    gap: 0.25rem;
+
+                    .verse-text,
+                    .verse-citations {
+                        flex: none;
+                        width: auto;
+                        max-width: none;
+                    }
+
+                    .verse-citations {
+                        border-left: none;
+                        margin-bottom: 0.75rem;
+                        padding: 0.25rem 0.75rem;
+
+                        &:empty {
+                            display: none;
+                        }
+                    }
+
+                    &:first-child .verse-citations {
+                        border-top: none;
+                    }
+                }
             }
         }
     }
@@ -419,7 +464,11 @@
     }
 }
 
-
+@container (max-width: 32rem) {
+    .full-page-layout.bible-page-layout {
+        padding-right: 1rem!important;
+    }
+}
 
 @container (max-width: 30rem) {
     .page-navigation  {
@@ -465,6 +514,7 @@
             min-width: 0;
             padding-top: 0.5rem;
             padding-right: 1rem;
+            
         }
 
         aside.cited-by {

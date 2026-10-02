@@ -1,4 +1,4 @@
-import { createElement as __, useCallback, useEffect, useMemo, useState } from 'react'
+import { createElement as __, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './book_page.scss';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { type Book, type BookPage, type Citation, type PageBlock } from '../api';
@@ -200,14 +200,35 @@ function BiblePage({book, page, citingBooks, hrefForCitingBook, showCitedBy}: {
     chapterOfPage(book.contents, book.volumes, book.volume, page.pageNumber),
   ), [page, book]);
 
-  // the row whose citations are listed, and the citation expanded in it
+  // the row whose citations are listed, and the citation expanded in it; scrollTo: the one
+  // opened with its row (select), scrolled to once it's shown
   const [selected, setSelected]         = useState<number | null>(null);
   const [openCitation, setOpenCitation] = useState<string | null>(null);
-  
+  const [scrollTo, setScrollTo]         = useState<string | null>(null);
+
   const select = (i: number | null, openCitation?: string | null) => {
     setSelected(i);
-    setOpenCitation(openCitation);
+    setOpenCitation(openCitation ?? null);
+    setScrollTo(openCitation ?? null);
   };
+
+  // the open citations panel closes on a press anywhere outside it (one on another verse's
+  // citations then opens those)
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selected === null) {
+      return undefined;
+    }
+    else {
+      const closeOutside = (e: PointerEvent) => {
+        if (panel.current !== null && !panel.current.contains(e.target as Node)) {
+          select(null);
+        }
+      };
+      document.addEventListener('pointerdown', closeOutside);
+      return () => document.removeEventListener('pointerdown', closeOutside);
+    }
+  }, [selected]);
   const authorOf = (c: Citation) => {
     const citing = citingBooks.get(c.source.bookId);
     return citing?.author || citing?.title || c.source.bookId;
@@ -227,7 +248,7 @@ function BiblePage({book, page, citingBooks, hrefForCitingBook, showCitedBy}: {
             match({count: row.citations.length, open: selected === i})
               .with({count: 0}, () => null)
               .with({open: true}, () => (
-                __('div', {className: 'verse-citations-list'},
+                __('div', {className: 'verse-citations-list', ref: panel},
                   __('button', {
                     type:         'button',
                     className:    'verse-citations-close',
@@ -242,7 +263,11 @@ function BiblePage({book, page, citingBooks, hrefForCitingBook, showCitedBy}: {
                       citing:   citingBooks.get(c.source.bookId),
                       hrefForCitingBook,
                       open:     openCitation === c.id,
-                      onToggle: () => setOpenCitation(openCitation === c.id ? null : c.id),
+                      scrollTo: scrollTo === c.id,
+                      onToggle: () => {
+                        setOpenCitation(openCitation === c.id ? null : c.id);
+                        setScrollTo(null);
+                      },
                     }))
                   )
                 )
@@ -324,22 +349,33 @@ function Block({block}: {block: PageBlock}) {
 
 // citing: the title and author of the book the citation is in
 // Expanded and collapsed by itself (starting as startCollapsed says), or, given open and onToggle,
-// by its parent (a Bible's verse's citations, one open at a time)
-function CitedBy({citation, citing, hrefForCitingBook, startCollapsed = false, open, onToggle}: {
+// by its parent (a Bible's verse's citations, one open at a time). scrollTo: scrolled into view
+// when shown (or when it becomes true)
+function CitedBy({
+  citation, citing, hrefForCitingBook, startCollapsed = false, open, onToggle, scrollTo = false,
+}: {
   citation: Citation,
   citing: BookPage['foreignCitationTitles'][number] | undefined,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   startCollapsed?: boolean,
   open?: boolean,
   onToggle?: () => void,
+  scrollTo?: boolean,
 }) {
+  const item = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (scrollTo) {
+      item.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+  }, [scrollTo]);
+
   const source                  = citation.source;
   const [ownCollapsed, setOwn]  = useState(startCollapsed);
   const collapsed               = open === undefined ? ownCollapsed : !open;
   const toggle                  = onToggle ?? (() => setOwn(!ownCollapsed));
 
   return (
-    __('li', {className: 'cited-by-item' + (collapsed ? ' collapsed' : '')},
+    __('li', {className: 'cited-by-item' + (collapsed ? ' collapsed' : ''), ref: item},
       __('div', {
         className: 'cited-by-heading',
         role: 'button',
