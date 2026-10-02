@@ -16,6 +16,7 @@ import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
 import { PageInsightsSummary } from './page_insights';
 import { TableOfContents } from './table_of_contents';
 import { pagesOnly, pageVolumes } from '../core/page_order'
+import { chapterOfPage, verseRows } from '../core/bible_page'
 
 const MAX_CITATIONS_BEFORE_COLLAPSING = 3;
 
@@ -133,13 +134,23 @@ export const BookPageView = ({
               ),
               __('div', {className: 'book-author'}, book.author)
             ),
-            __('article', {className: 'page'},
-              page.blocks.length === 0
-                ? __('p', {className: 'muted'}, 'No text on this page.')
-                : bodyBlocks.map((block, i) => __(Block, {key: i, block}))
-            )
+            match({isBible: book.isBible, empty: page.blocks.length === 0})
+              .with({empty: true}, () => (
+                __('article', {className: 'page'},
+                  __('p', {className: 'muted'}, 'No text on this page.')
+                )
+              ))
+              .with({isBible: true}, () => (
+                __(BiblePage, {book, page, citingBooks, hrefForCitingBook, showCitedBy})
+              ))
+              .otherwise(() => (
+                __('article', {className: 'page'},
+                  bodyBlocks.map((block, i) => __(Block, {key: i, block}))
+                )
+              ))
           ),
-          showCitedBy && __('aside', {className: 'cited-by'},
+          // a Bible's citations are beside their verses instead (BiblePage)
+          showCitedBy && !book.isBible && __('aside', {className: 'cited-by'},
             page.foreignCitations.length > 0
               && __(PageInsightsSummary, {bookId, pageId}),
             
@@ -162,6 +173,48 @@ export const BookPageView = ({
         )
     ));
 };
+
+// A Bible's page (a chapter): a row per block, each verse beside the citations of it (those of
+// the chapter but no verse on it beside its heading); the citations only in the column showing
+// them (showCitedBy)
+function BiblePage({book, page, citingBooks, hrefForCitingBook, showCitedBy}: {
+  book: Book,
+  page: BookPage,
+  citingBooks: Map<string, BookPage['foreignCitationTitles'][number]>,
+  hrefForCitingBook: (bookId: string, pageId: number) => string,
+  showCitedBy: boolean,
+}) {
+  // the page's headers are in the page header
+  const rows = useMemo(() => verseRows(
+    page.blocks.filter((block) => block.label !== 'PageHeader'),
+    page.foreignCitations,
+    chapterOfPage(book.contents, book.volumes, book.volume, page.pageNumber),
+  ), [page, book]);
+
+  return (
+    __('article', {className: 'page bible-page' + (showCitedBy ? ' with-citations' : '')},
+      showCitedBy && page.foreignCitations.length > 0 && (
+        __('div', {className: 'bible-page-insights'},
+          __(PageInsightsSummary, {bookId: book.id, pageId: page.pageNumber})
+        )
+      ),
+      rows.map((row, i) => (
+        __('div', {key: i, className: 'verse-row verse-row-' + row.block.label},
+          __('div', {className: 'verse-text'}, __(Block, {block: row.block})),
+          showCitedBy && __('ul', {className: 'verse-citations'},
+            row.citations.map((c) => __(CitedBy, {
+              key: c.id,
+              citation: c,
+              citing: citingBooks.get(c.source.bookId),
+              hrefForCitingBook,
+              startCollapsed: row.citations.length > MAX_CITATIONS_BEFORE_COLLAPSING,
+            }))
+          )
+        )
+      ))
+    )
+  );
+}
 
 function Block({block}: {block: PageBlock}) {
   return (

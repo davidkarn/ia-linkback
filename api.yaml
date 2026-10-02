@@ -860,6 +860,11 @@ components:
             number of citations in other books that reference this book, directly or through one of
             its alternate ids (the alternate_ids table)
           type: number
+        isBible:
+          description: >-
+            whether the book is a translation of the Bible (it has the alternate id "bible"), its
+            pages a chapter each and its verses a block each (GET /books/{bookId} only)
+          type: boolean
         volume:
           description: the volume opened (GET /books/{bookId} only)
           type: number

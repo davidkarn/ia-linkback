@@ -13,6 +13,8 @@ import {
 } from '../core/volumes';
 import { partNamer } from '../core/book_part_names';
 import { BookPartNameQueries } from '../model/book_part_names';
+import { AlternateIdsQueries } from '../model/alternate_ids';
+import { isBible } from '../core/bible';
 import { BookScopes, BookSelectors } from '../model/books.js';
 import { DbScopes, withScopes } from '../model/model_utils.js';
 
@@ -33,7 +35,10 @@ export type VolumeSummary = {
   pageCount: number,
   label?: string,
 };
+// isBible: a translation of the Bible (alternate id 'bible'), its pages a chapter each, its
+// verses a paragraph each
 export type BookForApi = BookSummary & {
+  isBible: boolean,
   volume: number,
   volumes: VolumeSummary[],
   pageOrder: PageOrderEntry[],
@@ -162,6 +167,7 @@ export class BooksService {
           ...(book.cover_photo_path ? { coverPhotoPath: book.cover_photo_path } : {}),
           pageCount:    pages.length,
           citedByCount: Number(book.cited_by_count ?? 0),
+          isBible:      isBible(await AlternateIdsQueries.findAlternateIds(this.db, bookId)),
           volume,
           volumes:      volumes.map((v): VolumeSummary => {
             const label = labelOf(v);

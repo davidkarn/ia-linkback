@@ -5,6 +5,10 @@
 // collection (the alternate_ids table: douay-rheims)
 export const BIBLE_BOOK_ID = 'bible';
 
+// Whether a book with these alternate ids is a Bible (a translation of it):
+// citations of the Bible point at it
+export const isBible = (alternateIds: string[]): boolean => alternateIds.includes(BIBLE_BOOK_ID);
+
 // Lower case, in canonical order
 export const DOUAY_CANON = [
   'genesis', 'exodus', 'leviticus', 'numbers', 'deuteronomy', 'josue', 'judges', 'ruth',

@@ -49,6 +49,8 @@ export type VolumeSummary = {
 // the whole book's (a volume's entries at its top level). volumes is empty for a book without
 // volumes, which is always opened to volume 1.
 export type Book = BookSummary & {
+  // a translation of the Bible: its pages a chapter each, its verses a block each
+  isBible: boolean,
   volume: number,
   volumes: VolumeSummary[],
   pageOrder: PageOrderEntry[],
