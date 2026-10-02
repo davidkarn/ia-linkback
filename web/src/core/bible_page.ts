@@ -3,8 +3,10 @@
 // verse's number first (<p><sup>3</sup> For this is he...), and its
 // citations' locations a flat list of places (book 47, chapter 3, verse 7,
 // verse 9, book 40, verse 2): a verse is of the book and chapter before it.
+import type { ReactElement } from 'react';
 import type { Citation, ContentsEntry, PageBlock, VolumeSummary } from '../api';
 import { pathToPageInVolume } from './contents';
+import { Link } from 'react-router';
 
 // citations: those of the block's verse; those of the chapter but no verse
 // on the page go with its heading (or, without one, its first block)
@@ -89,3 +91,31 @@ export const verseRows = (
 
   return rows;
 };
+
+// how many of a verse's citing authors its summary names
+export const MAX_AUTHORS_SHOWN = 8;
+
+// A verse's citations summed up by who cites it, the most citations first
+// (ties in the order they come): "3 - Augustine, 1 - Aquinas", then
+// "...and 4 more" for the authors past MAX_AUTHORS_SHOWN. authorOf: the
+// author of the book a citation is in.
+export const citingAuthorsSummaryForMany = (
+  citations: Citation[], authorOf: (citation: Citation) => string
+): string => {
+  const counts = new Map<string, number>();
+  for (const c of citations) {
+    const author = authorOf(c);
+    counts.set(author, (counts.get(author) ?? 0) + 1);
+  }
+
+  const authors = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  
+  const shown = authors.slice(0, MAX_AUTHORS_SHOWN)
+    .map(([author, n]) => `${ author } (${ n })`);
+
+  const more = authors.length - MAX_AUTHORS_SHOWN;
+
+  return shown.join(', ') + (more > 0 ? ` ...and ${ more } more` : '');
+};
+
+

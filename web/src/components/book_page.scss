@@ -198,6 +198,10 @@
         article.page {
             
         }
+
+        &.bible-page-layout {
+            padding-right: 0;
+        }
     }
     aside.cited-by {
         background-color: var(--light-background);
@@ -219,8 +223,7 @@
         @include cited-by-list;
     }
 
-    // a Bible's page: a row per verse, its text beside the citations of it
-    .bible-page {
+    .page.bible-page {
         max-width: none;
         display: flex;
         flex-direction: column;
@@ -239,25 +242,100 @@
                 flex: 1 1 0;
                 min-width: 0;
                 max-width: 45rem;
+                width: 70%;
+                flex-grow: 20;
             }
 
             .verse-citations {
-                flex: 0 0 18rem;
-                list-style: none;
-                margin: 0;
-                font-size: 0.875rem;
+                flex-grow: 1;
                 background-color: var(--light-background);
+                width: 30%;
+                position: relative;
+                font-size: 0.75rem;
+                color: var(--text-muted);
                 border-left: 1px solid var(--light-accent);
-                padding: 0 1rem;
+                padding: 0 0.75rem;
+
+            }
+
+            &:first-child .verse-citations {
+                border-top: 1px solid var(--light-accent);                
+            }
+                                
+
+            .verse-citations-summary {
+                display: block;
+                width: 100%;
+                padding: 0.125rem 0;
+                border: none;
+                background: none;
+                color: inherit;
+                font: inherit;
+                line-height: 1.4;
+                text-align: left;
+                cursor: pointer;
+
+                &:hover {
+                    color: var(--text);
+                }
+            }
+
+            // over the rows below, as long as the list runs
+            .verse-citations-list {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 20;
+                padding: 0.5rem 0.75rem 0.5rem 1rem;
+                background-color: var(--light-background);
+                border: 1px solid var(--light-accent);
+                border-radius: 4px;
+                box-shadow: 0 4px 12px #0000001a;
+                font-size: 0.875rem;
+                color: var(--text);
                 @include cited-by-list;
 
-                ul, & {
+                ul {
                     max-width: none;
                 }
 
                 li:first-child {
                     border-top: none;
                 }
+
+                .verse-citations-close {
+                    float: right;
+                    display: flex;
+                    padding: 0;
+                    margin-left: 0.5rem;
+                    border: none;
+                    background: none;
+                    color: inherit;
+                    opacity: 0.6;
+                    cursor: pointer;
+
+                    svg {
+                        width: 1rem;
+                        height: 1rem;
+                    }
+
+                    &:hover {
+                        opacity: 1;
+                    }
+                }
+            }
+
+            &.selected .verse-text {
+                background: var(--light-background);
+            }
+        }
+
+        &.viewing-citations .verse-row {
+            .verse-text,
+            .verse-citations {
+                flex: 1 1 50%;
+                max-width: none;
             }
         }
     }

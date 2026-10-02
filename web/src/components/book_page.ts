@@ -16,7 +16,7 @@ import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
 import { PageInsightsSummary } from './page_insights';
 import { TableOfContents } from './table_of_contents';
 import { pagesOnly, pageVolumes } from '../core/page_order'
-import { chapterOfPage, verseRows } from '../core/bible_page'
+import { chapterOfPage, citingAuthorsSummaryForMany, verseRows } from '../core/bible_page'
 
 const MAX_CITATIONS_BEFORE_COLLAPSING = 3;
 
@@ -77,7 +77,11 @@ export const BookPageView = ({
           navigationOpen ? ' with-navigation' : ' without-navigation'
         )},
           navigationOpen && __(BookNavigation, {book, hrefForPage, pageId}),
-          __('div', {className: 'full-page-layout' + (loading ? ' loading' : '')},
+          __('div', {className: 'full-page-layout' + (
+            loading ? ' loading' : ''
+          ) + (
+            book.isBible ? ' bible-page-layout' : ''
+          )},
               __('div', {className: 'page-header'},
                 __('div', {className: 'page-header-item header-buttons'},
                   __(Link, {
@@ -141,7 +145,10 @@ export const BookPageView = ({
                 )
               ))
               .with({isBible: true}, () => (
-                __(BiblePage, {book, page, citingBooks, hrefForCitingBook, showCitedBy})
+                // a new page starts with no verse's citations listed
+                __(BiblePage, {
+                  key: page.pageNumber, book, page, citingBooks, hrefForCitingBook, showCitedBy,
+                })
               ))
               .otherwise(() => (
                 __('article', {className: 'page'},
@@ -175,8 +182,10 @@ export const BookPageView = ({
 };
 
 // A Bible's page (a chapter): a row per block, each verse beside the citations of it (those of
-// the chapter but no verse on it beside its heading); the citations only in the column showing
-// them (showCitedBy)
+// the chapter but no verse on it beside its heading), shown only in the column showing citations
+// (showCitedBy). Each verse's citations are summed up by author until it's clicked: then the text
+// and citations share the width, the verse's citations listed over those of the verses below it,
+// and one citation at a time can be expanded to show the page citing it.
 function BiblePage({book, page, citingBooks, hrefForCitingBook, showCitedBy}: {
   book: Book,
   page: BookPage,
@@ -191,30 +200,108 @@ function BiblePage({book, page, citingBooks, hrefForCitingBook, showCitedBy}: {
     chapterOfPage(book.contents, book.volumes, book.volume, page.pageNumber),
   ), [page, book]);
 
+  // the row whose citations are listed, and the citation expanded in it
+  const [selected, setSelected]         = useState<number | null>(null);
+  const [openCitation, setOpenCitation] = useState<string | null>(null);
+  
+  const select = (i: number | null, openCitation?: string | null) => {
+    setSelected(i);
+    setOpenCitation(openCitation);
+  };
+  const authorOf = (c: Citation) => {
+    const citing = citingBooks.get(c.source.bookId);
+    return citing?.author || citing?.title || c.source.bookId;
+  };
+
   return (
-    __('article', {className: 'page bible-page' + (showCitedBy ? ' with-citations' : '')},
-      showCitedBy && page.foreignCitations.length > 0 && (
-        __('div', {className: 'bible-page-insights'},
-          __(PageInsightsSummary, {bookId: book.id, pageId: page.pageNumber})
-        )
-      ),
+    __('article', {className: 'page bible-page' + (selected === null ? '' : ' viewing-citations')},
       rows.map((row, i) => (
-        __('div', {key: i, className: 'verse-row verse-row-' + row.block.label},
-          __('div', {className: 'verse-text'}, __(Block, {block: row.block})),
-          showCitedBy && __('ul', {className: 'verse-citations'},
-            row.citations.map((c) => __(CitedBy, {
-              key: c.id,
-              citation: c,
-              citing: citingBooks.get(c.source.bookId),
-              hrefForCitingBook,
-              startCollapsed: row.citations.length > MAX_CITATIONS_BEFORE_COLLAPSING,
-            }))
+        __('div', {
+          key:       i,
+          className: 'verse-row verse-row-' + row.block.label + (selected === i ? ' selected' : ''),
+        },
+          __('div', {className: 'verse-text'},
+            __(Block, {block: row.block})
+          ),
+          showCitedBy && __('div', {className: 'verse-citations'},
+            match({count: row.citations.length, open: selected === i})
+              .with({count: 0}, () => null)
+              .with({open: true}, () => (
+                __('div', {className: 'verse-citations-list'},
+                  __('button', {
+                    type:         'button',
+                    className:    'verse-citations-close',
+                    title:        'Close these citations',
+                    'aria-label': 'Close these citations',
+                    onClick:      () => select(null),
+                  }, __(X, {})),
+                  __('ul', {},
+                    row.citations.map((c) => __(CitedBy, {
+                      key:      c.id,
+                      citation: c,
+                      citing:   citingBooks.get(c.source.bookId),
+                      hrefForCitingBook,
+                      open:     openCitation === c.id,
+                      onToggle: () => setOpenCitation(openCitation === c.id ? null : c.id),
+                    }))
+                  )
+                )
+              ))
+              .with({count: P.when(v => v <= 5)}, () => (
+                citingAuthorsSummaryForAFew(
+                  row.citations,
+                  authorOf,
+                  citingBooks,
+                  (citation) => () => select(i, citation.id)
+                )
+              ))
+              .otherwise(() => (
+                __('button', {
+                  type:      'button',
+                  className: 'verse-citations-summary',
+                  'aria-label': 'Show the citations of this verse',
+                  onClick:   () => select(i),
+                }, citingAuthorsSummaryForMany(row.citations, authorOf))
+              ))
           )
         )
       ))
     )
   );
 }
+
+const citingAuthorsSummaryForAFew = (
+  citations: Citation[],
+  authorOf: (citation: Citation) => string,
+  citingBooks: Map<string, BookPage['foreignCitationTitles'][number]>,  
+  onClickFor: (citation: Citation) => () => void,
+): ReactElement => {
+  const tbl = new Map<string, Citation[]>();
+
+  for (const c of citations) {
+    const author = authorOf(c);
+    tbl.set(author, (tbl.get(author) ?? []).concat(c));
+  }
+
+  const authors = Array.from(tbl.keys()).sort();
+  
+  return (
+    __('div', {className: 'author-citation-groups'},
+      authors.map(a => (
+        __('div', {className: 'scripture-author-citations'},
+          a, ' - ',
+          Array.from(tbl.get(a)).map((citation, i) => [
+            __(Link, {onClick: onClickFor(citation)},
+              citingBooks.get(citation.source.bookId)?.title
+            ),
+            i === tbl.get(a).length - 1 ? '' : ', '
+          ])
+        )
+      ))
+    )
+  );
+};
+
 
 function Block({block}: {block: PageBlock}) {
   return (
@@ -236,15 +323,20 @@ function Block({block}: {block: PageBlock}) {
 
 
 // citing: the title and author of the book the citation is in
-function CitedBy({citation, citing, hrefForCitingBook, startCollapsed}: {
+// Expanded and collapsed by itself (starting as startCollapsed says), or, given open and onToggle,
+// by its parent (a Bible's verse's citations, one open at a time)
+function CitedBy({citation, citing, hrefForCitingBook, startCollapsed = false, open, onToggle}: {
   citation: Citation,
   citing: BookPage['foreignCitationTitles'][number] | undefined,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
-  startCollapsed: boolean,
+  startCollapsed?: boolean,
+  open?: boolean,
+  onToggle?: () => void,
 }) {
-  const source                    = citation.source;
-  const [collapsed, setCollapsed] = useState(startCollapsed);
-  const toggle                    = () => setCollapsed(!collapsed);
+  const source                  = citation.source;
+  const [ownCollapsed, setOwn]  = useState(startCollapsed);
+  const collapsed               = open === undefined ? ownCollapsed : !open;
+  const toggle                  = onToggle ?? (() => setOwn(!ownCollapsed));
 
   return (
     __('li', {className: 'cited-by-item' + (collapsed ? ' collapsed' : '')},
