@@ -465,8 +465,9 @@ const BookNavigation = ({book, hrefForPage, pageId}: {
         match(currentMode)
           .with('pages', () => (
             __(BookPager, {
-              pages:   book.pageOrder,
-              volume:  book.volume,
+              pages:          book.pageOrder,
+              allPagesListed: book.allPagesListed,
+              volume:         book.volume,
               volumes: book.volumes,
               hrefForPage,
             })

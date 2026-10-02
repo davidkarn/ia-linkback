@@ -860,6 +860,13 @@ components:
             number of citations in other books that reference this book, directly or through one of
             its alternate ids (the alternate_ids table)
           type: number
+        allPagesListed:
+          description: >-
+            whether pageOrder lists every page of the book (GET /books/{bookId} only): true for a
+            book without volumes, a short one (fewer than 200 pages; with an isVolume entry where
+            each volume starts) or one whose volumes average fewer than 8 pages (without them);
+            false when it lists only the open volume's
+          type: boolean
         isBible:
           description: >-
             whether the book is a translation of the Bible (it has the alternate id "bible"), its
@@ -880,7 +887,8 @@ components:
           description: >-
             the pages of the volume opened, in order (GET /books/{bookId} only); for a book with
             volumes of fewer than 200 pages in all, every volume's pages, with an entry with isVolume
-            true before each volume's first page
+            true before each volume's first page; for one whose volumes average fewer than 8 pages,
+            every page, without those entries (see allPagesListed)
           type: array
           items:
             type: object

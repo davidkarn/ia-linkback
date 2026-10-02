@@ -51,6 +51,8 @@ export type VolumeSummary = {
 export type Book = BookSummary & {
   // a translation of the Bible: its pages a chapter each, its verses a block each
   isBible: boolean,
+  // pageOrder lists every page of the book, not only the open volume's
+  allPagesListed: boolean,
   volume: number,
   volumes: VolumeSummary[],
   pageOrder: PageOrderEntry[],

@@ -8,15 +8,16 @@ import "./book_pager.scss"
 // A line per page of the volume open, between a dot per volume before it and a dot per volume
 // after it, which go to that volume's first page. For a book listing every volume's pages (with
 // an isVolume entry where each starts), a line per page of the book, and a dot where each volume
-// starts.
-const BookPager = memo(({pages, volume, volumes, hrefForPage}: {
+// starts; for one whose volumes are too short to show, a line per page alone.
+const BookPager = memo(({pages, allPagesListed, volume, volumes, hrefForPage}: {
   pages: PageOrderEntry[],
+  // pages lists the whole book (Book.allPagesListed): no dots for the other volumes
+  allPagesListed: boolean,
   volume: number,
   volumes: VolumeSummary[],
   hrefForPage: (pageId: number, volume?: number) => string,
 }) => {
   const navigate    = useNavigate();
-  const allVolumes  = pages.some((p) => p.isVolume);
   const volumeOf    = pageVolumes(pages, volumes);
 
   const wrapper             = useRef<HTMLDivElement>(null);
@@ -39,7 +40,7 @@ const BookPager = memo(({pages, volume, volumes, hrefForPage}: {
   );
 
   const volumeDots = (shown: VolumeSummary[]) => (
-    !allVolumes && shown.length > 0 && __('div', {className: 'volume-dots'},
+    !allPagesListed && shown.length > 0 && __('div', {className: 'volume-dots'},
       shown.map((v) => volumeDot(
         String(v.volume), hrefForPage(v.firstPageId, v.volume), entryLabel(v)
       ))

@@ -7,23 +7,12 @@ export const pagesOnly = (pageOrder: PageOrderEntry[]): PageOrderEntry[] => (
   pageOrder.filter((p) => !p.isVolume)
 );
 
-// The volume each page listed after a volume's entry is in, by page id: the volume whose entry
-// came last before it. Empty when pageOrder has no volume entries.
+// The volume each listed page is in, by page id: the last volume whose pages (firstPageId to
+// lastPageId) take it in, as a page where one volume ends and the next starts goes with the next.
+// Empty for a book without volumes.
 export const pageVolumes = (
   pageOrder: PageOrderEntry[], volumes: VolumeSummary[]
-): Map<number, number> => {
-  const byFirstPage = new Map(volumes.map((v) => [v.firstPageId, v.volume]));
-  const volumeOf    = new Map<number, number>();
-  let current: number | undefined;
-
-  for (const entry of pageOrder) {
-    if (entry.isVolume) {
-      current = byFirstPage.get(entry.pageId) ?? current;
-    }
-    else if (current !== undefined) {
-      volumeOf.set(entry.pageId, current);
-    }
-  }
-
-  return volumeOf;
-};
+): Map<number, number> => new Map(pagesOnly(pageOrder).flatMap((page) => {
+  const volume = volumes.findLast((v) => v.firstPageId <= page.pageId && page.pageId <= v.lastPageId);
+  return volume === undefined ? [] : [[page.pageId, volume.volume] as const];
+}));

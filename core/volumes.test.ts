@@ -1,5 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
-import { pagesWithVolumeMarkers, selectVolume, volumeName, volumesOf } from './volumes.ts';
+import {
+  pageOrderLayout, pagesWithVolumeMarkers, selectVolume, volumeName, volumesOf,
+} from './volumes.ts';
 
 const cited = (pageId: number, ...pairs: [string, number][]) => ({
   pageId, parts: pairs.map(([type, value]) => ({ type, value })),
@@ -104,5 +106,28 @@ describe('pagesWithVolumeMarkers', () => {
     const named = pagesWithVolumeMarkers(pages, volumes, (v) => `Liber ${ v.partValue }`);
     expect(named.filter((p) => 'isVolume' in p).map((p) => p.printedPageNumber))
       .toEqual(['Liber 1', 'Liber 2']);
+  });
+});
+
+describe('pageOrderLayout', () => {
+  const volumesOfSizes = (...sizes: number[]) => sizes.map((size, i) => ({
+    number: i + 1, partType: 'book', partValue: i + 1, pageIds: Array.from({ length: size }, (_, p) => p),
+  }));
+
+  it("lists a book without volumes as its one volume", () => {
+    expect(pageOrderLayout(500, [])).toBe('volume');
+  });
+
+  it('lists every page, unmarked, when its volumes average fewer than 8 pages', () => {
+    expect(pageOrderLayout(26, volumesOfSizes(...Array.from({ length: 26 }, () => 1)))).toBe('all');
+    expect(pageOrderLayout(700, volumesOfSizes(...Array.from({ length: 100 }, () => 7)))).toBe('all');
+  });
+
+  it('lists every page, marked, for a short book of longer volumes', () => {
+    expect(pageOrderLayout(80, volumesOfSizes(40, 40))).toBe('marked');
+  });
+
+  it("lists the open volume's pages for a long book of longer volumes", () => {
+    expect(pageOrderLayout(400, volumesOfSizes(200, 200))).toBe('volume');
   });
 });

@@ -83,6 +83,30 @@ export const selectVolume = (
 // volume starts) rather than only the open volume's
 export const ALL_VOLUMES_UNDER_PAGES = 200;
 
+// A book whose volumes have fewer pages than this on average lists all its pages, without
+// markers: its volumes are too short to be worth showing (Poetics, its chapters a page each)
+export const MIN_AVERAGE_VOLUME_PAGES = 8;
+
+// Which pages a book's pageOrder lists: 'volume', the open volume's (a long book, or one without
+// volumes, whose one volume is the book); 'marked', every volume's with a marker where each starts
+// (a short book); 'all', every page without markers (short volumes)
+export type PageOrderLayout = 'volume' | 'marked' | 'all';
+
+export const pageOrderLayout = (pageCount: number, volumes: Volume[]): PageOrderLayout => {
+  if (volumes.length === 0) {
+    return 'volume';
+  }
+  else if (pageCount / volumes.length < MIN_AVERAGE_VOLUME_PAGES) {
+    return 'all';
+  }
+  else if (pageCount < ALL_VOLUMES_UNDER_PAGES) {
+    return 'marked';
+  }
+  else {
+    return 'volume';
+  }
+};
+
 // A volume's name, from its part: "Book 2", "Part 3"
 export const volumeName = (volume: Volume): string => (
   volume.partType.charAt(0).toUpperCase() + volume.partType.slice(1) + ' ' + volume.partValue
