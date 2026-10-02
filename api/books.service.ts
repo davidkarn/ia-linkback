@@ -8,8 +8,11 @@ import { citationsOfPage, citedCountsByPage, findBooks } from '../model/page_ins
 import { findCitedPages } from '../model/book_pages_to_citations';
 import { contentsOf, type ContentsEntry } from '../core/contents';
 import {
-  ALL_VOLUMES_UNDER_PAGES, pagesWithVolumeMarkers, selectVolume, volumesOf,
+  ALL_VOLUMES_UNDER_PAGES, pagesWithVolumeMarkers, selectVolume, volumeName, volumesOf,
+  type Volume,
 } from '../core/volumes';
+import { partNamer } from '../core/book_part_names';
+import { BookPartNameQueries } from '../model/book_part_names';
 import { BookScopes, BookSelectors } from '../model/books.js';
 import { DbScopes, withScopes } from '../model/model_utils.js';
 
@@ -19,7 +22,8 @@ export type BookSummary = { id: string, title: string, author: string, url?: str
 export type PageOrderEntry = {
   pageId: number, printedPageNumber: string, citedByCount: number | null, isVolume?: true,
 };
-// One of a book's volumes (see core/volumes.ts), without its pages
+// One of a book's volumes (see core/volumes.ts), without its pages. label: its proper name
+// ("Isaias", "Prima Pars"; book_part_names), when it has one.
 export type VolumeSummary = {
   volume: number,
   partType: string,
@@ -27,6 +31,7 @@ export type VolumeSummary = {
   firstPageId: number,
   lastPageId: number,
   pageCount: number,
+  label?: string,
 };
 export type BookForApi = BookSummary & {
   volume: number,
@@ -125,6 +130,9 @@ export class BooksService {
       const citedPages = await findCitedPages(this.db, bookId);
       const volumes    = volumesOf(pages.map((p) => p.page_number), citedPages);
       const volume     = selectVolume(volumes, opts);
+      // a volume's proper name ("Isaias", "Prima Pars"), when book_part_names has one
+      const nameOf  = partNamer(await BookPartNameQueries.findPartNames(this.db, bookId));
+      const labelOf = (v: Volume) => nameOf([{ type: v.partType, value: v.partValue }]);
 
       if (volume === null) {
         return null;
@@ -155,19 +163,25 @@ export class BooksService {
           pageCount:    pages.length,
           citedByCount: Number(book.cited_by_count ?? 0),
           volume,
-          volumes:      volumes.map((v) => ({
-            volume:      v.number,
-            partType:    v.partType,
-            partValue:   String(v.partValue),
-            firstPageId: v.pageIds[0]!,
-            lastPageId:  v.pageIds[v.pageIds.length - 1]!,
-            pageCount:   v.pageIds.length,
-          })),
-          pageOrder:    allOf ? pagesWithVolumeMarkers(listed, volumes) : listed,
+          volumes:      volumes.map((v): VolumeSummary => {
+            const label = labelOf(v);
+            return {
+              volume:      v.number,
+              partType:    v.partType,
+              partValue:   String(v.partValue),
+              firstPageId: v.pageIds[0]!,
+              lastPageId:  v.pageIds[v.pageIds.length - 1]!,
+              pageCount:   v.pageIds.length,
+              ...(label === undefined ? {} : { label }),
+            };
+          }),
+          pageOrder:    allOf
+            ? pagesWithVolumeMarkers(listed, volumes, (v) => labelOf(v) ?? volumeName(v))
+            : listed,
           // the whole book's, every volume's entries: those of other volumes go to their pages
           // in those volumes
           contents:     contentsOf(
-            citedPages, new Map(pages.map((p) => [p.page_number, p.printed_page_number]))
+            citedPages, new Map(pages.map((p) => [p.page_number, p.printed_page_number])), nameOf,
           ),
         };
       }

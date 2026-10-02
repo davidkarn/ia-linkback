@@ -884,7 +884,9 @@ components:
                 description: the page; for a volume's entry (isVolume), its first page
                 type: number
               printedPageNumber:
-                description: the number printed on the page; for a volume's entry, its name ("Book 2")
+                description: >-
+                  the number printed on the page; for a volume's entry, its label, or else its part
+                  ("Book 2")
                 type: string
               citedByCount:
                 description: >-
@@ -930,6 +932,11 @@ components:
           type: number
         pageCount:
           type: number
+        label:
+          description: >-
+            the volume's proper name ("Isaias", "Prima Pars"), from book_part_names; absent when it
+            has none
+          type: string
     ContentsEntry:
       type: object
       required:
@@ -952,6 +959,11 @@ components:
           type: number
         printedPageNumber:
           description: the printed number of the page at pageId ('' when it has none)
+          type: string
+        label:
+          description: >-
+            the entry's proper name ("Isaias", "Prima Pars"), from book_part_names by the parts
+            down to it; absent when it has none
           type: string
         childEntries:
           type: array

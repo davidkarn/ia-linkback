@@ -6,9 +6,15 @@ const LABELS: Record<string, string> = {
   prose: 'Prose', metre: 'Metre',
 };
 
-// An entry as the table of contents shows it: "Question 2", "Chapter 13"
-export const entryLabel = (entry: Pick<ContentsEntry, 'partType' | 'partValue'>): string => (
-  (LABELS[entry.partType] ?? entry.partType[0]!.toUpperCase() + entry.partType.slice(1)) + ' ' + entry.partValue
+// An entry (or a volume) as the table of contents shows it: its proper name when it has one
+// ("Isaias"), else its part: "Question 2", "Chapter 13"
+export const entryLabel = (
+  entry: Pick<ContentsEntry, 'partType' | 'partValue' | 'label'>
+): string => (
+  entry.label ?? (
+    (LABELS[entry.partType] ?? entry.partType[0]!.toUpperCase() + entry.partType.slice(1))
+      + ' ' + entry.partValue
+  )
 );
 
 // The positions of the entries leading to the page, outermost first: at each level the last entry

@@ -99,4 +99,10 @@ describe('pagesWithVolumeMarkers', () => {
       { pageId: 1, printedPageNumber: 'Book 1', citedByCount: null, isVolume: true }
     );
   });
+
+  it('marks a volume by the name given it', () => {
+    const named = pagesWithVolumeMarkers(pages, volumes, (v) => `Liber ${ v.partValue }`);
+    expect(named.filter((p) => 'isVolume' in p).map((p) => p.printedPageNumber))
+      .toEqual(['Liber 1', 'Liber 2']);
+  });
 });

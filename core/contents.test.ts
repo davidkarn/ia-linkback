@@ -52,4 +52,14 @@ describe('contentsOf', () => {
     expect(contents[0]!.printedPageNumber).toBe('iv');
     expect(contents[0]!.childEntries[0]!.printedPageNumber).toBe('');
   });
+
+  it('names the entries whose parts have names, by the parts down to them', () => {
+    const contents = contentsOf(
+      pages(parts(['book', '1'], ['question', '1']), parts(['book', '2'], ['question', '1'])),
+      new Map(),
+      (path) => path.map((p) => p.type + p.value).join(' ') === 'book1' ? 'Prima Pars' : undefined,
+    );
+    expect(contents.map((e) => e.label)).toEqual(['Prima Pars', undefined]);
+    expect('label' in contents[0]!.childEntries[0]!).toBe(false);
+  });
 });

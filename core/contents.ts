@@ -7,20 +7,24 @@ import type { CitationPart } from './summa_thml.ts';
 // pageId: the page to go to for the entry (a pageId of the book's pageOrder): the page cited by
 // exactly its parts (a question's contents page), or else the first page under it.
 // printedPageNumber: that page's printed number ('' when it has none)
+// label: the part's proper name ("Isaias", "Prima Pars"), when it has one
 export type ContentsEntry = {
   partType: CitationLocation['type'],
   partValue: string,
   pageId: number,
   printedPageNumber: string,
+  label?: string,
   childEntries: ContentsEntry[],
 };
 
 // The table of contents of pages cited by these parts, given in page order: entries in the order
 // they are first reached, a part shared by pages ("book 1") one entry holding the parts under it.
-// printedNumbers: the book's pages' printed numbers by pageId.
+// printedNumbers: the book's pages' printed numbers by pageId. nameOf: an entry's proper name, by
+// its parts and those of the entries above it, outermost first (see core/book_part_names.ts).
 export const contentsOf = (
   pages: { pageId: number, parts: CitationPart[] }[],
   printedNumbers: Map<number, string> = new Map(),
+  nameOf: (parts: CitationPart[]) => string | undefined = () => undefined,
 ): ContentsEntry[] => {
   const root: ContentsEntry[] = [];
   // entries whose pageId is a page cited by exactly their parts, which a later page can't replace
@@ -40,11 +44,13 @@ export const contentsOf = (
         return found.childEntries;
       }
       else {
+        const label                = nameOf(page.parts.slice(0, i + 1));
         const entry: ContentsEntry = {
           partType:          part.type as CitationLocation['type'],
           partValue:         String(part.value),
           pageId:            page.pageId,
           printedPageNumber: printedNumbers.get(page.pageId) ?? '',
+          ...(label === undefined ? {} : { label }),
           childEntries:      [],
         };
         if (last) {

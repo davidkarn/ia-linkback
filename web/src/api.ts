@@ -29,6 +29,8 @@ export type ContentsEntry = {
   partValue: string,
   pageId: number,
   printedPageNumber: string,
+  // its proper name ("Isaias", "Prima Pars"), when it has one
+  label?: string,
   childEntries: ContentsEntry[],
 };
 // One of a book's volumes: a distinct first citation part of its pages ("book 2"), numbered from 1
@@ -40,6 +42,8 @@ export type VolumeSummary = {
   firstPageId: number,
   lastPageId: number,
   pageCount: number,
+  // its proper name ("Isaias", "Prima Pars"), when it has one
+  label?: string,
 };
 // GET /books/{bookId}: opened to one volume, the pageOrder holding only its pages, and contents
 // the whole book's (a volume's entries at its top level). volumes is empty for a book without

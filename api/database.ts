@@ -139,6 +139,23 @@ export interface CopyrightStatusCheckTable {
   updated_at: Generated<Date>,    // kept by a trigger: any update sets it
 }
 
+// The proper names of parts of a work ("Isaias", "Prima Pars"), by the
+// citation parts that make them; part2..part4 null for a top-level part
+// (migrations/0019_create_book_part_names.ts)
+export interface BookPartNamesTable {
+  id: Generated<string>,          // bigserial
+  book_id: string,
+  part1_type: string,
+  part1_value: number,
+  part2_type: string | null,
+  part2_value: number | null,
+  part3_type: string | null,
+  part3_value: number | null,
+  part4_type: string | null,
+  part4_value: number | null,
+  name: string,
+}
+
 export interface Database {
   books: BooksTable,
   pages: PagesTable,
@@ -151,4 +168,5 @@ export interface Database {
   book_pages_to_citations: BookPagesToCitationsTable,
   alternate_ids: AlternateIdsTable,
   copyright_status_check: CopyrightStatusCheckTable,
+  book_part_names: BookPartNamesTable,
 }

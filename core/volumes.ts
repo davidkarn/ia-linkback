@@ -97,9 +97,10 @@ export type VolumeMarker = {
 };
 
 // Every page of a book, in order, with a marker before the first page of each volume (a page
-// starting two volumes, the one ending there going on to it, gets a marker for each)
+// starting two volumes, the one ending there going on to it, gets a marker for each), named by
+// nameOf
 export const pagesWithVolumeMarkers = <P extends { pageId: number }>(
-  pages: P[], volumes: Volume[],
+  pages: P[], volumes: Volume[], nameOf: (volume: Volume) => string = volumeName,
 ): (P | VolumeMarker)[] => {
   const startingAt = new Map<number, Volume[]>();
   for (const v of volumes) {
@@ -111,7 +112,7 @@ export const pagesWithVolumeMarkers = <P extends { pageId: number }>(
 
   return pages.flatMap((page) => [
     ...(startingAt.get(page.pageId) ?? []).map((v): VolumeMarker => ({
-      pageId: page.pageId, printedPageNumber: volumeName(v), citedByCount: null, isVolume: true,
+      pageId: page.pageId, printedPageNumber: nameOf(v), citedByCount: null, isVolume: true,
     })),
     page,
   ]);

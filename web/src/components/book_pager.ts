@@ -40,7 +40,9 @@ const BookPager = memo(({pages, volume, volumes, hrefForPage}: {
 
   const volumeDots = (shown: VolumeSummary[]) => (
     !allVolumes && shown.length > 0 && __('div', {className: 'volume-dots'},
-      shown.map((v) => volumeDot(String(v.volume), hrefForPage(v.firstPageId, v.volume), entryLabel(v)))
+      shown.map((v) => volumeDot(
+        String(v.volume), hrefForPage(v.firstPageId, v.volume), entryLabel(v)
+      ))
     )
   );
 
