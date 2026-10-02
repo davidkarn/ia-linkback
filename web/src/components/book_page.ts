@@ -113,14 +113,14 @@ export const BookPageView = ({
                     __(Link, {to: prevPage}, 
                       __('div', {className: 'pager-button'},
                         __(ChevronLeft, {}),
-                        'previous',
+                        __('span', {}, 'previous'),
                       )
                     )
                   ),
                   nextPage && (
                     __(Link, {to: nextPage},
                       __('div', {className: 'pager-button'},
-                        'next',
+                        __('span', {}, 'next'),
                         __(ChevronRight, {})
                       )
                     )

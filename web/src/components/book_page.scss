@@ -91,7 +91,7 @@
                         gap: 0.125rem;
                         
                         svg {
-                    flex-shrink: 0;                            
+                            flex-shrink: 0;                            
                             position: relative;
                             width: 0.875rem;
                             height: 0.875rem;
@@ -232,27 +232,7 @@
     }
 }
 
-@container (max-width: 30rem) {
-    .page-with-citations .book-pager {
-        display: none;
-    }
-    .page-with-citations {
-        flex-wrap: wrap;
 
-        // the page shrinks to fit beside the pager instead of wrapping below it
-        .full-page-layout {
-            flex: 1 1 0;
-            min-width: 0;
-        }
-
-        aside.cited-by {
-            flex-basis: 100%;
-            max-width: none;
-            border-left: none;
-            border-top: 1px solid var(--light-accent);
-        }
-    }
-}
 
 
 .page-navigation {
@@ -310,5 +290,62 @@
         overflow-x:hidden;
         padding-right: 5rem;
         margin-right:-5rem;
+    }
+}
+
+
+
+@container (max-width: 30rem) {
+    .page-navigation  {
+        .page-navigation-controls {
+            padding: 0.375rem;
+            button.contents-button {
+                width: 1.75rem;
+                height: 1.75rem;
+                svg {
+                    width: 1rem;
+                    height: 1rem;
+                }
+            }
+        }
+    }
+    .page-with-citations .full-page-layout .page-header {
+        gap: 0.25rem!important;
+        .pager-buttons {
+            gap: 0.25rem!important;
+            .pager-button {
+                svg {
+                    width: 1.25rem!important;
+                    height: 1.25rem!important;
+                }
+                span {
+                    display: none;
+                }
+            }
+        }
+    }
+    .page-with-citations .book-pager {
+        margin-left: 0.25rem;
+        width: 1.75rem;
+        min-width: 1.75rem;
+    }
+    .page-with-citations {
+        gap: 0.375rem;
+        flex-wrap: wrap;
+
+        // the page shrinks to fit beside the pager instead of wrapping below it
+        .full-page-layout {
+            flex: 1 1 0;
+            min-width: 0;
+            padding-top: 0.5rem;
+            padding-right: 1rem;
+        }
+
+        aside.cited-by {
+            flex-basis: 100%;
+            max-width: none;
+            border-left: none;
+            border-top: 1px solid var(--light-accent);
+        }
     }
 }
