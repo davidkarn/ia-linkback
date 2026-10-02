@@ -11,6 +11,7 @@ import BookPager from '../components/book_pager';
 import { Header } from '../components/header';
 import { BookPageView } from '../components/book_page';
 import { openBooksPath, parseOpenBooks, withBookClosed, withBookOpened, withPage, type OpenBook } from '../core/open_books';
+import { pagesOnly } from '../core/page_order'
 
 const pageLabel = (entry: PageOrderEntry) =>
   entry.printedPageNumber ? 'p. ' + entry.printedPageNumber : '[scan ' + entry.pageId + ']';
@@ -77,10 +78,11 @@ function BookColumn({open, active, hrefForPage, hrefForCitingBook, hrefToClose}:
   const book       = bookResult.data ?? null;
   const error      = bookResult.error?.message ?? null;
 
-  const pageId = open.pageId ?? book?.pageOrder[0]?.pageId;
-  const index  = book?.pageOrder.findIndex(p => p.pageId === pageId) ?? -1;
-  const prev   = book && index > 0 ? book.pageOrder[index - 1] : undefined;
-  const next   = book && index >= 0 ? book.pageOrder[index + 1] : undefined;
+  const pages  = book === null ? [] : pagesOnly(book.pageOrder);
+  const pageId = open.pageId ?? pages[0]?.pageId;
+  const index  = pages.findIndex(p => p.pageId === pageId);
+  const prev   = index > 0 ? pages[index - 1] : undefined;
+  const next   = index >= 0 ? pages[index + 1] : undefined;
 
   return (
     __('div', {className: 'book-column'},

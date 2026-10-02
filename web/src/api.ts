@@ -13,8 +13,12 @@ export type BookList = { meta: { count: number }, items: BookSummary[] };
 
 // GET /books/{bookId}: every page in reading order. pageId is the scan's page number; printedPageNumber
 // is the number printed on the page, '' when it has none. citedByCount: citations in other books that cite
-// this page (its foreignCitations).
-export type PageOrderEntry = { pageId: number, printedPageNumber: string, citedByCount: number };
+// this page (its foreignCitations). For a short book with volumes, every volume's pages are listed, each
+// volume's preceded by an entry with isVolume true: its first page's id, its name as printedPageNumber,
+// citedByCount null (see core/page_order.ts).
+export type PageOrderEntry = {
+  pageId: number, printedPageNumber: string, citedByCount: number | null, isVolume?: true,
+};
 // A table of contents entry: a part the book's pages are cited by ("question 2"), and the parts
 // under it. pageId is the page to go to: the page cited by exactly its parts, or else the first
 // page under it, in the volume of its top-level entry (for a book with volumes, maybe not the one

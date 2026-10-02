@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { selectVolume, volumesOf } from './volumes.ts';
+import { pagesWithVolumeMarkers, selectVolume, volumeName, volumesOf } from './volumes.ts';
 
 const cited = (pageId: number, ...pairs: [string, number][]) => ({
   pageId, parts: pairs.map(([type, value]) => ({ type, value })),
@@ -78,5 +78,25 @@ describe('selectVolume', () => {
     expect(selectVolume([], { volume: 1 })).toBe(1);
     expect(selectVolume([], { volume: 2 })).toBeNull();
     expect(selectVolume([], { pageId: 5 })).toBe(1);
+  });
+});
+
+describe('pagesWithVolumeMarkers', () => {
+  const pages   = [1, 2, 3, 4].map((pageId) => ({ pageId, printedPageNumber: String(pageId), citedByCount: 0 }));
+  const volumes = volumesOf([1, 2, 3, 4], [
+    cited(1, ['book', 1]), cited(2, ['book', 1]), cited(3, ['book', 2]), cited(4, ['book', 2]),
+  ]);
+
+  it("lists every page, with a marker of the volume's name before each volume's first page", () => {
+    expect(pagesWithVolumeMarkers(pages, volumes).map((p) => (
+      'isVolume' in p ? `[${ p.printedPageNumber } at ${ p.pageId }]` : p.printedPageNumber
+    ))).toEqual(['[Book 1 at 1]', '1', '2', '[Book 2 at 3]', '3', '4']);
+  });
+
+  it('marks a volume by its part, with no citations of its own', () => {
+    expect(volumeName(volumes[1]!)).toBe('Book 2');
+    expect(pagesWithVolumeMarkers(pages, volumes)[0]).toEqual(
+      { pageId: 1, printedPageNumber: 'Book 1', citedByCount: null, isVolume: true }
+    );
   });
 });

@@ -872,20 +872,29 @@ components:
           items:
             $ref: '#/components/schemas/VolumeSummary'
         pageOrder:
-          description: the pages of the volume opened, in order (GET /books/{bookId} only)
+          description: >-
+            the pages of the volume opened, in order (GET /books/{bookId} only); for a book with
+            volumes of fewer than 200 pages in all, every volume's pages, with an entry with isVolume
+            true before each volume's first page
           type: array
           items:
             type: object
             properties:
               pageId:
+                description: the page; for a volume's entry (isVolume), its first page
                 type: number
               printedPageNumber:
+                description: the number printed on the page; for a volume's entry, its name ("Book 2")
                 type: string
               citedByCount:
                 description: >-
                   number of citations in other books that reference this page (including those pointing
-                  at one of the book's alternate ids)
-                type: number
+                  at one of the book's alternate ids); null for a volume's entry
+                type: [number, 'null']
+              isVolume:
+                description: >-
+                  true for an entry that isn't a page but marks where a volume starts; absent for pages
+                type: boolean
         contents:
           description: >-
             the book's whole table of contents, from the parts its pages are cited by in

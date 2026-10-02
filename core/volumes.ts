@@ -78,3 +78,41 @@ export const selectVolume = (
     return 1;
   }
 };
+
+// A book with fewer pages than this lists every volume's pages at once (with a marker where each
+// volume starts) rather than only the open volume's
+export const ALL_VOLUMES_UNDER_PAGES = 200;
+
+// A volume's name, from its part: "Book 2", "Part 3"
+export const volumeName = (volume: Volume): string => (
+  volume.partType.charAt(0).toUpperCase() + volume.partType.slice(1) + ' ' + volume.partValue
+);
+
+// Where a volume starts in a list of a book's pages: its first page, and its name
+export type VolumeMarker = {
+  pageId: number,
+  printedPageNumber: string,
+  citedByCount: null,
+  isVolume: true,
+};
+
+// Every page of a book, in order, with a marker before the first page of each volume (a page
+// starting two volumes, the one ending there going on to it, gets a marker for each)
+export const pagesWithVolumeMarkers = <P extends { pageId: number }>(
+  pages: P[], volumes: Volume[],
+): (P | VolumeMarker)[] => {
+  const startingAt = new Map<number, Volume[]>();
+  for (const v of volumes) {
+    const first = v.pageIds[0];
+    if (first !== undefined) {
+      startingAt.set(first, [...(startingAt.get(first) ?? []), v]);
+    }
+  }
+
+  return pages.flatMap((page) => [
+    ...(startingAt.get(page.pageId) ?? []).map((v): VolumeMarker => ({
+      pageId: page.pageId, printedPageNumber: volumeName(v), citedByCount: null, isVolume: true,
+    })),
+    page,
+  ]);
+};

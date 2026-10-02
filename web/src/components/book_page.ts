@@ -15,6 +15,7 @@ import { formatLocations } from '../core/page_rendering';
 import { highlightFootnote, stripUnhighlightedBlocks } from '../core/citations';
 import { PageInsightsSummary } from './page_insights';
 import { TableOfContents } from './table_of_contents';
+import { pagesOnly, pageVolumes } from '../core/page_order'
 
 const MAX_CITATIONS_BEFORE_COLLAPSING = 3;
 
@@ -32,7 +33,9 @@ export const BookPageView = ({
   showCitedBy: boolean,
 }) => {
   const bookId   = book.id;
-  const allPages = book.pageOrder;
+  const allPages = pagesOnly(book.pageOrder);
+  // for a book listing every volume's pages, the volume of each
+  const volumeOf = pageVolumes(book.pageOrder, book.volumes);
   
   // the previous page stays up, dimmed, until the next one arrives
   const pageResult = useQuery({...pageQuery(bookId, pageId), placeholderData: keepPreviousData});
@@ -51,11 +54,11 @@ export const BookPageView = ({
   const nextVolume    = book.volumes.find((v) => v.volume === book.volume + 1);
   const prevVolume    = book.volumes.find((v) => v.volume === book.volume - 1);
   const nextPage      = match({entry: nextEntry, volume: nextVolume})
-    .with({entry: P.nonNullable}, ({entry}) => hrefForPage(entry.pageId))
+    .with({entry: P.nonNullable}, ({entry}) => hrefForPage(entry.pageId, volumeOf.get(entry.pageId)))
     .with({volume: P.nonNullable}, ({volume}) => hrefForPage(volume.firstPageId, volume.volume))
     .otherwise(() => undefined);
   const prevPage      = match({entry: prevEntry, volume: prevVolume})
-    .with({entry: P.nonNullable}, ({entry}) => hrefForPage(entry.pageId))
+    .with({entry: P.nonNullable}, ({entry}) => hrefForPage(entry.pageId, volumeOf.get(entry.pageId)))
     .with({volume: P.nonNullable}, ({volume}) => hrefForPage(volume.lastPageId, volume.volume))
     .otherwise(() => undefined);
 

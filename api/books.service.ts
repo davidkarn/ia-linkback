@@ -7,13 +7,18 @@ import { citablePageNumber } from '../core/page_insights';
 import { citationsOfPage, citedCountsByPage, findBooks } from '../model/page_insights';
 import { findCitedPages } from '../model/book_pages_to_citations';
 import { contentsOf, type ContentsEntry } from '../core/contents';
-import { selectVolume, volumesOf } from '../core/volumes';
+import {
+  ALL_VOLUMES_UNDER_PAGES, pagesWithVolumeMarkers, selectVolume, volumesOf,
+} from '../core/volumes';
 import { BookScopes, BookSelectors } from '../model/books.js';
 import { DbScopes, withScopes } from '../model/model_utils.js';
 
 export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number, citedByCount: number };
-// citedByCount: citations in other books that cite this page (the foreignCitations of GET /books/{id}/pages/{id})
-export type PageOrderEntry = { pageId: number, printedPageNumber: string, citedByCount: number };
+// citedByCount: citations in other books that cite this page (the foreignCitations of GET /books/{id}/pages/{id}).
+// isVolume: not a page but where a volume starts (its first page, and its name), citedByCount null.
+export type PageOrderEntry = {
+  pageId: number, printedPageNumber: string, citedByCount: number | null, isVolume?: true,
+};
 // One of a book's volumes (see core/volumes.ts), without its pages
 export type VolumeSummary = {
   volume: number,
@@ -88,7 +93,9 @@ export class BooksService {
   }
 
   // A book opened to one of its volumes: `volume`, else the first holding `pageId`, else volume 1
-  // (see core/volumes.ts). pageOrder holds only that volume's pages; contents is the whole book's.
+  // (see core/volumes.ts). pageOrder holds only that volume's pages, or, for a book of fewer than
+  // ALL_VOLUMES_UNDER_PAGES pages, every volume's, with a marker where each starts; contents is
+  // the whole book's.
   // null when there is no such book or volume.
   async get(
     bookId: string, opts: { volume?: number | undefined, pageId?: number | undefined } = {}
@@ -127,7 +134,17 @@ export class BooksService {
         // of one of the page's book_pages_to_citations rows
         const citedBy = await citedCountsByPage(this.db, bookId);
         const opened  = volumes[volume - 1];
-        const inOpen  = opened === undefined ? null : new Set(opened.pageIds);
+        // a short book lists every volume's pages, with where each starts; a long one the open
+        // volume's
+        const allOf  = volumes.length > 0 && pages.length < ALL_VOLUMES_UNDER_PAGES;
+        const inOpen = opened === undefined || allOf ? null : new Set(opened.pageIds);
+        const listed = pages
+          .filter((p) => inOpen === null || inOpen.has(p.page_number))
+          .map((p): PageOrderEntry => ({
+            pageId:            p.page_number,
+            printedPageNumber: p.printed_page_number,
+            citedByCount:      citedBy.get(p.page_number) ?? 0,
+          }));
 
         return {
           id:           book.id,
@@ -146,13 +163,7 @@ export class BooksService {
             lastPageId:  v.pageIds[v.pageIds.length - 1]!,
             pageCount:   v.pageIds.length,
           })),
-          pageOrder:    pages
-            .filter((p) => inOpen === null || inOpen.has(p.page_number))
-            .map((p) => ({
-              pageId:            p.page_number,
-              printedPageNumber: p.printed_page_number,
-              citedByCount:      citedBy.get(p.page_number) ?? 0,
-            })),
+          pageOrder:    allOf ? pagesWithVolumeMarkers(listed, volumes) : listed,
           // the whole book's, every volume's entries: those of other volumes go to their pages
           // in those volumes
           contents:     contentsOf(
