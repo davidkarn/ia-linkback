@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import {
-  citedFatherWork, divisionTypes, isOnSomePage, parseFatherLocation, placeOnPage,
+  citedFatherWork, divisionTypes, isOnSomePage, locationText, parseFatherLocation, placeOnPage,
 } from './fathers_citations.ts';
 
 const work         = (author: string, title: string, location = '') => (
@@ -139,5 +139,18 @@ describe('placeOnPage', () => {
   it('is undefined with no page under it', () => {
     expect(placeOnPage([part('book', 3)], rows)).toBeUndefined();
     expect(placeOnPage([part('book', 1), part('chapter', 9)], rows)).toBeUndefined();
+  });
+});
+
+describe('locationText', () => {
+  it('is the location, or else the raw text after the title', () => {
+    expect(locationText({ location: 'III, 69', raw: 'Contra Gent. III, 69', title: 'Contra Gent.' })).toBe('III, 69');
+    expect(locationText({ location: '', raw: 'Contra Gent. Lib. III. c. lxix.', title: 'Contra Gent.' }))
+      .toBe(' Lib. III. c. lxix.');
+    expect(locationText({ location: '', raw: 'Cf. iii, 4', title: 'De Consol.' })).toBe('Cf. iii, 4');
+    expect(locationText(
+      { location: '', raw: 'Contra Gent. Lib. III. c. lxix.', title: 'Summa Contra Gentiles' },
+      /^(?:summa\s*)?(?:contra|cont\.?|c\.)\s*gent/i,
+    )).toBe('. Lib. III. c. lxix.');
   });
 });

@@ -16,12 +16,15 @@ import { numberOf } from './fathers_thml.ts';
 // work's place starts with before the cited ones, for a work the CCEL volume imports as part of
 // another (On the Predestination of the Saints is book 1 of its book, On the Gift of Perseverance
 // book 2).
+// types: the part types a citation's places are read as, where the work's pages don't say
+// (the Consolation's pages are its prose sections and its metres: a "iii, 11" is a prose section)
 export type FatherWork = {
   bookId: string,
   author: RegExp,
   title: RegExp,
   location?: RegExp,
   prefix?: CitationPart[],
+  types?: string[],
 };
 
 // Augustine, not "Pseudo-Augustine" or Aemilius de Augustinis
@@ -131,6 +134,30 @@ export const citedFatherWork = (
   ))
 );
 
+// The text a citation's place is read from: its location, or, when the extraction left that empty,
+// its raw text after its title ("Contra Gent. Lib. III. c. lxix." -> "Lib. III. c. lxix."): the
+// title as extracted, or else as the work's alias matches it (the extraction may have spelled it
+// out: "Summa Contra Gentiles"), or the whole raw text when neither is in it
+export const locationText = (
+  citation: { location: string, raw: string, title: string }, titlePattern?: RegExp,
+): string => {
+  const title = citation.title.trim();
+  const named = title.length > 0 && citation.raw.includes(title)
+    ? { index: citation.raw.indexOf(title), length: title.length }
+    : (() => {
+        const m = titlePattern === undefined ? null
+          : citation.raw.match(new RegExp(titlePattern.source.replace(/^\^/, '').replace(/\|\^/g, '|'), 'i'));
+        return m?.index === undefined ? null : { index: m.index, length: m[0].length };
+      })();
+
+  if (citation.location.trim().length > 0) {
+    return citation.location;
+  }
+  else {
+    return named === null ? citation.raw : citation.raw.slice(named.index + named.length);
+  }
+};
+
 // Labels in a location: of a book ("lib. xv", "l. 2", "Book III"), of a chapter ("c. 9", "cap. 16",
 // "chap. 9"), and those after which the numbers aren't the work's divisions ("n. 32", "sect. 4",
 // "qu. 21", "col. 1247")
@@ -202,7 +229,7 @@ export const parseFatherLocation = (location: string, types: string[]): Citation
     else if (token.kind === 'book' || token.kind === 'chapter') {
       label = token.kind;
     }
-    else {
+    else if (token.kind === 'number') {
       // a labelled number goes to its label's type, where the work has it
       const labelled = label === undefined ? -1 : types.indexOf(label, at);
       const place    = labelled >= 0 ? labelled : at;

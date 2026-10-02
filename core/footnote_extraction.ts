@@ -9,15 +9,14 @@ import { strip_tags } from './book_pages.ts';
 export const LOCATION_TYPES: CitationLocation['type'][] = [
   'page', 'chapter', 'book', 'volume', 'question', 'article', 'lecture', 'position', 'verse', 'part',
   'bekker number', 'line', 'stephanus number', 'objection', 'sed contra', 'respondeo', 'ad',
-  'distinction',
+  'distinction', 'prose', 'metre',
 ];
 
 // An insight with how widely it applies (see INSIGHT_SCORES); score null until scored
 export type ScoredInsight = { insight: string, score: number | null };
 
 // How the model scores an insight
-export const INSIGHT_SCORES = `a score from 1 to 5 of how widely it applies: 1 for citations likely
-to appear in a wide number of texts, up to 5 for very obscure ones, unlikely to be seen often`;
+export const INSIGHT_SCORES = `A score of 1 is an insight on citations that likely to be relevent for most academic philosophical and theological works published in the 19th and early 20th century, a score is 2 is one that is likely to be relevent for more than 10% of such sources, scores 3 to 5 are more obscure and unlikely to be relevent outside of particular works.`;
 
 // Insights scored above this aren't given the model when extracting citations
 export const MAX_PROMPT_SCORE = 2;
@@ -132,7 +131,7 @@ The footnotes are OCR output as HTML, in reading order. Return every footnote on
 ${ insights.map((insight) => '    - ' + insight).join('\n') }
 
     Track any insights learned during the extraction of citations that will help with future extractions into the 'additionalInsights' field,
-    each with ${ INSIGHT_SCORES }.
+    each with ${ INSIGHT_SCORES }. Do not return any insights unless they add additional information that is different and dissimilar from any of the provided insights.
 `;
 
 // Whether an insight with this score is given the model: scored up to MAX_PROMPT_SCORE, or not

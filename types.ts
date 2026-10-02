@@ -58,6 +58,8 @@ export type CitationLocation = {
       'page' | 'chapter' | 'book' | 'volume' | 'question' | 'article' | 'lecture'
      | 'position' | 'verse' | 'part' | 'bekker number' | 'line' | 'stephanus number'
      | 'objection' | 'sed contra' | 'respondeo' | 'ad' | 'distinction'
+     // a book's prose sections and metres (poems), in works alternating them (Boethius)
+     | 'prose' | 'metre'
   ),
   values: number[]
 };

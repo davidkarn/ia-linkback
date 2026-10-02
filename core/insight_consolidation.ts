@@ -59,9 +59,10 @@ in reading citations.
 You will be given the insights as a JSON array of {id, insight, score}. Consolidate them into as few
 insights as possible without losing information:
 
-- Merge insights that say the same thing, or overlapping things, into one insight that keeps every distinct
+A score of 1 is one that likely to be relevent for most academic philosophical and theological works published in the 19th and early 20th century, a score is 2 is one that is likely to be relevent for more than 10% of such sources, scores 3 to 5 are more obscure and unlikely to be relevent outside of particular works.
+
+- Merge insights that say the same thing, or that have overlapping information on similar circumstances or terms, into one insight that keeps every distinct
 detail from each of them (abbreviations, numbering schemes, examples, exceptions).
-- Keep insights that share no information separate, even if they are about similar works.
 - Keep each insight's wording concrete: do not generalize away specific titles, abbreviations or examples.
 - Do not add information that is not in the insights.
 - Every input id must appear in the sourceIds of exactly the insights that contain its information.

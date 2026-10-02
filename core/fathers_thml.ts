@@ -432,7 +432,9 @@ const textWithFootnotes = (blocks: { tag: string, html: string }[], bookId: stri
 };
 
 // A page of a work, and how it is cited: the numbered divisions it is in
-export type WorkPage = Page & { citationParts: CitationPart[] };
+// alsoCitedAs: the other places a page is cited by, for a page of several chapters (a translation's
+// "Chapters XXXIII, XXXVI."), its citationParts being its first
+export type WorkPage = Page & { citationParts: CitationPart[], alsoCitedAs?: CitationPart[][] };
 
 type PagePlan = Omit<WorkPage, 'pageNumber'>;
 
@@ -572,4 +574,91 @@ export const volumeWorks = (volume: string, xml: string): Work[] => {
       pages,
     }];
   });
+};
+
+// The chapters a chapter's title names, in order: "Chapter LXIV. That God governs ..." -> [64];
+// several, for chapters a translation gives together: "Chapters XXXIII, XXXVI." -> [33, 36],
+// "Chapters XLI–XLV." -> [41 ... 45]. Lenient with a transcription's slips ("Chapter Chapter
+// XCVIII", "Chapte CVII", "LXX. How ...", "Chapter 12."). [] for a title naming no chapter.
+export const chapterNumbers = (title: string): number[] => {
+  const head = decode(title).replace(/^\s*(?:chap[a-z]*\.?\s*)+/i, '').split(/\.(?:\s|$)/)[0]!.trim();
+
+  if (!/^[ivxlcdm\d][ivxlcdm\d\s,&–-]*$/i.test(head)) {
+    return [];
+  }
+  else {
+    const numbers = head.split(/\s*(?:,|&)\s*/).flatMap((part) => {
+      const range = part.match(/^(\w+)\s*[–-]\s*(\w+)$/);
+      const from  = numberOf(range ? range[1]! : part);
+      const to    = range ? numberOf(range[2]!) : from;
+      return from === null || to === null || to < from || to - from > 20
+        ? [NaN]
+        : Array.from({ length: to - from + 1 }, (_, k) => from + k);
+    });
+    return numbers.some(Number.isNaN) ? [] : numbers;
+  }
+};
+
+// The chapters of a book's divs (see chapterNumbers), a div naming none taking the one its
+// neighbours leave out (between chapters 48 and 50, 49), when they leave exactly one
+export const bookChapters = (titles: string[]): number[][] => {
+  const named = titles.map(chapterNumbers);
+
+  return named.map((chapters, i) => {
+    const before = named.slice(0, i).reverse().find((c) => c.length > 0);
+    const after  = named.slice(i + 1).find((c) => c.length > 0);
+    const prev   = before === undefined ? 0 : Math.max(...before);
+    const next   = after === undefined ? undefined : Math.min(...after);
+
+    return chapters.length > 0 || next === undefined || next - prev !== 2 ? chapters : [prev + 1];
+  });
+};
+
+// A file holding a single work (CCEL's Summa Contra Gentiles, Boethius's Consolation) as one book:
+// its numbered top-level divisions (Books I-IV, and their chapters) are the work; the rest of the
+// file (title page, preface, afterword, notes on the translation, indexes) is left out. Pages are
+// made as volumeWorks makes them, a page per div with text of its own, cited by its divisions.
+export const singleWork = (
+  xml: string, work: { id: string, title: string, author: string, url: string },
+): Work => {
+  const books = parseDivs(xml.slice(xml.indexOf('<ThML.body'))).filter((d) => divisionOf(d) !== null);
+  // the chapters each page covers, by its label ("Book II, Chapter XXXIII" -> 33 and 36)
+  const covers = new Map<string, number[]>();
+
+  // a book's chapter divs labelled by their first chapter, however their titles name them
+  const chaptered = books.map((book) => {
+    const chapters = bookChapters(book.children.map((c) => c.title || c.shortTitle));
+    const label    = divisionOf(book)!.label;
+    return {
+      ...book,
+      children: book.children.map((child, i) => {
+        const numbers = chapters[i]!;
+        if (numbers.length === 0) {
+          return child;
+        }
+        else {
+          covers.set(`${ label }, Chapter ${ toRoman(numbers[0]!) }`, numbers);
+          return { ...child, shortTitle: `Chapter ${ toRoman(numbers[0]!) }` };
+        }
+      }),
+    };
+  });
+  const root: Div = {
+    level: 0, id: '', title: work.title, shortTitle: '', kind: '', own: '', children: chaptered,
+  };
+
+  return {
+    ...work,
+    pages: workPlans(root, work.title, work.id).map((p, i) => ({
+      pageNumber:  i + 1,
+      ...p,
+      alsoCitedAs: (covers.get(p.printedPageNumber) ?? []).slice(1).map((chapter) => [
+        ...p.citationParts.filter((c) => c.type !== 'chapter'), { type: 'chapter', value: chapter },
+      ]),
+      blocks:     p.blocks.map((b) => ({
+        ...b,
+        citations: b.citations.map((c) => ({ ...c, source: { ...c.source, footnotePage: i + 1 } })),
+      })),
+    })),
+  };
 };

@@ -3,6 +3,7 @@ import type { ContentsEntry, VolumeSummary } from '../api';
 const LABELS: Record<string, string> = {
   book: 'Book', chapter: 'Chapter', question: 'Question', article: 'Article', part: 'Part',
   lecture: 'Lecture', volume: 'Volume', verse: 'Verse', page: 'Page', appendix: 'Appendix',
+  prose: 'Prose', metre: 'Metre',
 };
 
 // An entry as the table of contents shows it: "Question 2", "Chapter 13"

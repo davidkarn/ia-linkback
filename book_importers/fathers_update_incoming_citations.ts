@@ -9,9 +9,11 @@
 // letter the volume leaves out, a location misread). The report lists those.
 //
 // Usage (from src/):
-//   npx tsx book_importers/fathers_update_incoming_citations.ts [--works fathers|aristotle] [--dry-run]
-//   --works  whose citations to link: the Fathers' (the default, core/fathers_citations.ts) or
-//            Aristotle's (core/aristotle_citations.ts)
+//   npx tsx book_importers/fathers_update_incoming_citations.ts
+//     [--works fathers|aristotle|boethius|contra-gentiles] [--dry-run]
+//   --works  whose citations to link: the Fathers' (the default, core/fathers_citations.ts),
+//            Aristotle's (core/aristotle_citations.ts), or Boethius's Consolation or Aquinas's
+//            Summa Contra Gentiles (core/medieval_citations.ts)
 // DATABASE_URL comes from the environment or .env. Re-running reads the locations again.
 import 'dotenv/config';
 import { Kysely, PostgresDialect } from 'kysely';
@@ -20,23 +22,29 @@ import type { Database } from '../api/database.ts';
 import type { PlaceGroup } from '../core/citation_groups.ts';
 import type { CitationPart } from '../core/summa_thml.ts';
 import {
-  citedFatherWork, divisionTypes, FATHER_WORKS, parseFatherLocation, placeOnPage, type FatherWork,
+  citedFatherWork, divisionTypes, FATHER_WORKS, locationText, parseFatherLocation, placeOnPage,
+  type FatherWork,
 } from '../core/fathers_citations.ts';
 import { ARISTOTLE_WORKS } from '../core/aristotle_citations.ts';
+import { BOETHIUS_WORKS, CONTRA_GENTILES_WORKS } from '../core/medieval_citations.ts';
 import { findCitationsByAuthor, relinkCitations } from '../model/incoming_citations.ts';
 import { findCitedPages } from '../model/book_pages_to_citations.ts';
 
 const DRY_RUN = process.argv.includes('--dry-run');
-const WORKS   = process.argv[process.argv.indexOf('--works') + 1] === 'aristotle' && process.argv.includes('--works')
-  ? 'aristotle' : 'fathers';
+const WORKS   = process.argv.includes('--works') ? process.argv[process.argv.indexOf('--works') + 1]! : 'fathers';
 
 // The works whose citations are linked (--works fathers, the default, or aristotle), and their
 // authors, loosely: citedFatherWork decides
-const LINKED: Record<typeof WORKS, { works: FatherWork[], authors: string }> = {
-  fathers:   { works: FATHER_WORKS, authors: 'augustin|damascen|damascus' },
-  aristotle: { works: ARISTOTLE_WORKS, authors: 'aristot|philosopher' },
+const LINKED: Record<string, { works: FatherWork[], authors: string }> = {
+  'fathers':         { works: FATHER_WORKS, authors: 'augustin|damascen|damascus' },
+  'aristotle':       { works: ARISTOTLE_WORKS, authors: 'aristot|philosopher' },
+  'boethius':        { works: BOETHIUS_WORKS, authors: 'boet' },
+  'contra-gentiles': { works: CONTRA_GENTILES_WORKS, authors: 'thom|aquin' },
 };
-const { works: CITED_WORKS, authors: AUTHORS }                               = LINKED[WORKS];
+if (LINKED[WORKS] === undefined) {
+  throw new Error(`--works must be one of ${ Object.keys(LINKED).join(', ') }`);
+}
+const { works: CITED_WORKS, authors: AUTHORS } = LINKED[WORKS]!;
 
 const showPlace = (parts: CitationPart[]) => parts.map((p) => `${ p.type } ${ p.value }`).join(', ');
 
@@ -83,8 +91,8 @@ const main = async() => {
       }
       else {
         const prefix = work.prefix ?? [];
-        const types  = divisionTypes(workRows).slice(prefix.length);
-        const places = parseFatherLocation(c.location || c.raw, types)
+        const types  = (work.types ?? divisionTypes(workRows)).slice(prefix.length);
+        const places = parseFatherLocation(locationText(c, work.title), types)
           .map((parts) => [...prefix, ...parts]);
 
         const onPages = places.flatMap((p) => {

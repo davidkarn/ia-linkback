@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
-  authorOf, divisionOf, findWorks, numberByKind, numberOf, volumeWorks, workBookId,
+  authorOf, bookChapters, chapterNumbers, divisionOf, findWorks, numberByKind, numberOf, volumeWorks,
+  workBookId,
 } from './fathers_thml.ts';
 import { parseDivs } from './summa_thml.ts';
 
@@ -150,5 +151,27 @@ describe('workBookId and authorOf', () => {
     expect(authorOf('npnf102', found('City of God'))).toBe('Augustine of Hippo');
     expect(authorOf('anf08', found('Pantænus, the Alexandrian Philosopher.', ['Remains']))).toBe('Pantaenus');
     expect(authorOf('nope', found('x'))).toBeNull();
+  });
+});
+
+describe('chapterNumbers and bookChapters', () => {
+  it('reads the chapters a title names, one or several, despite slips in the label', () => {
+    expect(chapterNumbers('Chapter LXIV. That God governs things by His Providence')).toEqual([64]);
+    expect(chapterNumbers('Chapters XXXIII, XXXVI. Reasons alleged for the Eternity')).toEqual([33, 36]);
+    expect(chapterNumbers('Chapters XLI–XLV.')).toEqual([41, 42, 43, 44, 45]);
+    expect(chapterNumbers('Chapter Chapter XCVIII. How one Intelligence knows')).toEqual([98]);
+    expect(chapterNumbers('Chapte CVII. That the Subsistent Intelligence')).toEqual([107]);
+    expect(chapterNumbers('LXX. How the Same Effect is from God')).toEqual([70]);
+    expect(chapterNumbers('Chapter 12. How the Son of God is called the Wisdom of God')).toEqual([12]);
+  });
+
+  it('is empty for a title naming no chapter', () => {
+    expect(chapterNumbers('Book Title')).toEqual([]);
+    expect(chapterNumbers('Chapter ')).toEqual([]);
+  });
+
+  it("gives a chapter naming none the number its neighbours leave out, when they leave one", () => {
+    expect(bookChapters(['Chapter XLVIII. A', 'Chapter ', 'Chapter L. B'])).toEqual([[48], [49], [50]]);
+    expect(bookChapters(['Chapter XLVIII. A', 'Chapter ', 'Chapter LII. B'])).toEqual([[48], [], [52]]);
   });
 });
