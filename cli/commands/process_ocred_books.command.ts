@@ -1,9 +1,9 @@
-// Import the next OCR'd book (queued, status inProgress): its pages and blocks from its surya
-// results, then the citations in its footnotes, extracted by an LLM a page at a time (see
-// core/footnote_extraction.ts), with the insights the model learned doing it. Marks it imported,
-// for find-and-queue-cited-books. The saving is done by actions (core/ocred_book_import.ts); this
-// reads what they need. Needs OPENROUTER_KEY.
-//   npm run cli -- process-ocred-books
+// Import the next OCR'd books (queued, status inProgress), one after another: each one's pages and
+// blocks from its surya results, then the citations in its footnotes, extracted by an LLM a page at
+// a time (see core/footnote_extraction.ts), with the insights the model learned doing it. Marks
+// each imported, for find-and-queue-cited-books. The saving is done by actions
+// (core/ocred_book_import.ts); this reads what they need. Needs OPENROUTER_KEY.
+//   npm run cli -- process-ocred-books [count]   (count: how many books, 10 when not given)
 import { Inject } from '@nestjs/common';
 import fs from 'node:fs/promises';
 import { setTimeout } from 'node:timers/promises';
@@ -31,20 +31,49 @@ import type { Citation, SuryaBook, SuryaPage } from '../../types.ts';
 // OpenRouter allows 20 requests a minute
 const REQUEST_INTERVAL_MS = 3200;
 
+// Books imported when no count is given
+const DEFAULT_COUNT = 10;
+
+// The count argument: a whole number, 1 or more; DEFAULT_COUNT when it isn't given
+const countFrom = (raw: string | undefined): number => {
+  const count = raw === undefined ? DEFAULT_COUNT : Number(raw);
+
+  if (!Number.isInteger(count) || count < 1) {
+    throw new Error(`count must be a whole number, 1 or more, not ${ raw }`);
+  }
+  else {
+    return count;
+  }
+};
+
 @Command({
   name:        'process-ocred-books',
-  description: 'Import the next OCR\'d book: its pages, and the citations in its footnotes',
+  arguments:   '[count]',
+  description: `Import the next OCR'd books (count, ${ DEFAULT_COUNT } when not given): their pages, `
+    + 'and the citations in their footnotes',
 })
 export class ProcessOcredBooksCommand extends CommandRunner {
   constructor(@Inject(DB) private readonly db: Kysely<Database>) {
     super();
   }
 
-  async run(): Promise<void> {
+  async run([count]: string[]): Promise<void> {
+    const books = countFrom(count);
+
+    for (let imported = 0; imported < books; imported++) {
+      if (!await this.importNextBook()) {
+        console.log(`no more OCR'd books waiting to be imported (imported ${ imported } of ${ books })`);
+        break;
+      }
+    }
+  }
+
+  // Import the next book waiting; false when none is
+  private async importNextBook(): Promise<boolean> {
     const queued = await QueuedBookImportsQueries.findNextQueuedBook(this.db, 'inProgress');
 
     if (!queued) {
-      console.log("no OCR'd book waiting to be imported");
+      return false;
     }
     else if (!queued.pdf_url) {
       throw new Error(`queued book ${ queued.id } has no pdf_url`);
@@ -65,6 +94,7 @@ export class ProcessOcredBooksCommand extends CommandRunner {
         const extracted = await this.extractCitations(bookId, suryaPages);
 
         await executeActions(this.db, importOcredBookActions(queued, bookId, pages, extracted));
+        return true;
       }
     }
   }
@@ -78,10 +108,10 @@ export class ProcessOcredBooksCommand extends CommandRunner {
     const footnotePages                                  = pages.filter((p) => p.blocks.some((b) => b.label === 'Footnote'));
     const citations: Citation[]                          = [];
     const failedPages: { page: number, error: string }[] = [];
-    
+
     let insights: ScoredInsight[] = await FootnoteExtractionInsightQueries.findInsights(this.db);
 
-    let operatingInsights = insights.filter(i => i.score <= 1);
+    let operatingInsights = insights.filter((i) => !i.score || i.score <= 1);
 
     await mapLimited(footnotePages, 1, async(page) => {
       try {
@@ -90,10 +120,10 @@ export class ProcessOcredBooksCommand extends CommandRunner {
           { role: 'user', content: footnoteHtml(page) },
         ], FOOTNOTES_FORMAT, 'openai/gpt-4o-mini');
 
-        const result = parseJsonResponse<PageFootnotes>(response);
-        insights     = removeDuplicateInsights(insights.concat(result.additionalInsights));
+        const result      = parseJsonResponse<PageFootnotes>(response);
+        insights          = removeDuplicateInsights(insights.concat(result.additionalInsights));
         operatingInsights = removeDuplicateInsights(
-          operatingInsights.concat(result.additionalInsights.filter(s => s.score <= 2))
+          operatingInsights.concat(result.additionalInsights.filter((s) => s.score <= 2))
         );
         citations.push(...pageCitations(bookId, page.page, result));
         log(response, 'page ' + page.page + ' of ' + pages.length);

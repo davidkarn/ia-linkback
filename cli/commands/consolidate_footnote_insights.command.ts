@@ -27,8 +27,7 @@ export class ConsolidateFootnoteInsightsCommand extends CommandRunner {
   async run(): Promise<void> {
     const insights                     = await FootnoteExtractionInsightQueries.findInsights(this.db);
     const { consolidated, missingIds } = await this.consolidate(insights);
-    console.log({consolidated, missingIds});
-    return;
+
     await executeActions(
       this.db,
       insightConsolidationActions(insights, consolidated, missingIds)

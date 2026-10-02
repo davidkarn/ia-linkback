@@ -66,6 +66,7 @@ detail from each of them (abbreviations, numbering schemes, examples, exceptions
 - Keep each insight's wording concrete: do not generalize away specific titles, abbreviations or examples.
 - Do not add information that is not in the insights.
 - Every input id must appear in the sourceIds of exactly the insights that contain its information.
+- Do not delete any information
 
 Give each consolidated insight ${ INSIGHT_SCORES }. An input's score, when it has one, is an
 earlier judgement: keep it unless the consolidated insight applies more or less widely.
@@ -148,7 +149,7 @@ export const insightConsolidationActions = (
   else {
     const byId                 = new Map(originalInsights.map((i) => [i.id, i.insight]));
     const log                  = (line: string): AppAction => ({ cmd: 'log', data: [line] });
-    const outcome: AppAction[] = missingIds.length === 0
+    const outcome: AppAction[] = missingIds.length !== 0
       ? [{
           cmd:  'modelAction',
           data: {

@@ -23,7 +23,7 @@ const replaceInsights = (
 
     if (insights.length > 0) {
       await trx.insertInto('footnote_extraction_insights')
-        .values(insights.map(({ insight, score }) => ({ insight, score })))
+        .values(insights)
         .execute();
     }
   })
