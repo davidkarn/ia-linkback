@@ -8,6 +8,7 @@ header.site-header {
     gap: 1rem;
     align-items: center;
     z-index: 200;
+    padding-right: 1.5rem;
 
     .site-name {
         font-family: playfair display, crimson text, serif;
@@ -36,7 +37,8 @@ header.site-header {
         background-color: var(--gray-purple);
     }
 
-    nav {
+    nav.navbar {
+        flex-grow: 1;
         height: 1.6125rem;
         padding-top: 0.125rem;
         display: flex;
@@ -44,15 +46,68 @@ header.site-header {
         align-items: center;
         gap: 1rem;
         font-size: 0.825rem;
+    }
 
-        a {
-            font-family: pt sans;
-            text-transform: uppercase;
+    a.navbar-link {
+        font-family: pt sans;
+        text-transform: uppercase;
+        color: var(--gray-purple);
+
+        &:hover, &:focus {
+            font-weight: bold;
+        }
+    }
+
+    // the links in a menu, on a narrow screen
+    .navbar-menu {
+        display: none;
+        position: relative;
+        margin-left: auto;
+
+        .navbar-menu-button {
+            display: flex;
+            align-items: center;
+            padding: 0.25rem;
+            border: none;
+            background: none;
             color: var(--gray-purple);
+            cursor: pointer;
 
-            &:hover, &:focus {
-                font-weight: bold;
+            svg {
+                width: 1.25rem;
+                height: 1.25rem;
             }
+        }
+
+        nav.navbar-dropdown {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            right: 0;
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            min-width: 12rem;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 1px solid var(--light-accent);
+            box-shadow: 0 4px 12px #0000001a;
+            font-size: 0.825rem;
+
+            hr {
+                margin: 0;
+            }
+        }
+    }
+
+    @media (max-width: 700px) {
+        nav.navbar,
+        .separator {
+            display: none;
+        }
+
+        .navbar-menu {
+            display: block;
         }
     }
 }
