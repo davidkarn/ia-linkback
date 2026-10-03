@@ -1,7 +1,7 @@
 import { createElement as __ } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { unique } from '../../../lib/lib';
-import "./Pager.scss";
+import "./pager.scss";
 
 const pageNumbers = (page: number, pageCount: number): (number | null)[] => {
   const shown = unique([1, page - 1, page, page + 1, pageCount])

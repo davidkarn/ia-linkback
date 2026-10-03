@@ -1,0 +1,75 @@
+# Tela Lucis with Docker: Postgres, the migrations (run before the API starts), the API, and the
+# web app on http://localhost:${WEB_PORT:-8080}.
+#   docker compose up -d --build
+#   docker compose run --rm api npm run cli -- <command>   (the CLI commands)
+#
+# Settings come from .env: OPENROUTER_KEY, ADMIN_USERNAME, ADMIN_PASSWORD, and optionally
+# POSTGRES_PASSWORD and WEB_PORT. DATABASE_URL is set here, pointing at the db service (the one in
+# .env is for running outside Docker).
+
+x-database-url: &database-url
+  DATABASE_URL: postgres://tela_lucis:${POSTGRES_PASSWORD:-tela_lucis}@db:5432/tela_lucis
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tela_lucis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tela_lucis}
+      POSTGRES_DB: tela_lucis
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tela_lucis -d tela_lucis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # applies any pending migrations, then exits; the api service's image, built by it
+  migrate:
+    image: tela-lucis-api
+    pull_policy: never
+    command: ["npx", "tsx", "migrate.ts", "latest"]
+    environment:
+      <<: *database-url
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    image: tela-lucis-api
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *database-url
+      PORT: "3000"
+    volumes:
+      # where save-cover writes covers, which the web service serves
+      - ./web/public/covers:/app/web/public/covers
+      # downloads and OCR output of the import commands
+      - ./output:/app/output
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    image: tela-lucis-web
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    volumes:
+      - ./web/public/covers:/usr/share/nginx/html/covers:ro
+    depends_on:
+      - api
+
+volumes:
+  db-data:
