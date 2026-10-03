@@ -155,7 +155,24 @@ const saveCheck = async(
   return row.id;
 };
 
+// The status of a book's latest check; null when it was never checked (or there's no such book)
+const findLatestStatus = async(
+  db: Kysely<Database>, bookId: string
+): Promise<CopyrightStatus | null> => {
+  const row = await db.selectFrom('copyright_status_check')
+    .select('copyright_status_check.copyright_status')
+    .where('copyright_status_check.book_id', '=', bookId)
+    .orderBy('copyright_status_check.created_at', 'desc')
+    .orderBy('copyright_status_check.id', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+
+  return row?.copyright_status ?? null;
+};
+
 export const CopyrightStatusCheckSql = { latestStatusOf, isShownInSearches };
 export const CopyrightStatusCheckScopes = { shownInSearches };
-export const CopyrightStatusCheckQueries = { findBooksWithoutCheck, findBookStatuses };
+export const CopyrightStatusCheckQueries = {
+  findBooksWithoutCheck, findBookStatuses, findLatestStatus,
+};
 export const CopyrightStatusCheckActions = { saveCheck };

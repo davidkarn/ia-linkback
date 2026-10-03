@@ -8,7 +8,7 @@ import type { SourceBlock } from '../core/citation_pages.ts';
 // reading order; undefined when there is no such citation
 export const findCitationSourcePage = async(
   db: Kysely<Database>, citationId: string
-): Promise<{ blockId: string, identifier: string, blocks: SourceBlock[] } | undefined> => {
+): Promise<{ bookId: string, blockId: string, identifier: string, blocks: SourceBlock[] } | undefined> => {
   const citation = await db.selectFrom('citations')
     .select([
       'citations.page_block_id', 'citations.source_book_id', 'citations.source_footnote_page',
@@ -29,6 +29,7 @@ export const findCitationSourcePage = async(
       .execute();
 
     return {
+      bookId:     citation.source_book_id,
       blockId:    citation.page_block_id,
       identifier: citation.source_footnote_identifier,
       blocks,

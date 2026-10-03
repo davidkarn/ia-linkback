@@ -5,6 +5,7 @@ import { DB } from './database.module';
 import type { Database } from './database';
 import { findCitationSourcePage } from '../model/citation_source_pages';
 import { citation_page_html } from '../core/citation_pages';
+import { assertNotWithheld } from './copyright';
 import { DbScopes, withScopes } from '../model/model_utils.js';
 import { CitationScopes } from '../model/citations.js';
 
@@ -106,7 +107,8 @@ export class CitationsService {
   }
 
   // The HTML of the page a citation's footnote is on, as GET /books/{bookId}/pages/{pageId}
-  // shows it beside a citation (see core/citation_pages.ts); null when there is no such citation
+  // shows it beside a citation (see core/citation_pages.ts); null when there is no such citation.
+  // 451 when the book it's in is withheld (api/copyright.ts).
   async sourcePage(
     citationId: string
   ): Promise<{ citationId: string, sourcePageText: string } | null> {
@@ -116,6 +118,7 @@ export class CitationsService {
       return null;
     }
     else {
+      await assertNotWithheld(this.db, found.bookId);
       return {
         citationId,
         sourcePageText: citation_page_html(found.blocks, found.blockId, found.identifier),

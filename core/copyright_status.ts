@@ -11,10 +11,15 @@ export const COPYRIGHT_STATUSES = [
 ] as const;
 export type CopyrightStatus = typeof COPYRIGHT_STATUSES[number];
 
-// Books whose latest check gives one of these are left out of the library's searches
+// Books whose latest check gives one of these are withheld: left out of the library's searches,
+// can't be opened, and their citations of other books aren't shown
 export const HIDDEN_COPYRIGHT_STATUSES: CopyrightStatus[] = ['likely_copyrighted'];
 
-// Whether a book with this status (null: never checked) is shown in the library's searches
+// Why a withheld book can't be opened
+export const WITHHELD_MESSAGE = 'This book is likely still under copyright, so it can\'t be shown.';
+
+// Whether a book with this status (null: never checked) is shown: listed in the library's
+// searches and opened (not withheld)
 export const shownInSearches = (status: CopyrightStatus | null): boolean => (
   status === null || !HIDDEN_COPYRIGHT_STATUSES.includes(status)
 );

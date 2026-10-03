@@ -7,6 +7,7 @@ import type { CitingCitation, ContextPage, PageInsights } from '../core/page_ins
 import { AlternateIdsSql } from './alternate_ids.ts';
 import { withScopes } from './model_utils.js';
 import { CITATION_RANGE, CitationScopes } from './citations.js';
+import { CopyrightStatusCheckSql } from './copyright_status_checks.ts';
 
 export const findPage = (db: Kysely<Database>, bookId: string, pageNumber: number) => (
   db.selectFrom('pages')
@@ -37,6 +38,8 @@ export const citationsOfPage = (
     CitationScopes.citesBook(bookId),
     CitationScopes.citesPage(bookId, page.printedNumber, page.pageNumber)
   ])
+    // not those in withheld books (likely under copyright), whose pages can't be shown
+    .where(CopyrightStatusCheckSql.isShownInSearches('citations.source_book_id'))
     .orderBy('citations.source_book_id')
     .orderBy('citations.source_footnote_page')
     .orderBy('citations.id')

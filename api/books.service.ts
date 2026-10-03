@@ -15,6 +15,7 @@ import { partNamer } from '../core/book_part_names';
 import { BookPartNameQueries } from '../model/book_part_names';
 import { AlternateIdsQueries } from '../model/alternate_ids';
 import { CopyrightStatusCheckScopes } from '../model/copyright_status_checks';
+import { assertNotWithheld } from './copyright';
 import { isBible } from '../core/bible';
 import { BookScopes, BookSelectors } from '../model/books.js';
 import { DbScopes, withScopes } from '../model/model_utils.js';
@@ -120,6 +121,8 @@ export class BooksService {
   async get(
     bookId: string, opts: { volume?: number | undefined, pageId?: number | undefined } = {}
   ): Promise<BookForApi | null> {
+    await assertNotWithheld(this.db, bookId);
+
     const book = await this.db
       .selectFrom('books')
       .select((eb) => [
@@ -209,6 +212,8 @@ export class BooksService {
   // books that point at this page (by its printed page number or its citation parts). null when
   // there is no such page.
   async getPage(bookId: string, pageNumber: number): Promise<BookPageForApi | null> {
+    await assertNotWithheld(this.db, bookId);
+
     const page = await this.db
       .selectFrom('pages')
       .select(['pages.page_number', 'pages.printed_page_number'])

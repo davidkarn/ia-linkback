@@ -10,6 +10,7 @@ import {
   findBooks, findCachedInsights, findCitingCitations, findContextPages, findPage, saveCachedInsights,
 } from '../model/page_insights';
 import { makeOpenRouterRequest, parseJsonResponse } from '../lib/open_router';
+import { assertNotWithheld } from './copyright';
 
 // No OPENROUTER_KEY: insights can't be made
 export class OpenRouterUnavailable extends Error {}
@@ -27,6 +28,7 @@ export class InsightsService {
   async pageInsights(
     bookId: string, pageNumber: number
   ): Promise<PageInsights | 'no page' | 'no citations'> {
+    await assertNotWithheld(this.db, bookId);
     const cached = await findCachedInsights(this.db, bookId, pageNumber);
 
     if (cached) {

@@ -97,10 +97,12 @@ export type BookPage = {
   foreignCitationTitles: { bookId: string, title: string, author: string }[],
 };
 
+// Throws the API's message when it gives one ("This book is likely still under copyright...")
 const getJson = async <T>(path: string): Promise<T> => {
   const res = await fetch(`/api${path}`);
   if (!res.ok) {
-    throw new Error(`GET ${path} failed: ${res.status} ${res.statusText}`);
+    const message = await res.json().then((b) => b?.message, () => undefined);
+    throw new Error(message ?? `GET ${path} failed: ${res.status} ${res.statusText}`);
   }
   else {
     return res.json();
