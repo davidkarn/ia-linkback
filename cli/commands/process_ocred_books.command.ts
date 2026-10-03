@@ -15,8 +15,8 @@ import type { Database } from '../../api/database.ts';
 import { build_pages } from '../../core/book_pages.ts';
 import { suryaResultsPath } from '../../core/book_files.ts';
 import {
-  FOOTNOTES_FORMAT, footnoteHtml, footnotesPrompt, insightsForPrompt, pageCitations,
-  removeDuplicateInsights,
+  FOOTNOTES_FORMAT, footnoteHtml, footnotesPrompt, footnoteText, insightsForPage,
+  learnedInsights, pageCitations, removeDuplicateInsights,
   type PageFootnotes, type ScoredInsight,
 } from '../../core/footnote_extraction.ts';
 import {
@@ -100,8 +100,9 @@ export class ProcessOcredBooksCommand extends CommandRunner {
   }
 
   // Every citation in the book's footnotes, a request per page with Footnote blocks, each page's
-  // request given the insights learned so far. Pages whose request fails are returned in
-  // failedPages rather than failing the whole book.
+  // request given the insights learned so far: the widely applying ones (operatingInsights), and
+  // any with a keyword found in the page's footnotes (see insightsForPage). Pages whose request
+  // fails are returned in failedPages rather than failing the whole book.
   private async extractCitations(
     bookId: string, pages: SuryaPage[]
   ): Promise<ExtractedCitations> {
@@ -115,15 +116,17 @@ export class ProcessOcredBooksCommand extends CommandRunner {
 
     await mapLimited(footnotePages, 1, async(page) => {
       try {
+        const given    = insightsForPage(operatingInsights, insights, footnoteText(page));
         const response = await makeOpenRouterRequest([
-          { role: 'system', content: footnotesPrompt(insightsForPrompt(operatingInsights)) },
+          { role: 'system', content: footnotesPrompt(given) },
           { role: 'user', content: footnoteHtml(page) },
         ], FOOTNOTES_FORMAT, 'openai/gpt-4o-mini');
 
         const result      = parseJsonResponse<PageFootnotes>(response);
-        insights          = removeDuplicateInsights(insights.concat(result.additionalInsights));
+        const learned     = learnedInsights(result);
+        insights          = removeDuplicateInsights(insights.concat(learned));
         operatingInsights = removeDuplicateInsights(
-          operatingInsights.concat(result.additionalInsights.filter((s) => s.score <= 2))
+          operatingInsights.concat(learned.filter((s) => s.score !== null && s.score <= 2))
         );
         citations.push(...pageCitations(bookId, page.page, result));
         log(response, 'page ' + page.page + ' of ' + pages.length);

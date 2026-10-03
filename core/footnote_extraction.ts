@@ -12,8 +12,19 @@ export const LOCATION_TYPES: CitationLocation['type'][] = [
   'distinction', 'prose', 'metre',
 ];
 
-// An insight with how widely it applies (see INSIGHT_SCORES); score null until scored
-export type ScoredInsight = { insight: string, score: number | null };
+// An insight with how widely it applies (see INSIGHT_SCORES), score null until scored, and the
+// keywords that show it's relevant to a footnote (see insightsForPage): words and abbreviations
+// as printed in footnotes that cite what it's about ("P. L.", "Migne", "Sent.")
+export type ScoredInsight = { insight: string, score: number | null, keywords: string[] };
+
+// At most this many keywords are kept for an insight
+export const MAX_KEYWORDS = 8;
+
+// Keywords shorter than this (once normalized) are dropped: they'd be found in most footnotes
+export const MIN_KEYWORD_LENGTH = 3;
+
+// How the model gives an insight's keywords
+export const INSIGHT_KEYWORDS = `keywords: 1 to ${ MAX_KEYWORDS } distinctive words or abbreviations, as they would be printed in a footnote the insight applies to (author names, titles and their abbreviations, collection sigla: "Migne", "P. L.", "Sent.", "Summa Theol."). They are used to find the footnotes the insight is relevant to, so do not give common words that appear in most citations ("page", "vol.", "ibid.", "cf.", "chapter").`;
 
 // How the model scores an insight
 export const INSIGHT_SCORES = `A score of 1 is an insight on citations that likely to be relevent for most academic philosophical and theological works published in the 19th and early 20th century, a score is 2 is one that is likely to be relevent for more than 10% of such sources, scores 3 to 5 are more obscure and unlikely to be relevent outside of particular works.`;
@@ -24,7 +35,7 @@ export const MAX_PROMPT_SCORE = 2;
 // What the model returns for one page: each footnote on it, the citations in each footnote, and
 // the insights it learned, scored
 export type PageFootnotes = {
-  additionalInsights: { insight: string, score: number }[],
+  additionalInsights: { insight: string, score: number, keywords: string[] }[],
   footnotes: {
     identifier: string,
     citations: {
@@ -52,10 +63,11 @@ export const FOOTNOTES_FORMAT: ORResponseFormat = {
           items: {
             type:                 'object',
             additionalProperties: false,
-            required:             ['insight', 'score'],
+            required:             ['insight', 'score', 'keywords'],
             properties:           {
-              insight: { type: 'string' },
-              score:   { type: 'integer', enum: [1, 2, 3, 4, 5] },
+              insight:  { type: 'string' },
+              score:    { type: 'integer', enum: [1, 2, 3, 4, 5] },
+              keywords: { type: 'array', items: { type: 'string' } },
             },
           },
         },
@@ -131,7 +143,8 @@ The footnotes are OCR output as HTML, in reading order. Return every footnote on
 ${ insights.map((insight) => '    - ' + insight).join('\n') }
 
     Track any insights learned during the extraction of citations that will help with future extractions into the 'additionalInsights' field,
-    each with ${ INSIGHT_SCORES }. Do not return any insights unless they add additional information that is different and dissimilar from any of the provided insights.
+    each with ${ INSIGHT_SCORES }
+    Give each its ${ INSIGHT_KEYWORDS } Do not return any insights unless they add additional information that is different and dissimilar from any of the provided insights.
 `;
 
 // Whether an insight with this score is given the model: scored up to MAX_PROMPT_SCORE, or not
@@ -155,6 +168,77 @@ export const byScore = <I extends ScoredInsight>(insights: I[]): I[] => (
 export const insightsForPrompt = (insights: ScoredInsight[]): string[] => (
   byScore(insights.filter((i) => isGivenToModel(i.score))).map((i) => i.insight)
 );
+
+// A keyword as compared: case, spacing and character forms ignored
+export const keywordKey = (keyword: string): string => (
+  keyword.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
+);
+
+// An insight's keywords as kept: without repeats (by keywordKey) or ones too short to tell
+// footnotes apart, at most MAX_KEYWORDS, trimmed, in order
+export const cleanKeywords = (keywords: string[]): string[] => {
+  const seen = new Set<string>();
+
+  return keywords
+    .map((k) => k.replace(/\s+/g, ' ').trim())
+    .filter((k) => {
+      const key = keywordKey(k);
+      if (key.length < MIN_KEYWORD_LENGTH || seen.has(key)) {
+        return false;
+      }
+      else {
+        seen.add(key);
+        return true;
+      }
+    })
+    .slice(0, MAX_KEYWORDS);
+};
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Whether a keyword is in a text (normalized as by keywordKey): as a whole word or words, not part
+// of a longer one ("Sent." in "Sent. I, d. 3" but not in "Sentences"; "Aug" not in "August").
+// Spacing after an abbreviation's dot doesn't matter ("P. L." is in "P.L. 34").
+export const hasKeyword = (text: string, keyword: string): boolean => {
+  const key = keywordKey(keyword).replace(/\. /g, '.');
+
+  if (key.length < MIN_KEYWORD_LENGTH) {
+    return false;
+  }
+  else {
+    const pattern = escapeRegExp(key)
+      .replace(/\\\.(?!$)/g, '\\.\\s*')
+      .replace(/ /g, '\\s+');
+    return new RegExp(`(?<![\\p{L}\\p{N}])${ pattern }(?![\\p{L}\\p{N}])`, 'u')
+      .test(keywordKey(text));
+  }
+};
+
+// The insights to give the model for a page whose footnotes' text is `footnoteText`: those given
+// for every page (`given`, as insightsForPrompt orders them), then those of `all` with a keyword
+// in the text, however they're scored, the most widely applying first; each once
+export const insightsForPage = (
+  given: ScoredInsight[], all: ScoredInsight[], footnoteText: string
+): string[] => {
+  const always  = insightsForPrompt(given);
+  const shown   = new Set(always.map(insightKey));
+  const matched = byScore(all.filter((i) => (
+    !shown.has(insightKey(i.insight)) && i.keywords.some((k) => hasKeyword(footnoteText, k))
+  )));
+
+  return [...always, ...removeDuplicateInsights(matched).map((i) => i.insight)];
+};
+
+// The insights the model learned on a page, their keywords cleaned (see cleanKeywords)
+export const learnedInsights = (result: PageFootnotes): ScoredInsight[] => (
+  result.additionalInsights.map(({ insight, score, keywords }) => ({
+    insight, score, keywords: cleanKeywords(keywords),
+  }))
+);
+
+// A page's footnotes' text, without HTML: what insights' keywords are looked for in (see
+// insightsForPage)
+export const footnoteText = (page: SuryaPage): string => strip_tags(footnoteHtml(page));
 
 // A page's Footnote blocks' HTML, in reading order: what the model is given
 export const footnoteHtml = (page: SuryaPage) => (

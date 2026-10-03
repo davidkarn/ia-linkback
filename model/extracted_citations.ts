@@ -5,12 +5,13 @@ import type { Database } from '../api/database.ts';
 import { placesOf } from '../core/citation_groups.ts';
 import { newInsights, type PlacedCitation, type ScoredInsight } from '../core/footnote_extraction.ts';
 import { groupRow } from './citation_groups.ts';
+import { FootnoteExtractionInsightActions } from './footnote_extraction_insights.ts';
 
 const blockKey = (pageNumber: number, position: number) => pageNumber + ':' + position;
 
 // Replace a book's citations with these, each in its footnote block, with a citation_groups row
 // per place each of its location groups cites (see core/citation_groups.ts); and save the insights
-// learned that aren't saved already. In one transaction, after the book's pages are saved. Returns
+// learned that aren't saved already, with their keywords. In one transaction, after the book's pages are saved. Returns
 // the counts saved, and how many location values were left out of the places.
 const replaceExtractedCitations = (
   db: Kysely<Database>,
@@ -66,12 +67,7 @@ const replaceExtractedCitations = (
   const saved = await trx.selectFrom('footnote_extraction_insights').select('insight').execute();
   const added = newInsights(insights, saved.map((r) => r.insight));
 
-  if (added.length > 0) {
-    await trx.insertInto('footnote_extraction_insights')
-      .values(added.map(({ insight, score }) => ({ insight, score })))
-      .execute();
-  }
-  counts.newInsights = added.length;
+  counts.newInsights = await FootnoteExtractionInsightActions.saveInsights(trx, added);
 
   return counts;
 });

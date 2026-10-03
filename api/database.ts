@@ -114,6 +114,15 @@ export interface FootnoteExtractionInsightsTable {
   created_at: Generated<Date>,
 }
 
+// An insight's keywords: words and abbreviations as printed in the footnotes it's relevant to
+// (migrations/0023_create_footnote_extraction_insight_keywords.ts); one per insight, ignoring case
+export interface FootnoteExtractionInsightKeywordsTable {
+  id: Generated<string>,          // bigserial
+  insight_id: string,
+  keyword: string,
+  created_at: Generated<Date>,
+}
+
 // The last insights made for a page; insights is written as a JSON string and read back parsed
 export interface PageInsightsCacheTable {
   book_id: string,
@@ -193,6 +202,7 @@ export interface Database {
   citation_groups: CitationGroupsTable,
   queued_book_imports: QueuedBookImportsTable,
   footnote_extraction_insights: FootnoteExtractionInsightsTable,
+  footnote_extraction_insight_keywords: FootnoteExtractionInsightKeywordsTable,
   page_insights_cache: PageInsightsCacheTable,
   book_pages_to_citations: BookPagesToCitationsTable,
   alternate_ids: AlternateIdsTable,
