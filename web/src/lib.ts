@@ -35,3 +35,20 @@ export const useWidthInRem = (ref: RefObject<HTMLElement | null>): number => {
 export const range = (numOfEls: number): number[] => (
   Array.from({ length: numOfEls }, (_, n) => n)
 );
+
+// Sets the page's title (document.title) while the component is shown, putting back the one
+// before it after; leaves it be while title is null (still loading)
+export const useDocumentTitle = (title: string | null): void => {
+  useEffect(() => {
+    if (title === null) {
+      return undefined;
+    }
+    else {
+      const before   = document.title;
+      document.title = title;
+      return () => {
+        document.title = before;
+      };
+    }
+  }, [title]);
+};

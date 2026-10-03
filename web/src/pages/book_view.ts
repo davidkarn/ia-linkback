@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query'
 import { type PageOrderEntry } from '../api'
 import { bookQuery } from '../queries'
-import { assertCond, useWidthInRem } from '../lib';
+import { assertCond, useDocumentTitle, useWidthInRem } from '../lib';
 import "./book_view.scss"
 import BookPager from '../components/book_pager';
 import { Header } from '../components/header';
@@ -36,6 +36,18 @@ export default function BookView() {
       )
     }), {})
   ), [books]);
+
+  // the page's title: the leftmost book's title and author (its column's query, already cached)
+  const leftmost      = books[0];
+  const leftmostQuery = useQuery({
+    ...bookQuery(leftmost?.bookId ?? '', leftmost?.volume, leftmost?.pageId),
+    enabled: leftmost !== undefined,
+  });
+  useDocumentTitle(
+    leftmostQuery.data === undefined
+      ? null
+      : `${ leftmostQuery.data.title } - ${ leftmostQuery.data.author }`
+  );
 
   // the main column: the one expanded by clicking it while collapsed, as long
   // as the same books are open, else the rightmost. The others collapse, the

@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { match } from 'ts-pattern';
 import { authorsQuery } from '../queries'
-import { assertCond } from '../lib';
+import { assertCond, useDocumentTitle } from '../lib';
 import { Header } from '../components/header';
 import Pager from '../components/pager';
 import { SearchBox, useSearchQuery } from '../components/search_box';
@@ -29,6 +29,8 @@ export default function AuthorsPage() {
   });
   const authors = result.data ?? null;
   const error   = result.error?.message ?? null;
+
+  useDocumentTitle('Tela Lucis - By author');
 
   const pageCount = authors ? Math.ceil(authors.meta.count / PAGE_LENGTH) : 0;
   const goToPage  = (n: number) => {

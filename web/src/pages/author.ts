@@ -5,6 +5,7 @@ import { match } from 'ts-pattern';
 import { authorQuery } from '../queries'
 import { Header } from '../components/header';
 import { Library } from '../components/library';
+import { useDocumentTitle } from '../lib';
 import './home.scss';
 import './authors.scss';
 
@@ -13,6 +14,8 @@ export default function AuthorPage() {
   const authorId = useParams().authorId ?? '';
   const result   = useQuery(authorQuery(authorId));
   const author   = result.data ?? null;
+
+  useDocumentTitle(author === null ? null : 'Tela Lucis - ' + author.name);
 
   return (
     __('main', {className: 'home author'},
