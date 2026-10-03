@@ -136,6 +136,7 @@ export interface CopyrightStatusCheckTable {
   copyright_status: 'likely_public_domain' | 'probably_public_domain' | 'doubtful_public_domain'
     | 'likely_copyrighted',
   notes: Generated<string>,
+  manual: Generated<boolean>,     // set by hand in the admin panel, not judged by an LLM
   created_at: Generated<Date>,
   updated_at: Generated<Date>,    // kept by a trigger: any update sets it
 }

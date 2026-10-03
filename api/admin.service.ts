@@ -11,6 +11,11 @@ import { FootnoteExtractionInsightQueries } from '../model/footnote_extraction_i
 import { CitationScopes, type CitationMatch } from '../model/citations';
 import { DbScopes, withScopes } from '../model/model_utils';
 import { BookScopes, BookSelectors, type BookSort } from '../model/books';
+import {
+  CopyrightStatusCheckActions, CopyrightStatusCheckQueries,
+  type BookCopyrightStatus, type CopyrightFilter, type CopyrightSort,
+} from '../model/copyright_status_checks';
+import { shownInSearches, type CopyrightStatus } from '../core/copyright_status';
 
 // How many of the books next up the dashboard lists
 const NEXT_UP_COUNT = 10;
@@ -74,6 +79,31 @@ export type AdminQueuedBook = {
   createdAt: string,  // ISO 8601
   updatedAt: string,
 };
+
+// The AdminBookCopyright schema in api.yaml: a book and its latest copyright status check (status,
+// notes, manual and checkedAt null when it was never checked). manual: set by hand here rather
+// than judged by an LLM; shownInSearches: whether the library's searches list it.
+export type AdminBookCopyright = {
+  bookId: string,
+  title: string,
+  author: string,
+  status: CopyrightStatus | null,
+  notes: string | null,
+  manual: boolean | null,
+  checkedAt: string | null,  // ISO 8601
+  shownInSearches: boolean,
+};
+
+const toAdminBookCopyright = (r: BookCopyrightStatus): AdminBookCopyright => ({
+  bookId:          r.book_id,
+  title:           r.title,
+  author:          r.author,
+  status:          r.status,
+  notes:           r.notes,
+  manual:          r.manual,
+  checkedAt:       r.checked_at === null ? null : r.checked_at.toISOString(),
+  shownInSearches: shownInSearches(r.status),
+});
 
 @Injectable()
 export class AdminService {
@@ -235,5 +265,36 @@ export class AdminService {
       })),
       count: Number(total.count),
     };
+  }
+
+  // A page of the books with their latest copyright status checks, those whose title or author
+  // contains `query`, filtered by status and sorted by title, status or when last checked; and
+  // how many there are in all
+  async bookCopyrights(opts: {
+    query: string, filter: CopyrightFilter, sort: CopyrightSort, offset: number, length: number,
+  }): Promise<{ items: AdminBookCopyright[], count: number }> {
+    const { rows, count } = await CopyrightStatusCheckQueries.findBookStatuses(this.db, opts);
+    return { items: rows.map(toAdminBookCopyright), count };
+  }
+
+  // Set a book's copyright status by hand: a check of its own, its latest. null when there's no
+  // such book.
+  async setBookCopyright(
+    bookId: string, status: CopyrightStatus, notes: string
+  ): Promise<AdminBookCopyright | null> {
+    const book = await this.db.selectFrom('books').select('books.id')
+      .where('books.id', '=', bookId)
+      .executeTakeFirst();
+
+    if (book === undefined) {
+      return null;
+    }
+    else {
+      await CopyrightStatusCheckActions.saveCheck(this.db, { bookId, status, notes }, true);
+      const { rows } = await CopyrightStatusCheckQueries.findBookStatuses(this.db, {
+        query: '', filter: 'all', sort: 'title', offset: 0, length: 1, bookId,
+      });
+      return rows[0] === undefined ? null : toAdminBookCopyright(rows[0]);
+    }
   }
 }

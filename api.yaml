@@ -30,7 +30,9 @@ paths:
            minimum: 1
            maximum: 100
        - name: query
-         description: search title and author
+         description: >-
+           search title and author. Books whose latest copyright status check finds them
+           likely_copyrighted are never listed.
          in: query
          required: false
          schema:
@@ -586,6 +588,111 @@ paths:
           description: not signed in
         '503':
           description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
+  /admin/copyright:
+    get:
+      tags:
+        - Admin
+      summary: >-
+        A page of all books with their latest copyright status check. Needs the session cookie
+        from POST /admin/login.
+      parameters:
+        - name: query
+          description: only books whose title or author contains this, ignoring case
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          description: >-
+            all (the default); unchecked: books never checked; or a status: books whose latest
+            check gives it
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, unchecked, likely_public_domain, probably_public_domain, doubtful_public_domain, likely_copyrighted]
+        - name: sort
+          description: >-
+            title (the default); status: the most likely in the public domain first, those never
+            checked last; checked: by when last checked, the latest first. Then by title.
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [title, status, checked]
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 100000
+        - name: length
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: a page of books, and meta.count, how many there are in all
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        type: number
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminBookCopyright'
+        '401':
+          description: not signed in
+  /admin/copyright/{bookId}:
+    post:
+      tags:
+        - Admin
+      summary: >-
+        Set a book's copyright status by hand: adds a check (manual) that is its latest. Needs the
+        session cookie from POST /admin/login.
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [likely_public_domain, probably_public_domain, doubtful_public_domain, likely_copyrighted]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: the book with its new status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBookCopyright'
+        '400':
+          description: no status, or not one of them
+        '401':
+          description: not signed in
+        '404':
+          description: no such book
   /admin/citation-insights:
     get:
       tags:
@@ -605,6 +712,33 @@ paths:
           description: the admin panel is closed (ADMIN_USERNAME and ADMIN_PASSWORD are not set)
 components:
   schemas:
+    AdminBookCopyright:
+      description: >-
+        A book and its latest copyright status check; status, notes, manual and checkedAt are null
+        when it was never checked. Books whose latest status is likely_copyrighted are left out of
+        GET /books (shownInSearches false).
+      type: object
+      required: [bookId, title, author, status, notes, manual, checkedAt, shownInSearches]
+      properties:
+        bookId:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        status:
+          type: [string, 'null']
+          enum: [likely_public_domain, probably_public_domain, doubtful_public_domain, likely_copyrighted, null]
+        notes:
+          type: [string, 'null']
+        manual:
+          description: set by hand in the admin panel, rather than judged by an LLM
+          type: [boolean, 'null']
+        checkedAt:
+          type: [string, 'null']
+          format: date-time
+        shownInSearches:
+          type: boolean
     AdminQueuedBook:
       type: object
       required:

@@ -11,6 +11,14 @@ export const COPYRIGHT_STATUSES = [
 ] as const;
 export type CopyrightStatus = typeof COPYRIGHT_STATUSES[number];
 
+// Books whose latest check gives one of these are left out of the library's searches
+export const HIDDEN_COPYRIGHT_STATUSES: CopyrightStatus[] = ['likely_copyrighted'];
+
+// Whether a book with this status (null: never checked) is shown in the library's searches
+export const shownInSearches = (status: CopyrightStatus | null): boolean => (
+  status === null || !HIDDEN_COPYRIGHT_STATUSES.includes(status)
+);
+
 export type BookToCheck = { id: string, title: string, author: string, url: string | null };
 export type CopyrightCheck = { bookId: string, status: CopyrightStatus, notes: string };
 

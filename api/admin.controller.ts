@@ -1,9 +1,11 @@
 // The admin panel's endpoints (the frontend's /tl-admin): signing in and out, and the dashboard,
 // which only a signed-in admin can read (see AdminGuard and core/admin_auth.ts)
 import {
-  Body, Controller, Get, HttpCode, Inject, Post, Query, Req, Res, ServiceUnavailableException,
-  UnauthorizedException, UseGuards,
+  BadRequestException, Body, Controller, Get, HttpCode, Inject, NotFoundException, Param, Post,
+  Query, Req, Res, ServiceUnavailableException, UnauthorizedException, UseGuards,
 } from '@nestjs/common';
+import { COPYRIGHT_FILTERS, COPYRIGHT_SORTS } from '../model/copyright_status_checks';
+import { COPYRIGHT_STATUSES } from '../core/copyright_status';
 import { CITATION_MATCHES } from '../model/citations';
 import { BOOK_SORTS } from '../model/books';
 import { QUEUE_STATUSES } from '../core/queued_books';
@@ -131,6 +133,56 @@ export class AdminController {
     });
 
     return { meta: { count }, items };
+  }
+
+  // A page of the books with their latest copyright status checks, searched by title and author,
+  // filtered by status (or never checked) and sorted by title, status or when last checked
+  @Get('copyright')
+  @UseGuards(AdminGuard)
+  async copyright(
+    @Query('query') query?: unknown,
+    @Query('status') status?: unknown,
+    @Query('sort') sort?: unknown,
+    @Query('offset') offset?: unknown,
+    @Query('length') length?: unknown,
+  ) {
+    const { items, count } = await this.admin.bookCopyrights({
+      query:  string_param('query', query) ?? '',
+      filter: enum_param('status', status, COPYRIGHT_FILTERS, 'all'),
+      sort:   enum_param('sort', sort, COPYRIGHT_SORTS, 'title'),
+      offset: int_param('offset', offset, 0, 0, 100000),
+      length: int_param('length', length, 50, 1, 200),
+    });
+
+    return { meta: { count }, items };
+  }
+
+  // Set a book's copyright status by hand
+  @Post('copyright/:bookId')
+  @HttpCode(200)
+  @UseGuards(AdminGuard)
+  async setCopyright(
+    @Param('bookId') bookId: string,
+    @Body() body: { status?: unknown, notes?: unknown } | undefined,
+  ) {
+    const notes = body?.notes ?? '';
+    if (body?.status === undefined || body.status === '') {
+      throw new BadRequestException(`status is required: one of ${ COPYRIGHT_STATUSES.join(', ') }`);
+    }
+    else if (typeof notes !== 'string') {
+      throw new BadRequestException('notes must be a string');
+    }
+    else {
+      const status = enum_param('status', body.status, COPYRIGHT_STATUSES, 'likely_copyrighted');
+      const book   = await this.admin.setBookCopyright(bookId, status, notes.trim());
+
+      if (book === null) {
+        throw new NotFoundException(`No book with id ${ bookId }`);
+      }
+      else {
+        return book;
+      }
+    }
   }
 
   // The footnote extraction insights with their scores

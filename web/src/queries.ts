@@ -1,7 +1,7 @@
 import { QueryClient, queryOptions } from '@tanstack/react-query'
 import {
   fetchAdminBooks, fetchAdminCitationInsights, fetchAdminCitations, fetchAdminDashboard,
-  fetchAdminQueuedBooks, fetchAdminSession,
+  fetchAdminBookCopyrights, fetchAdminQueuedBooks, fetchAdminSession,
   fetchAuthor, fetchAuthors, fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage,
   fetchPageInsights,
 } from './api'
@@ -111,6 +111,15 @@ export const adminCitationsQuery = (
 export const adminBooksQuery = (opts: Parameters<typeof fetchAdminBooks>[0]) => queryOptions({
   queryKey:  ['admin', 'books', opts],
   queryFn:   () => fetchAdminBooks(opts),
+  staleTime: 0,
+  retry:     false,
+});
+
+export const adminBookCopyrightsQuery = (
+  opts: Parameters<typeof fetchAdminBookCopyrights>[0]
+) => queryOptions({
+  queryKey:  ['admin', 'bookCopyrights', opts],
+  queryFn:   () => fetchAdminBookCopyrights(opts),
   staleTime: 0,
   retry:     false,
 });

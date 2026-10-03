@@ -4,6 +4,7 @@ import { sql, type Kysely } from 'kysely';
 import type { Database } from '../api/database.ts';
 import { namesAnAuthor } from '../core/authors.ts';
 import { likePattern, type DbExprBuilder, type DbSelectQuery } from './model_utils.ts';
+import { CopyrightStatusCheckSql } from './copyright_status_checks.ts';
 
 // Authors going by a name containing `searchQuery` (any of theirs: "aquinas" finds Thomas
 // Aquinas), ignoring case; every author when it's empty
@@ -23,10 +24,12 @@ const matchingName = <O>(searchQuery: string | undefined) => (
   }
 };
 
-// Authors with a book in the collection
+// Authors with a book in the collection shown in its searches (not likely under copyright)
 const withBooks = <O>() => (query: DbSelectQuery<'authors', O>) => (
   query.where(({ exists, selectFrom }) => exists(
-    selectFrom('books').select('books.id').whereRef('books.author_id', '=', 'authors.id')
+    selectFrom('books').select('books.id')
+      .whereRef('books.author_id', '=', 'authors.id')
+      .where(CopyrightStatusCheckSql.isShownInSearches('books.id'))
   ))
 );
 
@@ -34,11 +37,12 @@ const sortedByName = <O>() => (query: DbSelectQuery<'authors', O>) => (
   query.orderBy('authors.name').orderBy('authors.id')
 );
 
-// The author's books
+// The author's books shown in the collection's searches (not likely under copyright)
 const bookCount = (eb: DbExprBuilder<'authors'>) => (
   eb.selectFrom('books')
     .select(eb.fn.countAll<string>().as('n'))
     .whereRef('books.author_id', '=', 'authors.id')
+    .where(CopyrightStatusCheckSql.isShownInSearches('books.id'))
     .as('book_count')
 );
 

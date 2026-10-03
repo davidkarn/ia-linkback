@@ -1,8 +1,9 @@
-// The admin panel at /tl-admin: a sign-in form, then its tabs: the dashboard of the import queue
-// (/tl-admin), the queued books (/tl-admin/queued-books), the books (/tl-admin/books), the
-// citations (/tl-admin/citations) and the citation extraction insights
-// (/tl-admin/citation-insights). Signing in sets
-// an HttpOnly session cookie (see core/admin_auth.ts in the API).
+// The admin panel at /tl-admin: a sign-in form, then its tabs: the dashboard
+// of the import queue (/tl-admin), the queued books (/tl-admin/queued-books),
+// the books (/tl-admin/books), their copyright statuses (/tl-admin/copyright),
+// the citations (/tl-admin/citations) and the citation extraction insights
+// (/tl-admin/citation-insights). Signing in sets an HttpOnly session cookie
+// (see core/admin_auth.ts in the API).
 import { createElement as __, useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -14,6 +15,7 @@ import { Header } from '../components/header'
 import { AdminCitations } from '../components/admin_citations'
 import { AdminBooks } from '../components/admin_books'
 import { AdminQueuedBooks } from '../components/admin_queued_books'
+import { AdminCopyright } from '../components/admin_copyright'
 import './admin.scss'
 
 export default function AdminPage() {
@@ -87,6 +89,7 @@ const TABS = [
   { path: '', label: 'Dashboard' },
   { path: 'queued-books', label: 'Queued books' },
   { path: 'books', label: 'Books' },
+  { path: 'copyright', label: 'Copyright' },
   { path: 'citations', label: 'Citations' },
   { path: 'citation-insights', label: 'Citation insights' },
 ];
@@ -117,6 +120,7 @@ function AdminTabs() {
         __(Route, {index: true, element: __(Dashboard)}),
         __(Route, {path: 'queued-books', element: __(AdminQueuedBooks)}),
         __(Route, {path: 'books', element: __(AdminBooks)}),
+        __(Route, {path: 'copyright', element: __(AdminCopyright)}),
         __(Route, {path: 'citations', element: __(AdminCitations)}),
         __(Route, {path: 'citation-insights', element: __(CitationInsightsTab)}),
         __(Route, {path: '*', element: __('p', {className: 'muted'}, 'No such tab.')}),

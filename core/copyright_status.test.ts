@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   checkCopyrightResults, copyrightCheckActions, copyrightPrompt, copyrightRequest,
-  publicDomainCutoffYear,
+  publicDomainCutoffYear, shownInSearches,
 } from './copyright_status.ts';
 
 const books = [
@@ -50,5 +50,17 @@ describe('copyrightCheckActions', () => {
       { cmd: 'log', data: ['likely_public_domain    City of God (npnf102-city-of-god)\n    NPNF, 1887.'] },
       { cmd: 'log', data: ['no result for God: His Knowability (godhisknowabilit00pohluoft): left for the next run'] },
     ]);
+  });
+});
+
+describe('shownInSearches', () => {
+  it('shows books never checked or likely in the public domain', () => {
+    expect(shownInSearches(null)).toBe(true);
+    expect(shownInSearches('likely_public_domain')).toBe(true);
+    expect(shownInSearches('doubtful_public_domain')).toBe(true);
+  });
+
+  it('hides books likely under copyright', () => {
+    expect(shownInSearches('likely_copyrighted')).toBe(false);
   });
 });

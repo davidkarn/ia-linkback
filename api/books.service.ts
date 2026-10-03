@@ -14,6 +14,7 @@ import {
 import { partNamer } from '../core/book_part_names';
 import { BookPartNameQueries } from '../model/book_part_names';
 import { AlternateIdsQueries } from '../model/alternate_ids';
+import { CopyrightStatusCheckScopes } from '../model/copyright_status_checks';
 import { isBible } from '../core/bible';
 import { BookScopes, BookSelectors } from '../model/books.js';
 import { DbScopes, withScopes } from '../model/model_utils.js';
@@ -61,7 +62,8 @@ export type BookPageForApi = {
 export class BooksService {
   constructor(@Inject(DB) private readonly db: Kysely<Database>) {}
 
-  // authorId: only that author's books
+  // authorId: only that author's books. Books likely under copyright are left out (see
+  // shownInSearches in core/copyright_status.ts).
   async search(opts: {
     offset: number,
     length: number,
@@ -72,6 +74,7 @@ export class BooksService {
       this.db.selectFrom('books'), [
         BookScopes.scopedToQuery(opts.query),
         BookScopes.byAuthor(opts.authorId),
+        CopyrightStatusCheckScopes.shownInSearches(),
         DbScopes.offsetAndLimitScope(opts.offset, opts.length),
         BookScopes.sortedForDisplay()
       ])
@@ -90,6 +93,7 @@ export class BooksService {
       this.db.selectFrom('books'), [
         BookScopes.scopedToQuery(opts.query),
         BookScopes.byAuthor(opts.authorId),
+        CopyrightStatusCheckScopes.shownInSearches(),
       ])
       .select((eb) => eb.fn.countAll<string>().as('count'))
       .executeTakeFirstOrThrow();

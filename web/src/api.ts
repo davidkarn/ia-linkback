@@ -349,3 +349,47 @@ export const fetchAdminQueuedBooks = (opts: {
 
   return requestJson('GET', `/admin/queued-books?${params}`);
 };
+
+// From the most to the least likely to be in the public domain (core/copyright_status.ts)
+export const COPYRIGHT_STATUSES = [
+  'likely_public_domain', 'probably_public_domain', 'doubtful_public_domain', 'likely_copyrighted',
+] as const;
+export type CopyrightStatus = typeof COPYRIGHT_STATUSES[number];
+
+// Which books the admin's copyright list shows: all, those never checked, or with a status
+export type CopyrightFilter = 'all' | 'unchecked' | CopyrightStatus;
+export type CopyrightSort = 'title' | 'status' | 'checked';
+
+// The AdminBookCopyright schema: a book and its latest copyright status check (status, notes,
+// manual and checkedAt null when never checked). manual: set by hand in the admin panel;
+// shownInSearches: whether the library's searches list it (not when likely copyrighted).
+export type AdminBookCopyright = {
+  bookId: string,
+  title: string,
+  author: string,
+  status: CopyrightStatus | null,
+  notes: string | null,
+  manual: boolean | null,
+  checkedAt: string | null,
+  shownInSearches: boolean,
+};
+
+export type AdminBookCopyrightList = { meta: { count: number }, items: AdminBookCopyright[] };
+
+export const fetchAdminBookCopyrights = (opts: {
+  query: string, status: CopyrightFilter, sort: CopyrightSort, offset: number, length: number,
+}): Promise<AdminBookCopyrightList> => {
+  const params = new URLSearchParams({
+    status: opts.status, sort: opts.sort, offset: String(opts.offset), length: String(opts.length),
+  });
+  if (opts.query.length > 0) params.set('query', opts.query);
+
+  return requestJson('GET', `/admin/copyright?${params}`);
+};
+
+// Set a book's copyright status by hand
+export const setAdminBookCopyright = (
+  bookId: string, status: CopyrightStatus, notes: string
+): Promise<AdminBookCopyright> => (
+  requestJson('POST', `/admin/copyright/${encodeURIComponent(bookId)}`, { status, notes })
+);
