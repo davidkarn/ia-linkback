@@ -17,6 +17,7 @@ import { PageInsightsSummary } from './page_insights';
 import { TableOfContents } from './table_of_contents';
 import { pagesOnly, pageVolumes } from '../core/page_order'
 import { chapterOfPage, citingAuthorsSummaryForMany, verseRows } from '../core/bible_page'
+import { LoadingSpinner } from './loading_spinner'
 
 const MAX_CITATIONS_BEFORE_COLLAPSING = 3;
 
@@ -80,7 +81,7 @@ export const BookPageView = ({
 
   return match<boolean, React.ReactElement>(true)
     .with(!!error, () => __('p', {className: "error"}, "Couldn't load this page: ", error))
-    .with(!page, () => __('p', {className: "muted"}, 'Loading'))
+    .with(!page, () => __(LoadingSpinner, {}))
     .otherwise(() => (
       assertCond(page !== null),
         __('div', {className: 'page-with-citations ' + (
@@ -178,7 +179,7 @@ export const BookPageView = ({
               .with({error: P.string}, ({error}) => (
                 __('p', {className: 'error'}, "Couldn't load the citations of this page: ", error)
               ))
-              .with({citations: null}, () => __('p', {className: 'muted'}, 'Loading'))
+              .with({citations: null}, () => __(LoadingSpinner, {}))
               .with({citations: {foreignCitations: []}}, () => (
                 __('p', {className: 'muted'}, 'No other books in the collection cite this page.')
               ))
@@ -439,7 +440,7 @@ function SourcePage({citation}: {citation: Citation}) {
   );
 
   return match(result)
-    .with({status: 'pending'}, () => __('p', {className: 'source-page muted'}, 'Loading'))
+    .with({status: 'pending'}, () => __(LoadingSpinner, {}))
     .with({status: 'error'}, (r) => (
       __('p', {className: 'source-page error'}, "Couldn't load the citing page: ", r.error.message)
     ))

@@ -17,6 +17,7 @@ import { AdminBooks } from '../components/admin_books'
 import { AdminQueuedBooks } from '../components/admin_queued_books'
 import { AdminCopyright } from '../components/admin_copyright'
 import './admin.scss'
+import { LoadingSpinner } from '../components/loading_spinner'
 
 export default function AdminPage() {
   const session = useQuery(adminSessionQuery());
@@ -26,7 +27,7 @@ export default function AdminPage() {
       __(Header, {}),
       __('section', {className: 'page-body'},
         match(session)
-          .with({status: 'pending'}, () => __('p', {className: 'muted'}, 'Loading'))
+          .with({status: 'pending'}, () => __(LoadingSpinner, {}))
           .with({status: 'error', error: P.when((e) => e instanceof ApiError && e.status === 503)}, () => (
             __('p', {className: 'muted'},
               'The admin panel is closed: set ADMIN_USERNAME and ADMIN_PASSWORD in the API\'s .env.'
@@ -136,7 +137,7 @@ function Dashboard() {
     __('div', {className: 'admin-dashboard'},
       __('h1', {}, 'Import queue'),
       match(dashboard)
-        .with({status: 'pending'}, () => __('p', {className: 'muted'}, 'Loading'))
+        .with({status: 'pending'}, () => __(LoadingSpinner, {}))
         .with({status: 'error'}, (d) => __('p', {className: 'error'}, "Couldn't load the dashboard: ", d.error.message))
         .otherwise((d) => __(DashboardSections, {dashboard: d.data}))
     )
@@ -187,7 +188,7 @@ function CitationInsightsTab() {
     __('div', {className: 'admin-citation-insights'},
       __('h1', {}, 'Citation insights'),
       match(insights)
-        .with({status: 'pending'}, () => __('p', {className: 'muted'}, 'Loading'))
+        .with({status: 'pending'}, () => __(LoadingSpinner, {}))
         .with({status: 'error'}, (i) => __('p', {className: 'error'}, "Couldn't load the insights: ", i.error.message))
         .otherwise((i) => __(InsightList, {insights: i.data}))
     )

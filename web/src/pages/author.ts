@@ -6,6 +6,7 @@ import { authorQuery } from '../queries'
 import { Header } from '../components/header';
 import { Library } from '../components/library';
 import { useDocumentTitle } from '../lib';
+import { LoadingSpinner } from '../components/loading_spinner';
 import './home.scss';
 import './authors.scss';
 
@@ -20,6 +21,7 @@ export default function AuthorPage() {
   return (
     __('main', {className: 'home author'},
       __(Header, {}),
+      result.isPending && __(LoadingSpinner, {}),
       match(result)
         .with({status: 'error'}, (r) => (
           __('section', {className: 'page-body'},
@@ -28,7 +30,7 @@ export default function AuthorPage() {
         ))
         .otherwise(() => (
           __(Library, {
-            heading:     author?.name ?? 'Loading',
+            heading:     author?.name ?? '',
             subheading:  __('div', {className: 'author-subheading'},
               __(Link, {to: '/authors'}, 'All authors'),
               author && __('span', {},

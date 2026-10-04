@@ -12,6 +12,7 @@ import { adminCitationsQuery } from '../queries'
 import Pager from './pager'
 import { AdminSearch } from './admin_search'
 import './admin_citations.scss'
+import { LoadingSpinner } from './loading_spinner'
 
 const PAGE_LENGTH = 50;
 
@@ -86,7 +87,7 @@ export function AdminCitations() {
         )
       ),
       match(result)
-        .with({status: 'pending'}, () => __('p', {className: 'muted'}, 'Loading'))
+        .with({status: 'pending'}, () => __(LoadingSpinner, {}))
         .with({status: 'error'}, (r) => __('p', {className: 'error'}, "Couldn't load the citations: ", r.error.message))
         .otherwise((r) => __(CitationList, {
           list:   r.data,

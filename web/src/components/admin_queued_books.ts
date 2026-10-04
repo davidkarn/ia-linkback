@@ -15,6 +15,7 @@ import Pager from './pager'
 import { AdminSearch } from './admin_search'
 import { AdminSortHeader } from './admin_sort_header'
 import './admin_queued_books.scss'
+import { LoadingSpinner } from './loading_spinner'
 
 const PAGE_LENGTH = 50;
 
@@ -79,7 +80,7 @@ export function AdminQueuedBooks() {
         )
       ),
       match(result)
-        .with({status: 'pending'}, () => __('p', {className: 'muted'}, 'Loading'))
+        .with({status: 'pending'}, () => __(LoadingSpinner, {}))
         .with({status: 'error'}, (r) => (
           __('p', {className: 'error'}, "Couldn't load the queued books: ", r.error.message)
         ))

@@ -9,6 +9,7 @@ import Pager from '../components/pager';
 import { SearchBox, useSearchQuery } from '../components/search_box';
 import './home.scss';
 import './authors.scss';
+import { LoadingSpinner } from '../components/loading_spinner'
 
 export const authorPath = (authorId: string) => '/authors/' + encodeURIComponent(authorId);
 
@@ -65,7 +66,7 @@ export default function AuthorsPage() {
           ),
           match<boolean, React.ReactElement>(true)
             .with(!!error, () => __('p', {className: "error"}, "Couldn't load authors: ", error))
-            .with(!authors, () => __('p', {className: "muted"}, 'Loading'))
+            .with(!authors, () => __(LoadingSpinner, {}))
             .otherwise(() => (
               assertCond(authors !== null),
               __('ol', {className: 'author-cards'},

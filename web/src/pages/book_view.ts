@@ -13,6 +13,7 @@ import { BookPageView } from '../components/book_page';
 import { openBooksPath, parseOpenBooks, withBookClosed, withBookOpened, withPage, type OpenBook } from '../core/open_books';
 import { pagesOnly } from '../core/page_order'
 import { collapsedColumns, gridColumns } from '../core/column_layout'
+import { LoadingSpinner } from '../components/loading_spinner'
 
 const pageLabel = (entry: PageOrderEntry) =>
   entry.printedPageNumber ? 'p. ' + entry.printedPageNumber : '[scan ' + entry.pageId + ']';
@@ -158,7 +159,7 @@ function BookColumn({
           )
         ))
         .with(!!error, () => __('p', {className: "error"}, "Couldn't load this book: ", error))
-        .with(!book, () => __('p', {className: "muted"}, 'Loading'))
+        .with(!book, () => __(LoadingSpinner, {}))
         .otherwise(() => (
           assertCond(book !== null),
           __('div', {className: 'book-page-view'},

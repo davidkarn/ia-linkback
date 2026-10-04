@@ -7,6 +7,7 @@ import { assertCond } from '../lib';
 import Pager from './pager';
 import { SearchBox, useSearchQuery } from './search_box';
 import '../pages/home.scss';
+import { LoadingSpinner } from './loading_spinner'
 
 const PAGE_LENGTH = 20
 
@@ -52,7 +53,7 @@ export const Library = ({heading, subheading, authorId, searchLabel}: {
     __('section', {className: 'page-body' + (loading && books ? ' loading' : '')},
       match<boolean, React.ReactElement>(true)
         .with(!!error, () => __('p', {className: "error"}, "Couldn't load books: ", error))
-        .with(!books, () => __('p', {className: "muted"}, 'Loading'))
+        .with(!books, () => __(LoadingSpinner, {}))
         .otherwise(() => (
           assertCond(books !== null),
           __('section', {className: 'home-library'},

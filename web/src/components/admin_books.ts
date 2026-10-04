@@ -12,6 +12,7 @@ import Pager from './pager'
 import { AdminSearch } from './admin_search'
 import { AdminSortHeader } from './admin_sort_header'
 import './admin_books.scss'
+import { LoadingSpinner } from './loading_spinner'
 
 const PAGE_LENGTH = 50;
 
@@ -52,7 +53,7 @@ export function AdminBooks() {
         })
       ),
       match(result)
-        .with({status: 'pending'}, () => __('p', {className: 'muted'}, 'Loading'))
+        .with({status: 'pending'}, () => __(LoadingSpinner, {}))
         .with({status: 'error'}, (r) => (
           __('p', {className: 'error'}, "Couldn't load the books: ", r.error.message)
         ))

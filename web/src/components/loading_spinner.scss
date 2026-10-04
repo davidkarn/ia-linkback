@@ -1,0 +1,45 @@
+.loading-spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 400;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0;
+    // after a moment, so a quick load never shows it
+    animation: loading-spinner-fade-in 0.3s ease-out 0.15s forwards;
+
+    .loading-spinner-ring {
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 3px solid var(--light-accent);
+        border-top-color: var(--primary-color);
+        border-radius: 50%;
+        animation: loading-spinner-spin 0.8s linear infinite;
+    }
+}
+
+@keyframes loading-spinner-fade-in {
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes loading-spinner-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+// a slow pulse instead of spinning for those who'd rather not see motion
+@media (prefers-reduced-motion: reduce) {
+    .loading-spinner .loading-spinner-ring {
+        animation: loading-spinner-pulse 1.6s ease-in-out infinite;
+    }
+}
+
+@keyframes loading-spinner-pulse {
+    50% {
+        opacity: 0.4;
+    }
+}
