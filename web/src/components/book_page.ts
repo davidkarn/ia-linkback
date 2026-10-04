@@ -1,6 +1,6 @@
 import { createElement as __, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './book_page.scss';
-import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, type DefinedUseQueryResult, type UseQueryResult } from '@tanstack/react-query';
 import { type Book, type BookPage, type Citation, type CitingBook, type PageBlock } from '../api';
 import { citationSourcePageQuery, pageCitationsQuery } from '../queries';
 import { match, P } from 'ts-pattern';
@@ -25,7 +25,7 @@ const NO_CITATIONS: Citation[] = [];
 
 export const BookPageView = ({
   book, index, pageId, hrefForPage, hrefForCitingBook, hrefToClose, showCitedBy,
-  pageResult
+  pageResult, citationsResult
 }: {
   book: Book,
   index: number,
@@ -36,7 +36,8 @@ export const BookPageView = ({
   hrefToClose?: string,
   // the "Cited by" aside, shown only in the rightmost of several open columns
   showCitedBy: boolean,
-  pageResult: UseQueryResult<BookPage, Error>
+  pageResult: UseQueryResult<BookPage, Error>,
+  citationsResult: DefinedUseQueryResult<unknown, Error>
 }) => {
   const bookId   = book.id;
   const allPages = pagesOnly(book.pageOrder);
@@ -47,10 +48,6 @@ export const BookPageView = ({
   const error      = pageResult.error?.message ?? null;
   const loading    = pageResult.isPlaceholderData;
 
-  // the citations of the page in other books, fetched apart from the page, only for the column
-  // showing them; null while they load (not the last page's: a Bible's would go by the wrong
-  // verses)
-  const citationsResult  = useQuery({...pageCitationsQuery(bookId, pageId), enabled: showCitedBy});
   const citations        = citationsResult.data ?? null;
   const foreignCitations = citations?.foreignCitations ?? NO_CITATIONS;
   const citationsError   = citationsResult.error?.message ?? null;

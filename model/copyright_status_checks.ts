@@ -29,6 +29,14 @@ const isShownInSearches = (bookIdColumn: string): RawBuilder<boolean> => (
   })`
 );
 
+// SQL: the ids of the withheld books, those whose latest check finds them likely under copyright
+// (see shownInSearches in core): a set, for a query testing many books against it at once
+const withheldBookIds = (): RawBuilder<string> => sql<string>`(
+  select latest.book_id from (
+    select distinct on (book_id) book_id, copyright_status from copyright_status_check
+    order by book_id, created_at desc, id desc) latest
+  where latest.copyright_status in (${ sql.join(HIDDEN_COPYRIGHT_STATUSES.map((s) => sql.lit(s))) }))`;
+
 // Books shown in the library's searches (isShownInSearches)
 const shownInSearches = <O>() => (query: DbSelectQuery<'books', O>) => (
   query.where(isShownInSearches('books.id'))
@@ -175,7 +183,7 @@ const findLatestStatus = async(
   return row?.copyright_status ?? null;
 };
 
-export const CopyrightStatusCheckSql = { latestStatusOf, isShownInSearches };
+export const CopyrightStatusCheckSql = { latestStatusOf, isShownInSearches, withheldBookIds };
 export const CopyrightStatusCheckScopes = { shownInSearches };
 export const CopyrightStatusCheckQueries = {
   findBooksWithoutCheck, findBookStatuses, findLatestStatus,

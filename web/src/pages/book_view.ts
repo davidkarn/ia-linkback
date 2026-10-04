@@ -4,7 +4,7 @@ import { match } from 'ts-pattern';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { type PageOrderEntry } from '../api'
-import { bookQuery, pageOrderQuery, pageQuery } from '../queries'
+import { bookQuery, pageOrderQuery, pageQuery, pageCitationsQuery } from '../queries'
 import { assertCond, useDocumentTitle, useWidthInRem } from '../lib';
 import "./book_view.scss"
 import BookPager from '../components/book_pager';
@@ -126,15 +126,21 @@ function BookColumn({
       : fetched
   ), [fetched, counted.data]);
 
-  const pages  = book === null ? [] : pagesOnly(book.pageOrder);
-  const pageId = open.pageId ?? pages[0]?.pageId ?? 1;
-  const index  = pages.findIndex(p => p.pageId === pageId);
-  const prev   = index > 0 ? pages[index - 1] : undefined;
-  const next   = index >= 0 ? pages[index + 1] : undefined;
+  const pages       = book === null ? [] : pagesOnly(book.pageOrder);
+  const pageId      = open.pageId ?? pages[0]?.pageId ?? 1;
+  const index       = pages.findIndex(p => p.pageId === pageId);
+  const prev        = index > 0 ? pages[index - 1] : undefined;
+  const next        = index >= 0 ? pages[index + 1] : undefined;
+  const showCitedBy = active;
 
   const pageResult = useQuery({
     ...pageQuery(bookId, pageId),
     placeholderData: keepPreviousData
+  });
+
+  const citationsResult  = useQuery({
+    ...pageCitationsQuery(bookId, pageId),
+    enabled: showCitedBy
   });  
 
   return (
@@ -177,9 +183,10 @@ function BookColumn({
                     hrefForPage(pageId, volume)
                   ),
                   pageResult,
+                  citationsResult,
                   hrefForCitingBook,
                   hrefToClose,
-                  showCitedBy: active,
+                  showCitedBy,
                 })
               ))
           )

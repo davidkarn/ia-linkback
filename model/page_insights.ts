@@ -58,33 +58,51 @@ const rowPartMatches = (n: number) => {
 // the foreignCitations of GET /books/{bookId}/pages/{pageId}): by the parts of one of the page's
 // book_pages_to_citations rows, part by part, or by a "page" part equal to its printed number;
 // not those in withheld books (likely under copyright). Pages no citation cites are left out.
-// Slow for a much cited book (the Bible): GET .../pageOrder caches it (page_cited_counts_cache).
+// GET .../pageOrder caches it (page_cited_counts_cache).
+//
+// Found from the book's rows rather than from its citations (the Bible has 98,879): a row with a
+// second part finds the citation_groups rows with its first two parts through
+// citation_groups_parts_lookup_idx, one without, those with its first part.
 export const citedCountsByPage = async(
   db: Kysely<Database>, bookId: string
 ): Promise<Map<number, number>> => {
-  // part 1 of a book_pages_to_citations row is never null, so the rows join the groups by it
-  // with an equality (a hash join) rather than comparing every row with every group
   const rows = await sql<{ page_number: number, n: string }>`
-    with cited as (
-      select c.id from citations c
-      where c.reference_book_id in ${ AlternateIdsSql.idsCitedAs(bookId) }
-        and c.source_book_id not in ${ AlternateIdsSql.idsCitedAs(bookId) }
-        and ${ CopyrightStatusCheckSql.isShownInSearches('c.source_book_id') }
+    with cited_as as (
+      select id from ${ AlternateIdsSql.idsCitedAs(bookId) } ids(id)
     ),
-    by_parts as (
+    withheld as (
+      select book_id from ${ CopyrightStatusCheckSql.withheldBookIds() } w(book_id)
+    ),
+    by_two_parts as (
       select bpc.page_number, grp.citation_id
       from book_pages_to_citations bpc
       join citation_groups grp
         on grp.part1_type = bpc.citation_part_1_type
         and grp.part1_value = bpc.citation_part_1_value
-      join cited on cited.id = grp.citation_id
-      where bpc.book_id = ${ bookId }
-        and ${ sql.join(CITATION_RANGE.slice(1).map(rowPartMatches), sql` and `) }
+        and grp.part2_type = bpc.citation_part_2_type
+        and grp.part2_value = bpc.citation_part_2_value
+      where bpc.book_id = ${ bookId } and bpc.citation_part_2_type is not null
+        and ${ sql.join(CITATION_RANGE.slice(2).map(rowPartMatches), sql` and `) }
+    ),
+    by_one_part as (
+      select bpc.page_number, grp.citation_id
+      from book_pages_to_citations bpc
+      join citation_groups grp
+        on grp.part1_type = bpc.citation_part_1_type
+        and grp.part1_value = bpc.citation_part_1_value
+      where bpc.book_id = ${ bookId } and bpc.citation_part_2_type is null
+    ),
+    -- citations in other books, not withheld ones, that point at the book
+    counted as (
+      select c.id from citations c
+      where c.reference_book_id in (select id from cited_as)
+        and c.source_book_id not in (select id from cited_as)
+        and c.source_book_id not in (select book_id from withheld)
     ),
     by_number as (
       select p.page_number, grp.citation_id
-      from cited
-      join citation_groups grp on grp.citation_id = cited.id
+      from counted
+      join citation_groups grp on grp.citation_id = counted.id
       cross join lateral ${ groupPartRows('grp') } part(n, type, value)
       join pages p
         on p.book_id = ${ bookId }
@@ -93,7 +111,17 @@ export const citedCountsByPage = async(
       where part.type = 'page'
     )
     select page_number, count(distinct citation_id) as n
-    from (select * from by_parts union all select * from by_number) cites
+    from (
+      select by_parts.* from (
+        select * from by_two_parts union all select * from by_one_part
+      ) by_parts
+      join citations c on c.id = by_parts.citation_id
+      where c.reference_book_id in (select id from cited_as)
+        and c.source_book_id not in (select id from cited_as)
+        and c.source_book_id not in (select book_id from withheld)
+      union all
+      select * from by_number
+    ) cites
     group by page_number`.execute(db);
 
   return new Map(rows.rows.map((r) => [r.page_number, Number(r.n)]));

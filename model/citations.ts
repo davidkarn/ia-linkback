@@ -23,9 +23,16 @@ const citesPrintedPage = (printed: number, cit = 'citations') => sql<boolean>`ex
   where grp.citation_id = ${ sql.ref(`${ cit }.id`) }
     and ('page', ${ printed }::integer) in (${ groupPartPairs('grp') }))`;
 
-const citesPageByParts = (bookId: string, pageNumber: number, cit = 'citations') => sql<boolean>`exists (
-  select 1 from book_pages_to_citations bpc
-  join citation_groups grp on grp.citation_id = ${ sql.ref(`${ cit }.id`) }
+// The ids of the citations of a page by its citation parts: a citation_groups row having each part
+// of one of the page's book_pages_to_citations rows (its first part first). Found from the page's
+// rows, through citation_groups_parts_lookup_idx, rather than by checking each citation of the
+// book: the Bible has 98,879.
+const citingIdsByParts = (bookId: string, pageNumber: number) => sql<string>`(
+  select grp.citation_id
+  from book_pages_to_citations bpc
+  join citation_groups grp
+    on grp.part1_type = bpc.citation_part_1_type
+    and grp.part1_value = bpc.citation_part_1_value
   where bpc.book_id = ${ bookId } and bpc.page_number = ${ pageNumber }
     and ${ groupHasRowParts('bpc', 'grp') })`;
 
@@ -34,7 +41,7 @@ const citesPage = <O>(bookId: string, printedNumber: string|null, pageNumber: nu
   (query: DbSelectQuery<'citations', O>) => query.where((eb) => (
     eb.or([
       ...(printedNumber === null ? [] : [citesPrintedPage(printedNumber)]),
-      citesPageByParts(bookId, pageNumber),
+      eb('citations.id', 'in', citingIdsByParts(bookId, pageNumber)),
     ])
   ))
 );
