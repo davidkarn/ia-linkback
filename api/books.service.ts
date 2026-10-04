@@ -8,8 +8,7 @@ import { citationsOfPage, citedCountsByPage, findBooks } from '../model/page_ins
 import { findCitedPages } from '../model/book_pages_to_citations';
 import { contentsOf, type ContentsEntry } from '../core/contents';
 import {
-  pageOrderLayout, pagesWithVolumeMarkers, selectVolume, volumeName, volumesOf,
-  type Volume,
+  pageOrderOf, selectVolume, volumeName, volumesOf, type PageOrderEntry, type Volume,
 } from '../core/volumes';
 import { partNamer } from '../core/book_part_names';
 import { BookPartNameQueries } from '../model/book_part_names';
@@ -21,10 +20,15 @@ import { BookScopes, BookSelectors } from '../model/books.js';
 import { DbScopes, withScopes } from '../model/model_utils.js';
 
 export type BookSummary = { id: string, title: string, author: string, url?: string, coverPhotoPath?: string, pageCount: number, citedByCount: number };
-// citedByCount: citations in other books that cite this page (the foreignCitations of GET /books/{id}/pages/{id}).
-// isVolume: not a page but where a volume starts (its first page, and its name), citedByCount null.
-export type PageOrderEntry = {
-  pageId: number, printedPageNumber: string, citedByCount: number | null, isVolume?: true,
+// A page as pageOrder lists it (see core/volumes.ts): citedByCount is null in GET /books/{bookId}'s
+// placeholder, counted in GET /books/{bookId}/pageOrder
+export type { PageOrderEntry };
+
+// GET /books/{bookId}/pageOrder: the volume opened, and its pageOrder with citations counted
+export type PageOrderForApi = {
+  volume: number,
+  pageOrder: PageOrderEntry[],
+  allPagesListed: boolean,
 };
 // One of a book's volumes (see core/volumes.ts), without its pages. label: its proper name
 // ("Isaias", "Prima Pars"; book_part_names), when it has one.
@@ -115,15 +119,15 @@ export class BooksService {
 
   // A book opened to one of its volumes: `volume`, else the first holding `pageId`, else volume 1
   // (see core/volumes.ts). pageOrder holds only that volume's pages, or every volume's, with a
-  // marker where each starts (a short book) or without (short volumes; see pageOrderLayout);
-  // contents is the whole book's.
-  // null when there is no such book or volume.
+  // marker where each starts (a short book) or without (short volumes; see pageOrderLayout); it's
+  // a placeholder, its citedByCounts null, for getPageOrder to replace (counting citations is
+  // slow). contents is the whole book's. null when there is no such book or volume.
   async get(
     bookId: string, opts: { volume?: number | undefined, pageId?: number | undefined } = {}
   ): Promise<BookForApi | null> {
     await assertNotWithheld(this.db, bookId);
 
-    const book = await this.db
+    const book   = await this.db
       .selectFrom('books')
       .select((eb) => [
         'books.id', 'books.title', 'books.author', 'books.url', 'books.cover_photo_path',
@@ -131,81 +135,102 @@ export class BooksService {
       ])
       .where('books.id', '=', bookId)
       .executeTakeFirst();
+    const layout = book ? await this.layoutOf(bookId, opts) : null;
 
-    if (!book) {
+    if (!book || layout === null) {
       return null;
     }
     else {
-      const pages = await this.db
-        .selectFrom('pages')
-        .select(['pages.page_number', 'pages.printed_page_number'])
-        .where('pages.book_id', '=', bookId)
-        .orderBy('pages.page_number')
-        .execute();
+      const { pages, citedPages, volumes, volume, nameOf, labelOf } = layout;
+      // the placeholder: counting each page's citations is left to GET /books/{bookId}/pageOrder
+      const { pageOrder, allPagesListed } = pageOrderOf({
+        pages, volumes, volume, citedBy: null, markerName: (v) => labelOf(v) ?? volumeName(v),
+      });
 
-      // the parts by which the book's pages are cited ([] for books cited by page number), which
-      // divide it into volumes and make its table of contents
-      const citedPages = await findCitedPages(this.db, bookId);
-      const volumes    = volumesOf(pages.map((p) => p.page_number), citedPages);
-      const volume     = selectVolume(volumes, opts);
-      // a volume's proper name ("Isaias", "Prima Pars"), when book_part_names has one
-      const nameOf  = partNamer(await BookPartNameQueries.findPartNames(this.db, bookId));
-      const labelOf = (v: Volume) => nameOf([{ type: v.partType, value: v.partValue }]);
-
-      if (volume === null) {
-        return null;
-      }
-      else {
-        // citations of each page, as getPage finds them: by printed page number, or by the parts
-        // of one of the page's book_pages_to_citations rows
-        const citedBy = await citedCountsByPage(this.db, bookId);
-        const opened  = volumes[volume - 1];
-        // a short book lists every volume's pages, with where each starts; a long one the open
-        // volume's
-        const layout = pageOrderLayout(pages.length, volumes);
-        const inOpen = opened === undefined || layout !== 'volume' ? null : new Set(opened.pageIds);
-        const listed = pages
-          .filter((p) => inOpen === null || inOpen.has(p.page_number))
-          .map((p): PageOrderEntry => ({
-            pageId:            p.page_number,
-            printedPageNumber: p.printed_page_number,
-            citedByCount:      citedBy.get(p.page_number) ?? 0,
-          }));
-
-        return {
-          id:           book.id,
-          title:        book.title,
-          author:       book.author,
-          ...(book.url ? { url: book.url } : {}),
-          ...(book.cover_photo_path ? { coverPhotoPath: book.cover_photo_path } : {}),
-          pageCount:    pages.length,
-          citedByCount: Number(book.cited_by_count ?? 0),
-          isBible:      isBible(await AlternateIdsQueries.findAlternateIds(this.db, bookId)),
-          volume,
-          volumes:      volumes.map((v): VolumeSummary => {
-            const label = labelOf(v);
-            return {
-              volume:      v.number,
-              partType:    v.partType,
-              partValue:   String(v.partValue),
-              firstPageId: v.pageIds[0]!,
-              lastPageId:  v.pageIds[v.pageIds.length - 1]!,
-              pageCount:   v.pageIds.length,
-              ...(label === undefined ? {} : { label }),
-            };
-          }),
-          pageOrder:    layout === 'marked'
-            ? pagesWithVolumeMarkers(listed, volumes, (v) => labelOf(v) ?? volumeName(v))
-            : listed,
-          allPagesListed: inOpen === null,
-          // the whole book's, every volume's entries: those of other volumes go to their pages
-          // in those volumes
-          contents:       contentsOf(
-            citedPages, new Map(pages.map((p) => [p.page_number, p.printed_page_number])), nameOf,
-          ),
-        };
-      }
+      return {
+        id:           book.id,
+        title:        book.title,
+        author:       book.author,
+        ...(book.url ? { url: book.url } : {}),
+        ...(book.cover_photo_path ? { coverPhotoPath: book.cover_photo_path } : {}),
+        pageCount:    pages.length,
+        citedByCount: Number(book.cited_by_count ?? 0),
+        isBible:      isBible(await AlternateIdsQueries.findAlternateIds(this.db, bookId)),
+        volume,
+        volumes:      volumes.map((v): VolumeSummary => {
+          const label = labelOf(v);
+          return {
+            volume:      v.number,
+            partType:    v.partType,
+            partValue:   String(v.partValue),
+            firstPageId: v.pageIds[0]!,
+            lastPageId:  v.pageIds[v.pageIds.length - 1]!,
+            pageCount:   v.pageIds.length,
+            ...(label === undefined ? {} : { label }),
+          };
+        }),
+        pageOrder,
+        allPagesListed,
+        // the whole book's, every volume's entries: those of other volumes go to their pages
+        // in those volumes
+        contents:     contentsOf(
+          citedPages, new Map(pages.map((p) => [p.page_number, p.printed_page_number])), nameOf,
+        ),
+      };
     }
+  }
+
+  // A book's pageOrder as GET /books/{bookId} lists it (opened the same way), with each page's
+  // citations counted: by printed page number, or by the parts of one of the page's
+  // book_pages_to_citations rows (as getPage finds them). null when there's no such book or
+  // volume.
+  async getPageOrder(
+    bookId: string, opts: { volume?: number | undefined, pageId?: number | undefined } = {}
+  ): Promise<PageOrderForApi | null> {
+    await assertNotWithheld(this.db, bookId);
+
+    const book   = await this.db.selectFrom('books').select('books.id')
+      .where('books.id', '=', bookId)
+      .executeTakeFirst();
+    const layout = book ? await this.layoutOf(bookId, opts) : null;
+
+    if (layout === null) {
+      return null;
+    }
+    else {
+      const { pages, volumes, volume, labelOf } = layout;
+      const citedBy                             = await citedCountsByPage(this.db, bookId);
+
+      return {
+        volume,
+        ...pageOrderOf({
+          pages, volumes, volume, citedBy, markerName: (v) => labelOf(v) ?? volumeName(v),
+        }),
+      };
+    }
+  }
+
+  // How a book is laid out: its pages, the parts they're cited by ([] for books cited by page
+  // number), which divide it into volumes and make its table of contents, the volume to open
+  // (see selectVolume), and the proper names of its parts (book_part_names: "Isaias", "Prima
+  // Pars"). null when it has no such volume.
+  private async layoutOf(
+    bookId: string, opts: { volume?: number | undefined, pageId?: number | undefined }
+  ) {
+    const pages = await this.db
+      .selectFrom('pages')
+      .select(['pages.page_number', 'pages.printed_page_number'])
+      .where('pages.book_id', '=', bookId)
+      .orderBy('pages.page_number')
+      .execute();
+
+    const citedPages = await findCitedPages(this.db, bookId);
+    const volumes    = volumesOf(pages.map((p) => p.page_number), citedPages);
+    const volume     = selectVolume(volumes, opts);
+    const nameOf     = partNamer(await BookPartNameQueries.findPartNames(this.db, bookId));
+    const labelOf    = (v: Volume) => nameOf([{ type: v.partType, value: v.partValue }]);
+
+    return volume === null ? null : { pages, citedPages, volumes, volume, nameOf, labelOf };
   }
 
   // One page of a book: its blocks with the citations in their footnotes, and the citations in other

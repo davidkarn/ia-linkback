@@ -141,3 +141,40 @@ export const pagesWithVolumeMarkers = <P extends { pageId: number }>(
     page,
   ]);
 };
+
+// A page as a book's pageOrder lists it (GET /books/{bookId} and its pageOrder): citedByCount, the
+// citations in other books of the page, is null in the placeholder pageOrder (not counted yet)
+// and for a volume's marker (isVolume)
+export type PageOrderEntry = {
+  pageId: number, printedPageNumber: string, citedByCount: number | null, isVolume?: true,
+};
+
+// The pages a book's pageOrder lists, as pageOrderLayout says (the open volume's, or every page,
+// with a marker where each volume starts when they're marked), and whether that's every page.
+// citedBy: the citations of each page (pages missing have none); null for the placeholder, its
+// counts null. markerName: what a volume's marker is called.
+export const pageOrderOf = (opts: {
+  pages: { page_number: number, printed_page_number: string }[],
+  volumes: Volume[],
+  volume: number,
+  citedBy: Map<number, number> | null,
+  markerName: (volume: Volume) => string,
+}): { pageOrder: PageOrderEntry[], allPagesListed: boolean } => {
+  const opened = opts.volumes[opts.volume - 1];
+  const layout = pageOrderLayout(opts.pages.length, opts.volumes);
+  const inOpen = opened === undefined || layout !== 'volume' ? null : new Set(opened.pageIds);
+  const listed = opts.pages
+    .filter((p) => inOpen === null || inOpen.has(p.page_number))
+    .map((p): PageOrderEntry => ({
+      pageId:            p.page_number,
+      printedPageNumber: p.printed_page_number,
+      citedByCount:      opts.citedBy === null ? null : (opts.citedBy.get(p.page_number) ?? 0),
+    }));
+
+  return {
+    pageOrder:      layout === 'marked'
+      ? pagesWithVolumeMarkers(listed, opts.volumes, opts.markerName)
+      : listed,
+    allPagesListed: inOpen === null,
+  };
+};

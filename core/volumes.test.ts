@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import {
-  pageOrderLayout, pagesWithVolumeMarkers, selectVolume, volumeName, volumesOf,
+  pageOrderLayout, pageOrderOf, pagesWithVolumeMarkers, selectVolume, volumeName, volumesOf,
 } from './volumes.ts';
 
 const cited = (pageId: number, ...pairs: [string, number][]) => ({
@@ -129,5 +129,46 @@ describe('pageOrderLayout', () => {
 
   it("lists the open volume's pages for a long book of longer volumes", () => {
     expect(pageOrderLayout(400, volumesOfSizes(200, 200))).toBe('volume');
+  });
+});
+
+describe('pageOrderOf', () => {
+  const pages      = (n: number) => Array.from({ length: n }, (_, i) => (
+    { page_number: i + 1, printed_page_number: String(i + 1) }
+  ));
+  const volumesFor = (sizes: number[]) => {
+    let next = 1;
+    return sizes.map((size, i) => ({
+      number:    i + 1,
+      partType:  'book',
+      partValue: i + 1,
+      pageIds:   Array.from({ length: size }, () => next++),
+    }));
+  };
+  const citedBy = new Map([[2, 3], [9, 1]]);
+
+  it("lists the open volume's pages of a long book, with their citations", () => {
+    const { pageOrder, allPagesListed } = pageOrderOf({
+      pages: pages(400), volumes: volumesFor([200, 200]), volume: 1, citedBy, markerName: volumeName,
+    });
+    expect(pageOrder).toHaveLength(200);
+    expect(pageOrder.slice(0, 3).map((p) => p.citedByCount)).toEqual([0, 3, 0]);
+    expect(allPagesListed).toBe(false);
+  });
+
+  it('leaves the citations uncounted (null) in the placeholder', () => {
+    const { pageOrder } = pageOrderOf({
+      pages: pages(400), volumes: volumesFor([200, 200]), volume: 2, citedBy: null, markerName: volumeName,
+    });
+    expect(pageOrder[0]).toEqual({ pageId: 201, printedPageNumber: '201', citedByCount: null });
+  });
+
+  it("lists every page of a short book, with its volumes' markers", () => {
+    const { pageOrder, allPagesListed } = pageOrderOf({
+      pages: pages(20), volumes: volumesFor([10, 10]), volume: 2, citedBy, markerName: (v) => `Liber ${ v.partValue }`,
+    });
+    expect(pageOrder.filter((p) => p.isVolume).map((p) => p.printedPageNumber)).toEqual(['Liber 1', 'Liber 2']);
+    expect(pageOrder).toHaveLength(22);
+    expect(allPagesListed).toBe(true);
   });
 });

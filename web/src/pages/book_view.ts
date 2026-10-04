@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState, createElement as __, Fragment } f
 import { Link, useLocation, useNavigate } from 'react-router'
 import { match } from 'ts-pattern';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { type PageOrderEntry } from '../api'
-import { bookQuery } from '../queries'
+import { bookQuery, pageOrderQuery, pageQuery } from '../queries'
 import { assertCond, useDocumentTitle, useWidthInRem } from '../lib';
 import "./book_view.scss"
 import BookPager from '../components/book_pager';
@@ -111,14 +111,31 @@ function BookColumn({
   const bookId   = open.bookId;
 
   const bookResult = useQuery(bookQuery(bookId, open.volume, open.pageId));
-  const book       = bookResult.data ?? null;
   const error      = bookResult.error?.message ?? null;
 
+  // the book's pageOrder comes without citation counts (a placeholder), replaced by the counted
+  // one once it loads
+  const fetched   = bookResult.data ?? null;
+  const counted   = useQuery({
+    ...pageOrderQuery(bookId, fetched?.volume ?? 1),
+    enabled: fetched !== null,
+  });
+  const book      = useMemo(() => (
+    fetched !== null && counted.data !== undefined
+      ? {...fetched, pageOrder: counted.data.pageOrder}
+      : fetched
+  ), [fetched, counted.data]);
+
   const pages  = book === null ? [] : pagesOnly(book.pageOrder);
-  const pageId = open.pageId ?? pages[0]?.pageId;
+  const pageId = open.pageId ?? pages[0]?.pageId ?? 1;
   const index  = pages.findIndex(p => p.pageId === pageId);
   const prev   = index > 0 ? pages[index - 1] : undefined;
   const next   = index >= 0 ? pages[index + 1] : undefined;
+
+  const pageResult = useQuery({
+    ...pageQuery(bookId, pageId),
+    placeholderData: keepPreviousData
+  });  
 
   return (
     __('div', {className: 'book-column' + (collapsed ? ' collapsed' : '')},
@@ -159,6 +176,7 @@ function BookColumn({
                   hrefForPage: (pageId: number, volume: number = book.volume) => (
                     hrefForPage(pageId, volume)
                   ),
+                  pageResult,
                   hrefForCitingBook,
                   hrefToClose,
                   showCitedBy: active,

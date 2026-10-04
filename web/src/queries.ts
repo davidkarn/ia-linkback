@@ -2,7 +2,7 @@ import { QueryClient, queryOptions } from '@tanstack/react-query'
 import {
   fetchAdminBooks, fetchAdminCitationInsights, fetchAdminCitations, fetchAdminDashboard,
   fetchAdminBookCopyrights, fetchAdminQueuedBooks, fetchAdminSession,
-  fetchAuthor, fetchAuthors, fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage,
+  fetchAuthor, fetchAuthors, fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage, fetchPageOrder,
   fetchPageInsights,
 } from './api'
 
@@ -59,6 +59,12 @@ export const bookQuery = (bookId: string, volume?: number, pageId?: number) => (
       },
     })
 );
+
+// A book volume's pageOrder with its pages' citations counted (see fetchPageOrder)
+export const pageOrderQuery = (bookId: string, volume: number) => queryOptions({
+  queryKey: ['book', bookId, 'volume', volume, 'pageOrder'],
+  queryFn:  () => fetchPageOrder(bookId, volume),
+});
 
 export const pageQuery = (bookId: string, pageId: number) => queryOptions({
   queryKey: ['book', bookId, 'page', pageId],

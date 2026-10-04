@@ -1,6 +1,6 @@
 import { createElement as __, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './book_page.scss';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { type Book, type BookPage, type Citation, type PageBlock } from '../api';
 import { citationSourcePageQuery, pageQuery } from '../queries';
 import { match, P } from 'ts-pattern';
@@ -21,7 +21,8 @@ import { chapterOfPage, citingAuthorsSummaryForMany, verseRows } from '../core/b
 const MAX_CITATIONS_BEFORE_COLLAPSING = 3;
 
 export const BookPageView = ({
-  book, index, pageId, hrefForPage, hrefForCitingBook, hrefToClose, showCitedBy
+  book, index, pageId, hrefForPage, hrefForCitingBook, hrefToClose, showCitedBy,
+  pageResult
 }: {
   book: Book,
   index: number,
@@ -32,14 +33,13 @@ export const BookPageView = ({
   hrefToClose?: string,
   // the "Cited by" aside, shown only in the rightmost of several open columns
   showCitedBy: boolean,
+  pageResult: UseQueryResult<BookPage, Error>
 }) => {
   const bookId   = book.id;
   const allPages = pagesOnly(book.pageOrder);
   // for a book listing every volume's pages, the volume of each
   const volumeOf = pageVolumes(book.pageOrder, book.volumes);
   
-  // the previous page stays up, dimmed, until the next one arrives
-  const pageResult = useQuery({...pageQuery(bookId, pageId), placeholderData: keepPreviousData});
   const page       = pageResult.data ?? null;
   const error      = pageResult.error?.message ?? null;
   const loading    = pageResult.isPlaceholderData;

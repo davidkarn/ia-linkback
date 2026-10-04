@@ -168,6 +168,55 @@ paths:
                 $ref: '#/components/schemas/BookSummary'
         '404':
           description: no book with this id, or no such volume
+  /books/{bookId}/pageOrder:
+    get:
+      tags:
+        - Books
+      summary: >-
+        The book's pageOrder with each page's citations counted, replacing the placeholder in
+        GET /books/{bookId} (whose citedByCounts are null: counting them is slow)
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: volume
+          description: the volume opened, as for GET /books/{bookId}
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+        - name: pageId
+          description: without volume, open the first volume holding this page, as for GET /books/{bookId}
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+      responses:
+        '200':
+          description: the volume opened and its pageOrder
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [volume, pageOrder, allPagesListed]
+                properties:
+                  volume:
+                    type: number
+                  pageOrder:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PageOrderEntry'
+                  allPagesListed:
+                    description: as in GET /books/{bookId}
+                    type: boolean
+        '404':
+          description: no such book or volume
+        '451':
+          description: the book is withheld, likely still under copyright
   /books/{bookId}/pages/{pageId}:
     get:
       tags:
@@ -1095,28 +1144,11 @@ components:
             the pages of the volume opened, in order (GET /books/{bookId} only); for a book with
             volumes of fewer than 200 pages in all, every volume's pages, with an entry with isVolume
             true before each volume's first page; for one whose volumes average fewer than 8 pages,
-            every page, without those entries (see allPagesListed)
+            every page, without those entries (see allPagesListed). A placeholder: its citedByCounts
+            are null, counted by GET /books/{bookId}/pageOrder, which replaces it
           type: array
           items:
-            type: object
-            properties:
-              pageId:
-                description: the page; for a volume's entry (isVolume), its first page
-                type: number
-              printedPageNumber:
-                description: >-
-                  the number printed on the page; for a volume's entry, its label, or else its part
-                  ("Book 2")
-                type: string
-              citedByCount:
-                description: >-
-                  number of citations in other books that reference this page (including those pointing
-                  at one of the book's alternate ids); null for a volume's entry
-                type: [number, 'null']
-              isVolume:
-                description: >-
-                  true for an entry that isn't a page but marks where a volume starts; absent for pages
-                type: boolean
+            $ref: '#/components/schemas/PageOrderEntry'
         contents:
           description: >-
             the book's whole table of contents, from the parts its pages are cited by in
@@ -1145,6 +1177,29 @@ components:
             citations in other books of any of the author's books, directly or through one of
             their alternate ids
           type: number
+    PageOrderEntry:
+      description: a page as pageOrder lists it, or where a volume starts (isVolume)
+      type: object
+      required: [pageId, printedPageNumber, citedByCount]
+      properties:
+        pageId:
+          description: the page; for a volume's entry (isVolume), its first page
+          type: number
+        printedPageNumber:
+          description: >-
+            the number printed on the page; for a volume's entry, its label, or else its part
+            ("Book 2")
+          type: string
+        citedByCount:
+          description: >-
+            number of citations in other books that reference this page (including those pointing
+            at one of the book's alternate ids); null for a volume's entry, and in the placeholder
+            pageOrder of GET /books/{bookId} (counted by GET /books/{bookId}/pageOrder)
+          type: [number, 'null']
+        isVolume:
+          description: >-
+            true for an entry that isn't a page but marks where a volume starts; absent for pages
+          type: boolean
     VolumeSummary:
       type: object
       required:

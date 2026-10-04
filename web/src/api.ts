@@ -19,7 +19,8 @@ export type AuthorList = { meta: { count: number }, items: AuthorSummary[] };
 
 // GET /books/{bookId}: every page in reading order. pageId is the scan's page number; printedPageNumber
 // is the number printed on the page, '' when it has none. citedByCount: citations in other books that cite
-// this page (its foreignCitations). For a short book with volumes, every volume's pages are listed, each
+// this page (its foreignCitations); null until counted (GET /books/{bookId}'s placeholder, see
+// fetchPageOrder). For a short book with volumes, every volume's pages are listed, each
 // volume's preceded by an entry with isVolume true: its first page's id, its name as printedPageNumber,
 // citedByCount null (see core/page_order.ts).
 export type PageOrderEntry = {
@@ -148,6 +149,18 @@ export const fetchBook = (
 
   return getJson(`/books/${encodeURIComponent(bookId)}?${params}`);
 };
+
+// GET /books/{bookId}/pageOrder: the book's pageOrder with each page's citations counted, replacing
+// the placeholder in GET /books/{bookId} (its citedByCounts null)
+export type CountedPageOrder = {
+  volume: number,
+  pageOrder: PageOrderEntry[],
+  allPagesListed: boolean,
+};
+
+export const fetchPageOrder = (bookId: string, volume: number): Promise<CountedPageOrder> => (
+  getJson(`/books/${encodeURIComponent(bookId)}/pageOrder?volume=${volume}`)
+);
 
 export const fetchPage = (bookId: string, pageId: number): Promise<BookPage> =>
   getJson(`/books/${encodeURIComponent(bookId)}/pages/${pageId}`);

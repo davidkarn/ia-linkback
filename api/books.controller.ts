@@ -42,6 +42,27 @@ export class BooksController {
     }
   }
 
+  // The book's pageOrder with each page's citations counted, replacing GET /books/{bookId}'s
+  // placeholder (opened the same way: volume, or pageId)
+  @Get(':bookId/pageOrder')
+  async getPageOrder(
+    @Param('bookId') bookId: string,
+    @Query('volume') volume?: unknown,
+    @Query('pageId') pageId?: unknown,
+  ) {
+    const pageOrder = await this.books.getPageOrder(bookId, {
+      volume: optional_int_param('volume', volume, 1, 100000),
+      pageId: optional_int_param('pageId', pageId, 1, 1000000),
+    });
+
+    if (!pageOrder) {
+      throw new NotFoundException(`No book with id ${ bookId }, or no such volume`);
+    }
+    else {
+      return pageOrder;
+    }
+  }
+
   @Get(':bookId/pages/:pageId')
   async getPage(@Param('bookId') bookId: string, @Param('pageId') pageId: string) {
     const pageNumber = int_param('pageId', pageId, 1, 1, 1000000);
