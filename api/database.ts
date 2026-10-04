@@ -131,6 +131,14 @@ export interface PageInsightsCacheTable {
   created_at: Generated<Date>,
 }
 
+// Each of a book's pages' citations counted, by page number (a JSON object), cached
+// (migrations/0024_create_page_cited_counts_cache.ts; model/page_cited_counts_cache.ts)
+export interface PageCitedCountsCacheTable {
+  book_id: string,
+  counts: ColumnType<Record<string, number>, string, string>,
+  created_at: Generated<Date>,
+}
+
 // Another id a book goes by: citations pointing at alternate_id count as citations of book_id
 export interface AlternateIdsTable {
   book_id: string,
@@ -204,6 +212,7 @@ export interface Database {
   footnote_extraction_insights: FootnoteExtractionInsightsTable,
   footnote_extraction_insight_keywords: FootnoteExtractionInsightKeywordsTable,
   page_insights_cache: PageInsightsCacheTable,
+  page_cited_counts_cache: PageCitedCountsCacheTable,
   book_pages_to_citations: BookPagesToCitationsTable,
   alternate_ids: AlternateIdsTable,
   copyright_status_check: CopyrightStatusCheckTable,

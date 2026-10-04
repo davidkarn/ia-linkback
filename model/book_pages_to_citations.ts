@@ -3,6 +3,7 @@
 import type { Insertable, Kysely } from 'kysely';
 import type { BookPagesToCitationsTable, Database } from '../api/database.ts';
 import type { CitationPart } from '../core/summa_thml.ts';
+import { PageCitedCountsCacheActions } from './page_cited_counts_cache.ts';
 
 const MAX_PARTS = 8;
 
@@ -34,7 +35,8 @@ const toRow = (
   }
 };
 
-// Replace a book's page citations with these, in one transaction. Returns how many were saved.
+// Replace a book's page citations with these, in one transaction, clearing the cached counts of
+// pages' citations (counted by these). Returns how many were saved.
 export const replacePageCitations = (
   db: Kysely<Database>, bookId: string, pages: { pageNumber: number, parts: CitationPart[] }[]
 ) => db.transaction().execute(async(trx) => {
@@ -44,6 +46,7 @@ export const replacePageCitations = (
   for (let i = 0; i < rows.length; i += CHUNK) {
     await trx.insertInto('book_pages_to_citations').values(rows.slice(i, i + CHUNK)).execute();
   }
+  await PageCitedCountsCacheActions.clearCachedCounts(trx);
 
   return rows.length;
 });

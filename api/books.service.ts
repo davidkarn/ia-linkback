@@ -15,6 +15,9 @@ import { BookPartNameQueries } from '../model/book_part_names';
 import { AlternateIdsQueries } from '../model/alternate_ids';
 import { CopyrightStatusCheckScopes } from '../model/copyright_status_checks';
 import { assertNotWithheld } from './copyright';
+import {
+  PageCitedCountsCacheActions, PageCitedCountsCacheQueries,
+} from '../model/page_cited_counts_cache';
 import { isBible } from '../core/bible';
 import { BookScopes, BookSelectors } from '../model/books.js';
 import { DbScopes, withScopes } from '../model/model_utils.js';
@@ -207,7 +210,7 @@ export class BooksService {
     }
     else {
       const { pages, volumes, volume, labelOf } = layout;
-      const citedBy                             = await citedCountsByPage(this.db, bookId);
+      const citedBy                             = await this.citedCounts(bookId);
 
       return {
         volume,
@@ -215,6 +218,21 @@ export class BooksService {
           pages, volumes, volume, citedBy, markerName: (v) => labelOf(v) ?? volumeName(v),
         }),
       };
+    }
+  }
+
+  // The citations of each of a book's pages counted (citedCountsByPage): cached, else counted and
+  // then cached (page_cited_counts_cache, cleared when what's counted changes)
+  private async citedCounts(bookId: string): Promise<Map<number, number>> {
+    const cached = await PageCitedCountsCacheQueries.findCachedCounts(this.db, bookId);
+
+    if (cached !== null) {
+      return cached;
+    }
+    else {
+      const counts = await citedCountsByPage(this.db, bookId);
+      await PageCitedCountsCacheActions.saveCachedCounts(this.db, bookId, counts);
+      return counts;
     }
   }
 

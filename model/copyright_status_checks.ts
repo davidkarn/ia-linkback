@@ -7,14 +7,16 @@ import {
   type BookToCheck, type CopyrightCheck, type CopyrightStatus,
 } from '../core/copyright_status.ts';
 import { likePattern, type DbSelectQuery } from './model_utils.ts';
+import { PageCitedCountsCacheActions } from './page_cited_counts_cache.ts';
 
 // SQL: the status of the latest check of the book with id `bookIdColumn` ("books.id"); null when
 // it was never checked
 const latestStatusOf = (bookIdColumn: string): RawBuilder<CopyrightStatus | null> => (
+  // an alias no query using it will have for one of its own tables
   sql<CopyrightStatus | null>`(
-    select c.copyright_status from copyright_status_check c
-    where c.book_id = ${ sql.ref(bookIdColumn) }
-    order by c.created_at desc, c.id desc
+    select latest_check.copyright_status from copyright_status_check latest_check
+    where latest_check.book_id = ${ sql.ref(bookIdColumn) }
+    order by latest_check.created_at desc, latest_check.id desc
     limit 1)`
 );
 
@@ -151,6 +153,9 @@ const saveCheck = async(
     })
     .returning('id')
     .executeTakeFirstOrThrow();
+
+  // a withheld book's citations aren't counted toward the pages they cite
+  await PageCitedCountsCacheActions.clearCachedCounts(db);
 
   return row.id;
 };

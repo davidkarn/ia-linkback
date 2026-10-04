@@ -56,8 +56,9 @@ const rowPartMatches = (n: number) => {
 
 // How many citations in other books cite each of a book's pages (as citationsOfPage finds them,
 // the foreignCitations of GET /books/{bookId}/pages/{pageId}): by the parts of one of the page's
-// book_pages_to_citations rows, part by part, or by a "page" part equal to its printed number.
-// Pages no citation cites are left out.
+// book_pages_to_citations rows, part by part, or by a "page" part equal to its printed number;
+// not those in withheld books (likely under copyright). Pages no citation cites are left out.
+// Slow for a much cited book (the Bible): GET .../pageOrder caches it (page_cited_counts_cache).
 export const citedCountsByPage = async(
   db: Kysely<Database>, bookId: string
 ): Promise<Map<number, number>> => {
@@ -68,6 +69,7 @@ export const citedCountsByPage = async(
       select c.id from citations c
       where c.reference_book_id in ${ AlternateIdsSql.idsCitedAs(bookId) }
         and c.source_book_id not in ${ AlternateIdsSql.idsCitedAs(bookId) }
+        and ${ CopyrightStatusCheckSql.isShownInSearches('c.source_book_id') }
     ),
     by_parts as (
       select bpc.page_number, grp.citation_id

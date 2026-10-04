@@ -40,10 +40,11 @@ const logQuery = (event: LogEvent) => {
       if (!process.env.DATABASE_URL) {throw new Error('DATABASE_URL is not set');}
       // JIT compiling a query takes ~300ms, and the planner turns it on for queries it costs high
       // from plans that never run (citationsOfPage's scan of citation_groups), which then take
-      // 300ms instead of a few: the app's queries are all small, so it is off
+      // 300ms instead of a few: the app's queries are all small, so it is off. work_mem keeps the
+      // sort counting the Bible's pages' citations (citedCountsByPage) in memory.
       const pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        options:          '-c jit=off',
+        options:          '-c jit=off -c work_mem=16MB',
       });
       return new Kysely<Database>({
         dialect: new PostgresDialect({ pool }),

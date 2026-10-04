@@ -6,6 +6,7 @@ import { placesOf } from '../core/citation_groups.ts';
 import { newInsights, type PlacedCitation, type ScoredInsight } from '../core/footnote_extraction.ts';
 import { groupRow } from './citation_groups.ts';
 import { FootnoteExtractionInsightActions } from './footnote_extraction_insights.ts';
+import { PageCitedCountsCacheActions } from './page_cited_counts_cache.ts';
 
 const blockKey = (pageNumber: number, position: number) => pageNumber + ':' + position;
 
@@ -68,6 +69,8 @@ const replaceExtractedCitations = (
   const added = newInsights(insights, saved.map((r) => r.insight));
 
   counts.newInsights = await FootnoteExtractionInsightActions.saveInsights(trx, added);
+  // the book's citations count toward the pages they cite
+  await PageCitedCountsCacheActions.clearCachedCounts(trx);
 
   return counts;
 });

@@ -6,6 +6,7 @@ import { placesOf } from '../core/citation_groups.ts';
 import { groupRow } from './citation_groups.ts';
 import { AlternateIdsSql } from './alternate_ids.ts';
 import { AuthorActions } from './authors.ts';
+import { PageCitedCountsCacheActions } from './page_cited_counts_cache.ts';
 import { likePattern, type DbExprBuilder, type DbSelectQuery } from './model_utils.ts';
 
 const CHUNK = 500;
@@ -187,6 +188,9 @@ const saveBook = (
       groups += groupChunk.length;
     }
   }
+
+  // its pages (and the citations in them) are counted anew
+  await PageCitedCountsCacheActions.clearCachedCounts(trx);
 
   return { pages: pages.length, blocks: blocks.length, citations: citations.length, groups };
 });

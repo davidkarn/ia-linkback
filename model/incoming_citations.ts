@@ -4,6 +4,7 @@ import type { Database } from '../api/database.ts';
 import type { PlaceGroup } from '../core/citation_groups.ts';
 import { groupRow } from './citation_groups.ts';
 import { invalidateInsightsCitedBy } from './page_insights.ts';
+import { PageCitedCountsCacheActions } from './page_cited_counts_cache.ts';
 
 // Rows per insert, well under Postgres's 65535 parameters
 const CHUNK = 500;
@@ -43,7 +44,8 @@ export const findCitationsByAuthor = (db: Kysely<Database>, authorPattern: strin
 );
 
 // Point citations at a book, replacing their citation_groups rows with the given places, in one
-// transaction; then clear the cached insights of the pages they now cite. Returns the counts saved.
+// transaction; then clear the cached insights of the pages they now cite, and the cached counts
+// of pages' citations. Returns the counts saved.
 export const relinkCitations = (
   db: Kysely<Database>, bookId: string, citations: { id: string, groups: PlaceGroup[] }[]
 ) => db.transaction().execute(async(trx) => {
@@ -63,6 +65,7 @@ export const relinkCitations = (
   }
 
   await invalidateInsightsCitedBy(trx, citations.map((c) => c.id));
+  await PageCitedCountsCacheActions.clearCachedCounts(trx);
 
   return { citations: citations.length, groups };
 });
@@ -81,7 +84,8 @@ export const findCitationsInBook = (db: Kysely<Database>, bookId: string) => (
 );
 
 // Point citations at the books they cite, keeping their locations, in one transaction; then clear
-// the cached insights of the pages they now cite. Returns how many were updated.
+// the cached insights of the pages they now cite, and the cached counts of pages' citations.
+// Returns how many were updated.
 export const linkCitations = (
   db: Kysely<Database>, links: { citationId: string, bookId: string }[]
 ): Promise<number> => (
@@ -98,6 +102,7 @@ export const linkCitations = (
         WHERE citations.id = r.citation_id`.execute(trx);
 
       await invalidateInsightsCitedBy(trx, citationIds);
+      await PageCitedCountsCacheActions.clearCachedCounts(trx);
 
       return Number(result.numAffectedRows ?? 0);
     })
