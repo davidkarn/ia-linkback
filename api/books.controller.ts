@@ -63,6 +63,20 @@ export class BooksController {
     }
   }
 
+  // The citations of a page in other books, and those books' titles and authors
+  @Get(':bookId/pages/:pageId/citations')
+  async getPageCitations(@Param('bookId') bookId: string, @Param('pageId') pageId: string) {
+    const pageNumber = int_param('pageId', pageId, 1, 1, 1000000);
+    const citations  = await this.books.getPageCitations(bookId, pageNumber);
+
+    if (!citations) {
+      throw new NotFoundException(`No page ${ pageId } in book ${ bookId }`);
+    }
+    else {
+      return citations;
+    }
+  }
+
   @Get(':bookId/pages/:pageId')
   async getPage(@Param('bookId') bookId: string, @Param('pageId') pageId: string) {
     const pageNumber = int_param('pageId', pageId, 1, 1, 1000000);

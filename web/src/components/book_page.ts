@@ -1,8 +1,8 @@
 import { createElement as __, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './book_page.scss';
 import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
-import { type Book, type BookPage, type Citation, type PageBlock } from '../api';
-import { citationSourcePageQuery, pageQuery } from '../queries';
+import { type Book, type BookPage, type Citation, type CitingBook, type PageBlock } from '../api';
+import { citationSourcePageQuery, pageCitationsQuery } from '../queries';
 import { match, P } from 'ts-pattern';
 import { assertCond } from '../lib';
 import BookPager from './book_pager';
@@ -19,6 +19,9 @@ import { pagesOnly, pageVolumes } from '../core/page_order'
 import { chapterOfPage, citingAuthorsSummaryForMany, verseRows } from '../core/bible_page'
 
 const MAX_CITATIONS_BEFORE_COLLAPSING = 3;
+
+// a page's citations while they load: one array, so what's worked out from them isn't redone
+const NO_CITATIONS: Citation[] = [];
 
 export const BookPageView = ({
   book, index, pageId, hrefForPage, hrefForCitingBook, hrefToClose, showCitedBy,
@@ -44,9 +47,19 @@ export const BookPageView = ({
   const error      = pageResult.error?.message ?? null;
   const loading    = pageResult.isPlaceholderData;
 
+  // the citations of the page in other books, fetched apart from the page, only for the column
+  // showing them; null while they load (not the last page's: a Bible's would go by the wrong
+  // verses)
+  const citationsResult  = useQuery({...pageCitationsQuery(bookId, pageId), enabled: showCitedBy});
+  const citations        = citationsResult.data ?? null;
+  const foreignCitations = citations?.foreignCitations ?? NO_CITATIONS;
+  const citationsError   = citationsResult.error?.message ?? null;
+
   const headerBlocks = page?.blocks.filter((block) => block.label === 'PageHeader') ?? [];
   const bodyBlocks   = page?.blocks.filter((block) => block.label !== 'PageHeader') ?? [];
-  const citingBooks  = new Map(page?.foreignCitationTitles.map((b) => [b.bookId, b]) ?? []);
+  const citingBooks  = useMemo(() => (
+    new Map(citations?.foreignCitationTitles.map((b) => [b.bookId, b]) ?? [])
+  ), [citations]);
 
   const thisPageIndex = allPages.findIndex(p => p.pageId === pageId);
   const nextEntry     = thisPageIndex >= 0 ? allPages[thisPageIndex + 1] : undefined;
@@ -147,7 +160,8 @@ export const BookPageView = ({
               .with({isBible: true}, () => (
                 // a new page starts with no verse's citations listed
                 __(BiblePage, {
-                  key: page.pageNumber, book, page, citingBooks, hrefForCitingBook, showCitedBy,
+                  key: page.pageNumber, book, page, foreignCitations, citingBooks,
+                  hrefForCitingBook, showCitedBy,
                 })
               ))
               .otherwise(() => (
@@ -158,23 +172,29 @@ export const BookPageView = ({
           ),
           // a Bible's citations are beside their verses instead (BiblePage)
           showCitedBy && !book.isBible && __('aside', {className: 'cited-by'},
-            page.foreignCitations.length > 0
+            foreignCitations.length > 0
               && __(PageInsightsSummary, {bookId, pageId}),
-            
+
             __('h2', {}, 'Cited by'),
-            
-            page.foreignCitations.length === 0
-              ? __('p', {className: 'muted'},
-                'No other books in the collection cite this page.'
-              )
-              : __('ul', {}, page.foreignCitations.map(
-                c => __(CitedBy, {
-                  key: c.id,
-                  citation: c,
-                  citing: citingBooks.get(c.source.bookId),
-                  hrefForCitingBook,
-                  startCollapsed: page.foreignCitations.length > MAX_CITATIONS_BEFORE_COLLAPSING,
-                })
+
+            match({citations, error: citationsError})
+              .with({error: P.string}, ({error}) => (
+                __('p', {className: 'error'}, "Couldn't load the citations of this page: ", error)
+              ))
+              .with({citations: null}, () => __('p', {className: 'muted'}, 'Loading'))
+              .with({citations: {foreignCitations: []}}, () => (
+                __('p', {className: 'muted'}, 'No other books in the collection cite this page.')
+              ))
+              .otherwise(() => (
+                __('ul', {}, foreignCitations.map(
+                  c => __(CitedBy, {
+                    key: c.id,
+                    citation: c,
+                    citing: citingBooks.get(c.source.bookId),
+                    hrefForCitingBook,
+                    startCollapsed: foreignCitations.length > MAX_CITATIONS_BEFORE_COLLAPSING,
+                  })
+                ))
               ))
           )
         )
@@ -186,19 +206,21 @@ export const BookPageView = ({
 // (showCitedBy). Each verse's citations are summed up by author until it's clicked: then the text
 // and citations share the width, the verse's citations listed over those of the verses below it,
 // and one citation at a time can be expanded to show the page citing it.
-function BiblePage({book, page, citingBooks, hrefForCitingBook, showCitedBy}: {
+function BiblePage({book, page, foreignCitations, citingBooks, hrefForCitingBook, showCitedBy}: {
   book: Book,
   page: BookPage,
-  citingBooks: Map<string, BookPage['foreignCitationTitles'][number]>,
+  // [] while they load
+  foreignCitations: Citation[],
+  citingBooks: Map<string, CitingBook>,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   showCitedBy: boolean,
 }) {
   // the page's headers are in the page header
   const rows = useMemo(() => verseRows(
     page.blocks.filter((block) => block.label !== 'PageHeader'),
-    page.foreignCitations,
+    foreignCitations,
     chapterOfPage(book.contents, book.volumes, book.volume, page.pageNumber),
-  ), [page, book]);
+  ), [page, book, foreignCitations]);
 
   // the row whose citations are listed, and the citation expanded in it; scrollTo: the one
   // opened with its row (select), scrolled to once it's shown
@@ -298,7 +320,7 @@ function BiblePage({book, page, citingBooks, hrefForCitingBook, showCitedBy}: {
 const citingAuthorsSummaryForAFew = (
   citations: Citation[],
   authorOf: (citation: Citation) => string,
-  citingBooks: Map<string, BookPage['foreignCitationTitles'][number]>,  
+  citingBooks: Map<string, CitingBook>,  
   onClickFor: (citation: Citation) => () => void,
 ): ReactElement => {
   const tbl = new Map<string, Citation[]>();
@@ -355,7 +377,7 @@ function CitedBy({
   citation, citing, hrefForCitingBook, startCollapsed = false, open, onToggle, scrollTo = false,
 }: {
   citation: Citation,
-  citing: BookPage['foreignCitationTitles'][number] | undefined,
+  citing: CitingBook | undefined,
   hrefForCitingBook: (bookId: string, pageId: number) => string,
   startCollapsed?: boolean,
   open?: boolean,

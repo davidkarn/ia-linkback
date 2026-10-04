@@ -235,8 +235,8 @@ paths:
             type: number
             minimum: 1
       summary: >-
-        Get one page of a book, with the citations in other books that point to it (without the
-        text of the pages they are on: GET /citations/{citationId}/sourcePage).
+        Get one page of a book: its blocks with the citations in them (the citations of the page in
+        other books are GET /books/{bookId}/pages/{pageId}/citations).
       responses:
         '200':
           description: book page
@@ -246,6 +246,38 @@ paths:
                 $ref: '#/components/schemas/BookPage'
         '404':
           description: no such book or page
+  /books/{bookId}/pages/{pageId}/citations:
+    get:
+      tags:
+        - Books
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: pageId
+          description: a pageId from the book's pageOrder
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      summary: >-
+        The citations in other books that point to the page (by its printed page number, or by the
+        parts of one of its book_pages_to_citations rows), and the title and author of each book
+        one is in; without the text of the pages they're on (GET /citations/{citationId}/sourcePage).
+      responses:
+        '200':
+          description: the page's citations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageCitations'
+        '404':
+          description: no such book or page
+        '451':
+          description: the book is withheld, likely still under copyright
   /books/{bookId}/pages/{pageId}/insights:
     get:
       tags:
@@ -983,6 +1015,9 @@ components:
               status:
                 $ref: '#/components/schemas/QueueStatus'
     BookPage:
+      description: >-
+        a page's blocks, each with the citations in it (its footnotes'); the citations of the page
+        in other books are GET /books/{bookId}/pages/{pageId}/citations (PageCitations)
       type: object
       properties:
         printedPageNumber:
@@ -991,6 +1026,28 @@ components:
           type: number
         bookId:
           type: string
+        blocks:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              html:
+                type: string
+              citations:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Citation'
+    PageCitations:
+      description: the citations in other books that point to a page, and the books they're in
+      type: object
+      required: [bookId, pageNumber, foreignCitations, foreignCitationTitles]
+      properties:
+        bookId:
+          type: string
+        pageNumber:
+          type: number
         foreignCitations:
           type: array
           items:
@@ -1011,19 +1068,6 @@ components:
                 type: string
               author:
                 type: string
-        blocks:
-          type: array
-          items:
-            type: object
-            properties:
-              label:
-                type: string
-              html:
-                type: string
-              citations:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Citation'
     PageInsights:
       type: object
       required:

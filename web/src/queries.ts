@@ -2,7 +2,8 @@ import { QueryClient, queryOptions } from '@tanstack/react-query'
 import {
   fetchAdminBooks, fetchAdminCitationInsights, fetchAdminCitations, fetchAdminDashboard,
   fetchAdminBookCopyrights, fetchAdminQueuedBooks, fetchAdminSession,
-  fetchAuthor, fetchAuthors, fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage, fetchPageOrder,
+  fetchAuthor, fetchAuthors, fetchBook, fetchBooks, fetchCitationSourcePage, fetchPage, fetchPageCitations,
+  fetchPageOrder,
   fetchPageInsights,
 } from './api'
 
@@ -64,6 +65,12 @@ export const bookQuery = (bookId: string, volume?: number, pageId?: number) => (
 export const pageOrderQuery = (bookId: string, volume: number) => queryOptions({
   queryKey: ['book', bookId, 'volume', volume, 'pageOrder'],
   queryFn:  () => fetchPageOrder(bookId, volume),
+});
+
+// The citations of a page in other books (see fetchPageCitations)
+export const pageCitationsQuery = (bookId: string, pageId: number) => queryOptions({
+  queryKey: ['book', bookId, 'page', pageId, 'citations'],
+  queryFn:  () => fetchPageCitations(bookId, pageId),
 });
 
 export const pageQuery = (bookId: string, pageId: number) => queryOptions({

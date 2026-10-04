@@ -93,9 +93,18 @@ export type BookPage = {
   pageNumber: number,
   printedPageNumber: string,
   blocks: PageBlock[],
-  foreignCitations: Citation[],  // citations in other books that point to this page
-  // the title and author of each book a foreignCitation is in
-  foreignCitationTitles: { bookId: string, title: string, author: string }[],
+};
+
+// The title and author of a book a citation is in
+export type CitingBook = { bookId: string, title: string, author: string };
+
+// GET /books/{bookId}/pages/{pageId}/citations: the citations in other books that point to the page,
+// and the title and author of each book one is in
+export type PageCitations = {
+  bookId: string,
+  pageNumber: number,
+  foreignCitations: Citation[],
+  foreignCitationTitles: CitingBook[],
 };
 
 // Throws the API's message when it gives one ("This book is likely still under copyright...")
@@ -160,6 +169,10 @@ export type CountedPageOrder = {
 
 export const fetchPageOrder = (bookId: string, volume: number): Promise<CountedPageOrder> => (
   getJson(`/books/${encodeURIComponent(bookId)}/pageOrder?volume=${volume}`)
+);
+
+export const fetchPageCitations = (bookId: string, pageId: number): Promise<PageCitations> => (
+  getJson(`/books/${encodeURIComponent(bookId)}/pages/${pageId}/citations`)
 );
 
 export const fetchPage = (bookId: string, pageId: number): Promise<BookPage> =>

@@ -53,13 +53,21 @@ export type BookForApi = BookSummary & {
   contents: ContentsEntry[],
 };
 
+// GET /books/{bookId}/pages/{pageId}: a page's blocks, each with the citations in it (its
+// footnotes'); the citations of the page in other books are GET .../citations (PageCitationsForApi)
 export type BookPageForApi = {
   bookId: string,
   pageNumber: number,
   printedPageNumber: string,
   blocks: { label: string, html: string, citations: CitationDto[] }[],
+};
+
+// GET /books/{bookId}/pages/{pageId}/citations: the citations in other books that point at the
+// page, and the title and author of each book one is in
+export type PageCitationsForApi = {
+  bookId: string,
+  pageNumber: number,
   foreignCitations: CitationDto[],
-  // the title and author of each book a foreignCitation is in
   foreignCitationTitles: { bookId: string, title: string, author: string }[],
 };
 
@@ -233,18 +241,12 @@ export class BooksService {
     return volume === null ? null : { pages, citedPages, volumes, volume, nameOf, labelOf };
   }
 
-  // One page of a book: its blocks with the citations in their footnotes, and the citations in other
-  // books that point at this page (by its printed page number or its citation parts). null when
-  // there is no such page.
+  // One page of a book: its blocks with the citations in their footnotes (the citations of it in
+  // other books are getPageCitations'). null when there is no such page.
   async getPage(bookId: string, pageNumber: number): Promise<BookPageForApi | null> {
     await assertNotWithheld(this.db, bookId);
 
-    const page = await this.db
-      .selectFrom('pages')
-      .select(['pages.page_number', 'pages.printed_page_number'])
-      .where('pages.book_id', '=', bookId)
-      .where('pages.page_number', '=', pageNumber)
-      .executeTakeFirst();
+    const page = await this.findPage(bookId, pageNumber);
 
     if (!page) {
       return null;
@@ -265,12 +267,36 @@ export class BooksService {
         .orderBy('citations.id')
         .execute();
 
-      // pages printed with roman numerals (or unnumbered) can't be cited by number
-      const printedNumber = citablePageNumber(page.printed_page_number);
+      return {
+        bookId,
+        pageNumber:        page.page_number,
+        printedPageNumber: page.printed_page_number,
+        blocks:            blocks.map((b) => ({
+          label:     b.label,
+          html:      b.html,
+          citations: blockCitations
+            .filter((c) => c.page_block_id === b.id)
+            .map(to_citation_dto),
+        })),
+      };
+    }
+  }
 
-      // by printed page number, or by the parts of one of the page's book_pages_to_citations rows.
-      // The text of the page each citing footnote is on is fetched separately, when it is shown
-      // (GET /citations/{citationId}/sourcePage)
+  // The citations in other books that point at a page of a book: by its printed page number (when
+  // that's a number; roman numerals and unnumbered pages can't be cited by number), or by the
+  // parts of one of its book_pages_to_citations rows; and those books' titles and authors. The
+  // text of the page each citing footnote is on is fetched separately, when it is shown
+  // (GET /citations/{citationId}/sourcePage). null when there is no such page.
+  async getPageCitations(bookId: string, pageNumber: number): Promise<PageCitationsForApi | null> {
+    await assertNotWithheld(this.db, bookId);
+
+    const page = await this.findPage(bookId, pageNumber);
+
+    if (!page) {
+      return null;
+    }
+    else {
+      const printedNumber    = citablePageNumber(page.printed_page_number);
       const foreignCitations = await citationsOfPage(
         this.db, bookId, { pageNumber: page.page_number, printedNumber }
       )
@@ -283,15 +309,7 @@ export class BooksService {
 
       return {
         bookId,
-        pageNumber:        page.page_number,
-        printedPageNumber: page.printed_page_number,
-        blocks:            blocks.map((b) => ({
-          label:     b.label,
-          html:      b.html,
-          citations: blockCitations
-            .filter((c) => c.page_block_id === b.id)
-            .map(to_citation_dto),
-        })),
+        pageNumber:            page.page_number,
         foreignCitations:      foreignCitations.map(to_citation_dto),
         foreignCitationTitles: [...citingBooks.values()].map((b) => ({
           bookId: b.id,
@@ -300,5 +318,14 @@ export class BooksService {
         })),
       };
     }
+  }
+
+  private findPage(bookId: string, pageNumber: number) {
+    return this.db
+      .selectFrom('pages')
+      .select(['pages.page_number', 'pages.printed_page_number'])
+      .where('pages.book_id', '=', bookId)
+      .where('pages.page_number', '=', pageNumber)
+      .executeTakeFirst();
   }
 }
