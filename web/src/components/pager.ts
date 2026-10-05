@@ -28,7 +28,6 @@ export default function Pager({page, pageCount, onPage}: {
   pageCount: number,
   onPage: (page: number) => void
 }) {
-  console.log({page, pageCount});
   if (pageCount <= 1) {
     return null;
   }

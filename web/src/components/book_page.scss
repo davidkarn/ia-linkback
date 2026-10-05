@@ -471,8 +471,11 @@
         min-height: 0;
         overflow-y: auto;
         overflow-x:hidden;
-        padding-right: 5rem;
-        margin-right:-5rem;
+
+        &:has(.line:hover), &:has(.volume-dot-wrapper:hover) {
+            padding-right: 5rem;
+            margin-right:-5rem;
+        }
     }
 }
 

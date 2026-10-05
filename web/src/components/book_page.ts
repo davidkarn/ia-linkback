@@ -464,6 +464,8 @@ const BookNavigation = ({book, hrefForPage, pageId}: {
     __('div', {
       className: 'page-navigation' + (
         currentMode === 'contents' ? ' open-to-contents' : ' open-to-pager'
+      ) + (
+        hasContents ? ' has-contents' : ' without-contents'
       )
     },
       __('div', {className: 'page-navigation-controls'},
